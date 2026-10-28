@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: legal-rag-advisor-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    buildFilter:
+      ignoredPaths:
+        - src/**
+        - public/**
+        - drizzle/**
+        - supabase/**
+        - scripts/**
+        - "*.md"
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY_FALLBACK
+        sync: false
+      - key: GEMINI_API_KEY_3
+        sync: false
+      - key: GEMINI_API_KEY_4
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: API_KEY_ENCRYPTION_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: gemma-4-31b-it
+      - key: EMBEDDING_MODEL
+        value: models/gemini-embedding-2
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SEED_UPLOAD_TOKEN
+        sync: false

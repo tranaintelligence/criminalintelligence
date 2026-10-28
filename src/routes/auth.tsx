@@ -37,9 +37,6 @@ function AuthPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: dest, replace: true });
     });
-    if (typeof window !== "undefined" && localStorage.getItem("trana_dev_user")) {
-      navigate({ to: dest, replace: true });
-    }
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) navigate({ to: dest, replace: true });
     });
@@ -65,42 +62,46 @@ function AuthPage() {
 
   async function google() {
     setErr(null);
-    const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    setBusy(true);
 
-    if (!isLocal) {
+    const redirectUrl = `${window.location.origin}/auth?redirect=${encodeURIComponent(dest)}`;
+    const isLovable = typeof window !== "undefined" && window.location.hostname.includes("lovable.cloud");
+
+    if (isLovable) {
       try {
-        const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
-        if (r.error) setErr(r.error.message ?? "Google sign-in failed.");
-        return;
+        const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: redirectUrl });
+        if (r.error) {
+          setErr(r.error.message ?? "Google sign-in failed.");
+          setBusy(false);
+          return;
+        }
+        if (r.redirected) return;
       } catch {
-        // Fall back to direct supabase
+        // Fall back to direct Supabase OAuth
       }
     }
 
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin + "/auth" },
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
       });
       if (error) {
-        setErr(`Google OAuth: ${error.message}. In local development, you can use the Quick Dev Sign In button below.`);
+        setErr(`Google sign-in error: ${error.message}`);
       } else if (data?.url) {
         window.location.href = data.url;
       }
-    } catch (e) {
-      setErr("Google sign-in failed. Please use email or dev login.");
+    } catch {
+      setErr("Google sign-in failed. Please verify Google OAuth is configured in your Supabase project.");
+    } finally {
+      setBusy(false);
     }
-  }
-
-  function devLogin() {
-    const devUser = {
-      id: "founder-dev-id",
-      email: "founder@trana.in",
-      user_metadata: { full_name: "Founder", name: "Founder" },
-      role: "authenticated",
-    };
-    localStorage.setItem("trana_dev_user", JSON.stringify(devUser));
-    navigate({ to: dest, replace: true });
   }
 
   const input = "w-full border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none";
@@ -114,16 +115,9 @@ function AuthPage() {
             ? (dest?.includes("lawyer") ? "Welcome back Counsel" : "Welcome back")
             : (dest?.includes("lawyer") ? "Create your lawyer account" : "Create your account")}
         </h1>
-        <button onClick={google} className="btn-line mt-8 w-full">Continue with Google</button>
-        {(import.meta.env.DEV || (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"))) && (
-          <button
-            type="button"
-            onClick={devLogin}
-            className="mt-3 w-full border border-amber-500/40 bg-amber-950/20 text-amber-200/90 py-2.5 px-4 text-xs font-mono uppercase tracking-wider rounded transition-colors hover:bg-amber-900/30 text-center"
-          >
-            ⚡ Quick Dev Sign In (Localhost)
-          </button>
-        )}
+        <button onClick={google} disabled={busy} className="btn-line mt-8 w-full">
+          {busy ? "Connecting..." : "Continue with Google"}
+        </button>
         <div className="my-6 flex items-center gap-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
           <span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" />
         </div>

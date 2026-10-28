@@ -1,9 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createFileRoute, useNavigate, useLocation, useParams } from '@tanstack/react-router';
-import { Send, Paperclip, FileText, Image as ImageIcon, X, Scale, AlertTriangle } from 'lucide-react';
+import {
+  Send,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  X,
+  Scale,
+  AlertTriangle,
+  Plus,
+  Trash2,
+  MessageSquare,
+  PanelLeft,
+  PanelLeftClose,
+} from 'lucide-react';
 import { MessageBubble } from '@/components/Chat/MessageBubble';
+import { SystemStatus } from '@/components/Sidebar/SystemStatus';
 import type { ApplicableLaw, ChatMessage, ChatSession, StructuredAnalysis } from '@/lib/trana-types';
-import { authFetch, authHeaders, notifyApiOnline, useTranaCredential } from '@/lib/trana-auth';
+import { authFetch, authHeaders, notifyApiOnline, useTranaCredential, API_ONLINE_EVENT } from '@/lib/trana-auth';
 import { API_URL } from '@/lib/trana-backend';
 
 export const Route = createFileRoute('/_authenticated/dashboard/chat')({
@@ -131,6 +145,7 @@ const formatAnalysis = (
     sections.push(`## Your Rights\n${result.rights.map((item) => `- ${item}`).join('\n')}`);
   }
   if (result.handling_authority) sections.push(`## Relevant Authority\n${result.handling_authority}`);
+
   if (options.includeLegacyLawSummary && result.applicable_laws?.length) {
     const laws = result.applicable_laws.map(formatLegalLaw);
     sections.push(`## Applicable Laws\n${laws.join('\n\n')}`);
@@ -153,17 +168,17 @@ const ThinkingAnimation: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex gap-3.5 animate-fade-in mb-4">
-      <div className="w-8 h-8 rounded-full bg-[#111111] border border-[#262626] flex items-center justify-center shrink-0 shadow-sm text-amber-200/90">
+    <div className="flex gap-3 animate-fade-in items-start">
+      <div className="w-8 h-8 rounded-full bg-[#181818] border border-[#2a2a2a] flex items-center justify-center flex-shrink-0 text-amber-200">
         <Scale className="w-4 h-4" />
       </div>
-      <div className="bg-[#121212] border border-[#222222] rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-3 w-fit shadow-sm">
+      <div className="bg-[#141414] border border-[#242424] rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-3 w-fit shadow-md">
         <div className="flex gap-1.5 items-center justify-center h-5">
-          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse-dot" style={{ animationDelay: '0ms' }} />
-          <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-pulse-dot" style={{ animationDelay: '200ms' }} />
-          <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse-dot" style={{ animationDelay: '400ms' }} />
+          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+          <div className="w-1.5 h-1.5 bg-amber-300 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+          <div className="w-1.5 h-1.5 bg-amber-200 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
         </div>
-        <div className="relative h-5 overflow-hidden min-w-[120px]">
+        <div className="relative h-5 overflow-hidden min-w-[130px]">
           {loadingSynonyms.map((synonym, i) => {
             let positionClass = 'translate-y-full opacity-0';
             if (i === index) {
@@ -175,7 +190,7 @@ const ThinkingAnimation: React.FC = () => {
             return (
               <span
                 key={synonym}
-                className={`absolute inset-0 flex items-center transition-all duration-500 ease-in-out text-xs font-medium text-neutral-400 whitespace-nowrap ${positionClass}`}
+                className={`absolute inset-0 flex items-center transition-all duration-500 ease-in-out text-xs font-mono text-neutral-300 whitespace-nowrap ${positionClass}`}
               >
                 {synonym}
               </span>
@@ -188,11 +203,11 @@ const ThinkingAnimation: React.FC = () => {
 };
 
 const ChatLoadingScreen: React.FC = () => (
-  <div className="h-full flex flex-col items-center justify-center text-neutral-500 animate-fade-in py-16">
-    <div className="w-10 h-10 rounded-full border-2 border-neutral-800 border-t-amber-400 animate-spin mb-4" />
-    <p className="text-sm font-medium text-neutral-300">Loading your legal conversation...</p>
+  <div className="h-full flex flex-col items-center justify-center text-neutral-400 animate-fade-in py-12">
+    <div className="w-10 h-10 rounded-full border-2 border-[#2a2a2a] border-t-amber-300 animate-spin mb-4" />
+    <p className="text-sm font-medium text-neutral-200">Loading chat history...</p>
     <p className="mt-1 text-xs text-neutral-500 text-center max-w-xs">
-      Connecting to statutory verification engine.
+      Connecting to the TRANA statutory engine.
     </p>
   </div>
 );
@@ -221,11 +236,111 @@ export function ChatViewContent() {
   const [attachmentError, setAttachmentError] = useState('');
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+  const [chats, setChats] = useState<ChatSession[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [health, setHealth] = useState<{ status: 'checking' | 'online' | 'offline'; sourceRegistryReady: boolean }>({
+    status: 'checking',
+    sourceRegistryReady: false,
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pendingChatIdRef = useRef<string | null>(null);
 
+  // Health polling & status events
+  useEffect(() => {
+    let active = true;
+    let requestInFlight = false;
+    let consecutiveFailures = 0;
+
+    const handleApiOnline = (event: Event) => {
+      const sourceRegistryReady = (event as CustomEvent<{ sourceRegistryReady?: boolean }>).detail?.sourceRegistryReady;
+      if (active) {
+        setHealth((current) => ({
+          status: 'online',
+          sourceRegistryReady: sourceRegistryReady ? true : current.sourceRegistryReady,
+        }));
+      }
+    };
+
+    window.addEventListener(API_ONLINE_EVENT, handleApiOnline);
+
+    const checkHealth = async () => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+
+      try {
+        const response = await fetch(`${API_URL}/health?ts=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Health check failed: ${response.status}`);
+        const data = await response.json();
+        if (active) {
+          setHealth({
+            status: data.status === 'healthy' ? 'online' : 'offline',
+            sourceRegistryReady: data.source_registry_ready !== false,
+          });
+          consecutiveFailures = 0;
+        }
+      } catch {
+        consecutiveFailures += 1;
+        if (active && consecutiveFailures >= 2) {
+          setHealth((current) => ({ ...current, status: 'offline' }));
+        }
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    checkHealth();
+    const interval = setInterval(checkHealth, 15000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      window.removeEventListener(API_ONLINE_EVENT, handleApiOnline);
+    };
+  }, []);
+
+  // Load chat session list
+  useEffect(() => {
+    let active = true;
+
+    const loadChats = async () => {
+      if (!credential) {
+        if (active) setChats([]);
+        return;
+      }
+      try {
+        const response = await authFetch(`${API_URL}/api/chats`, credential, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Chat history failed: ${response.status}`);
+        const data = (await response.json()) as ChatSession[];
+        if (active) setChats(Array.isArray(data) ? data : []);
+      } catch {
+        // Keep previous chats during network glitches
+      }
+    };
+
+    loadChats();
+
+    const handleChatCreated = (event: Event) => {
+      const chat = (event as CustomEvent<ChatSession>).detail;
+      if (!chat?.id) return;
+      setChats((current) => [chat, ...current.filter((c) => c.id !== chat.id)]);
+    };
+
+    const handleHistoryUpdated = () => {
+      void loadChats();
+    };
+
+    window.addEventListener('chat-created', handleChatCreated);
+    window.addEventListener('chat-history-updated', handleHistoryUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener('chat-created', handleChatCreated);
+      window.removeEventListener('chat-history-updated', handleHistoryUpdated);
+    };
+  }, [credential]);
+
+  // Persist guest chat
   useEffect(() => {
     if (!credential && !routeChatId) {
       try {
@@ -236,6 +351,7 @@ export function ChatViewContent() {
     }
   }, [credential, messages, routeChatId]);
 
+  // Clipboard paste handler
   const handleChatPaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     const clipboard = event.clipboardData;
     const images = Array.from(clipboard.items)
@@ -280,6 +396,7 @@ export function ChatViewContent() {
     return () => Object.values(urls).forEach((url) => URL.revokeObjectURL(url));
   }, [pendingFiles]);
 
+  // Load attachments for current chat
   useEffect(() => {
     let active = true;
     if (!routeChatId || !credential) {
@@ -300,7 +417,7 @@ export function ChatViewContent() {
         if (active) setChatAttachments(readAttachments(payload));
       } catch (error) {
         console.error('Failed to load chat attachments', error);
-        if (active) setAttachmentError('Could not load this chat’s attachments. Reload the chat to try again.');
+        if (active) setAttachmentError('Could not load this chat’s attachments.');
       }
     };
     setAttachmentError('');
@@ -310,6 +427,7 @@ export function ChatViewContent() {
     };
   }, [credential, routeChatId]);
 
+  // Load messages for current routeChatId
   useEffect(() => {
     let active = true;
 
@@ -372,6 +490,35 @@ export function ChatViewContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleNewChat = () => {
+    if (!credential) localStorage.removeItem(TEMPORARY_CHAT_STORAGE_KEY);
+    pendingChatIdRef.current = null;
+    setMessages([createWelcomeMessage()]);
+    setChatAttachments([]);
+    setPendingFiles([]);
+    setInput('');
+    navigate({ to: '/dashboard/chat' });
+  };
+
+  const handleDeleteChat = async (event: React.MouseEvent, chat: ChatSession) => {
+    event.stopPropagation();
+    if (!credential || !window.confirm(`Delete “${chat.title || 'New Chat'}”? This cannot be undone.`)) return;
+
+    try {
+      const response = await authFetch(`${API_URL}/api/chats/${chat.id}`, credential, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error(`Chat deletion failed: ${response.status}`);
+
+      setChats((current) => current.filter((c) => c.id !== chat.id));
+      if (routeChatId === chat.id) {
+        handleNewChat();
+      }
+    } catch {
+      window.alert('Could not delete this chat. Please try again.');
+    }
+  };
+
   const handleSend = async () => {
     if ((!input.trim() && pendingFiles.length === 0) || isLoading || shouldShowChatLoading) return;
     if (!credential && pendingFiles.length > 0) {
@@ -393,7 +540,7 @@ export function ChatViewContent() {
           {
             method: 'POST',
             headers: { ...authHeaders(credential), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: input.slice(0, 30) || 'New Chat' }),
+            body: JSON.stringify({ title: input.slice(0, 32) || 'New Inquiry' }),
           },
           'Creating this chat took too long. Please try sending again.',
         );
@@ -500,7 +647,7 @@ export function ChatViewContent() {
             if (typeof structuredDetail.message === 'string') detail = structuredDetail.message;
           }
         } catch {
-          // Keep the fallback
+          // Keep fallback
         }
 
         const quickIsUnavailable =
@@ -540,153 +687,288 @@ export function ChatViewContent() {
     }
   };
 
+  const currentChatTitle =
+    (routeChatId && chats.find((c) => c.id === routeChatId)?.title) || 'Legal Analysis & RAG Chat';
+
   return (
     <div
-      className="chat-view flex flex-col h-[calc(100vh-140px)] bg-[#0d0d0d] border border-[#222222] rounded-2xl overflow-hidden relative"
+      className="chat-view flex h-[calc(100vh-140px)] min-h-[580px] bg-[#0d0d0d] border border-[#222222] rounded-2xl overflow-hidden relative shadow-2xl"
       onPaste={handleChatPaste}
     >
-      {/* Header */}
-      <header className="chat-view__header h-16 border-b border-[#222222] flex items-center justify-between px-6 shrink-0 z-10 bg-[#121212]/90 backdrop-blur-md">
-        <div>
-          <h2 className="text-xl font-serif tracking-tight text-neutral-100">Legal Analysis & RAG Chat</h2>
-          {!credential && <p className="text-xs text-neutral-400">Temporary chat · saved in this browser only</p>}
-        </div>
-        {quickUnavailable && (
-          <div
-            className="chat-view__alert flex items-center justify-end gap-1.5 text-xs text-amber-400 bg-amber-950/40 border border-amber-800/60 px-3 py-1 rounded-full"
-            role="status"
+      {/* ── Sessions Sidebar (History) ─────────────────────────────────── */}
+      <aside
+        className={`${
+          isSidebarOpen ? 'w-64 md:w-72' : 'w-0'
+        } transition-all duration-200 ease-in-out border-r border-[#222222] bg-[#111111] flex flex-col shrink-0 overflow-hidden select-none`}
+      >
+        {/* Sidebar Header & New Chat button */}
+        <div className="p-4 border-b border-[#1e1e1e] space-y-3 shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400 font-semibold flex items-center gap-1.5">
+              <MessageSquare size={13} className="text-amber-300" />
+              Chat Sessions
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              className="text-neutral-500 hover:text-neutral-300 transition-colors p-1"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose size={15} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="w-full flex items-center justify-center gap-2 bg-[#1a1a1a] hover:bg-[#242424] text-neutral-100 hover:text-white border border-[#2a2a2a] px-3.5 py-2.5 rounded-xl transition-all text-xs font-medium shadow-sm active:scale-[0.99]"
           >
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Quick Thinking temporarily rate-limited.
-          </div>
-        )}
-      </header>
+            <Plus size={15} className="text-amber-300" />
+            <span>New Chat</span>
+          </button>
+        </div>
 
-      {/* Messages */}
-      <div className="chat-view__messages flex-1 overflow-y-auto p-6 space-y-4">
-        {shouldShowChatLoading ? (
-          <ChatLoadingScreen />
-        ) : messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-neutral-500 py-16">
-            <Scale className="w-12 h-12 mb-3 opacity-30 text-amber-200" />
-            <p className="text-sm font-serif">Start a new legal inquiry...</p>
-          </div>
-        ) : null}
-        {messages.map((msg, idx) => (
-          <MessageBubble key={idx} message={msg} />
-        ))}
-        {isLoading && <ThinkingAnimation />}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input Composer */}
-      <div className="chat-view__composer p-4 bg-[#121212] border-t border-[#222222] shrink-0">
-        <div className="max-w-4xl mx-auto">
-          {(chatAttachments.length > 0 || pendingFiles.length > 0) && (
-            <div className="mb-3 flex flex-wrap gap-2" aria-label="Chat attachments">
-              {chatAttachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="flex items-center gap-2 bg-[#181818] border border-[#2a2a2a] text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
-                  title={`${attachment.filename} (saved in this chat)`}
+        {/* Saved Sessions List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+          {chats.map((chat) => {
+            const isActive = chat.id === routeChatId;
+            return (
+              <div
+                key={chat.id}
+                className={`group relative flex items-center w-full rounded-xl transition-colors ${
+                  isActive
+                    ? 'bg-[#1c1c1c] text-neutral-100 font-medium border border-[#2a2a2a]'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-[#161616]'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate({ to: '/dashboard/chat/$id', params: { id: chat.id } });
+                  }}
+                  className="w-full text-left px-3 py-2.5 pr-8 text-xs truncate"
+                  title={chat.title}
                 >
-                  {attachment.content_type.startsWith('image/') ? (
-                    <ImageIcon className="w-4 h-4 text-violet-400 shrink-0" />
-                  ) : (
-                    <FileText className="w-4 h-4 text-sky-400 shrink-0" />
-                  )}
-                  <span className="font-medium truncate max-w-[180px]">{attachment.filename}</span>
-                  <span className="text-neutral-500 text-[10px]">Saved</span>
-                </div>
-              ))}
-              {pendingFiles.map((file, index) => {
-                const key = `${file.name}:${file.size}:${file.lastModified}`;
-                const preview = previewUrls[key];
-                return (
+                  {chat.title || 'Untitled Session'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => void handleDeleteChat(e, chat)}
+                  className="absolute right-2 p-1 rounded text-neutral-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  title="Delete chat"
+                  aria-label={`Delete ${chat.title || 'chat'}`}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            );
+          })}
+          {credential && chats.length === 0 && (
+            <div className="px-3 py-6 text-center text-xs text-neutral-500 font-mono">
+              No saved chats yet.
+            </div>
+          )}
+          {!credential && (
+            <div className="px-3 py-6 text-center text-xs text-neutral-500 font-mono">
+              Temporary guest mode. Sign in to save chats.
+            </div>
+          )}
+        </div>
+
+        {/* System Health Status in Sidebar Footer */}
+        <div className="p-3 border-t border-[#1e1e1e] shrink-0 bg-[#0e0e0e]">
+          <SystemStatus
+            status={health.status}
+            sourceRegistryReady={health.sourceRegistryReady}
+            onRetry={() => {
+              setHealth((c) => ({ ...c, status: 'checking' }));
+              void fetch(`${API_URL}/health?ts=${Date.now()}`)
+                .then((r) => r.json())
+                .then((data) =>
+                  setHealth({
+                    status: data.status === 'healthy' ? 'online' : 'offline',
+                    sourceRegistryReady: data.source_registry_ready !== false,
+                  }),
+                )
+                .catch(() => setHealth((c) => ({ ...c, status: 'offline' })));
+            }}
+          />
+        </div>
+      </aside>
+
+      {/* ── Main Conversation Area ─────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#0d0d0d]">
+        {/* Header */}
+        <header className="chat-view__header h-14 border-b border-[#222222] flex items-center justify-between px-5 shrink-0 z-10 bg-[#121212]/95 backdrop-blur-md">
+          <div className="flex items-center gap-3 min-w-0">
+            {!isSidebarOpen && (
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="text-neutral-400 hover:text-neutral-200 transition-colors p-1"
+                title="Open chat sessions"
+              >
+                <PanelLeft size={17} />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold tracking-tight text-neutral-100 truncate">
+                {currentChatTitle}
+              </h2>
+              {!credential && (
+                <p className="text-[10px] text-neutral-500 font-mono">
+                  Temporary browser chat · Session clears upon reset
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {quickUnavailable && (
+              <div
+                className="chat-view__alert flex items-center gap-1.5 text-xs text-amber-300 bg-amber-950/40 border border-amber-800/60 px-3 py-1 rounded-full font-mono"
+                role="status"
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Quick Thinking rate-limited
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="text-xs text-neutral-400 hover:text-neutral-200 px-2.5 py-1 rounded-lg border border-[#2a2a2a] hover:bg-[#1c1c1c] transition-colors"
+            >
+              + New
+            </button>
+          </div>
+        </header>
+
+        {/* Messages list */}
+        <div className="chat-view__messages flex-1 overflow-y-auto p-5 space-y-4">
+          {shouldShowChatLoading ? (
+            <ChatLoadingScreen />
+          ) : messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-neutral-500 py-16">
+              <Scale className="w-12 h-12 mb-3 opacity-30 text-amber-200" />
+              <p className="text-sm font-serif">Start a new legal inquiry...</p>
+            </div>
+          ) : null}
+          {messages.map((msg, idx) => (
+            <MessageBubble key={idx} message={msg} />
+          ))}
+          {isLoading && <ThinkingAnimation />}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Composer */}
+        <div className="chat-view__composer p-4 bg-[#121212] border-t border-[#222222] shrink-0">
+          <div className="max-w-4xl mx-auto">
+            {(chatAttachments.length > 0 || pendingFiles.length > 0) && (
+              <div className="mb-3 flex flex-wrap gap-2" aria-label="Chat attachments">
+                {chatAttachments.map((attachment) => (
                   <div
-                    key={`${key}:${index}`}
+                    key={attachment.id}
                     className="flex items-center gap-2 bg-[#181818] border border-[#2a2a2a] text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
+                    title={`${attachment.filename} (saved in this chat)`}
                   >
-                    {preview ? (
-                      <img src={preview} alt="" className="w-7 h-7 object-cover rounded" />
+                    {attachment.content_type.startsWith('image/') ? (
+                      <ImageIcon className="w-4 h-4 text-amber-300 shrink-0" />
                     ) : (
                       <FileText className="w-4 h-4 text-sky-400 shrink-0" />
                     )}
-                    <span className="font-medium truncate max-w-[180px]">{file.name}</span>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${file.name}`}
-                      onClick={() => setPendingFiles((files) => files.filter((_, i) => i !== index))}
-                      disabled={isLoading}
-                      className="text-neutral-500 hover:text-neutral-300 disabled:opacity-40"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <span className="font-medium truncate max-w-[180px]">{attachment.filename}</span>
+                    <span className="text-neutral-500 text-[10px]">Saved</span>
                   </div>
-                );
-              })}
+                ))}
+                {pendingFiles.map((file, index) => {
+                  const key = `${file.name}:${file.size}:${file.lastModified}`;
+                  const preview = previewUrls[key];
+                  return (
+                    <div
+                      key={`${key}:${index}`}
+                      className="flex items-center gap-2 bg-[#181818] border border-[#2a2a2a] text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
+                    >
+                      {preview ? (
+                        <img src={preview} alt="" className="w-7 h-7 object-cover rounded" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-sky-400 shrink-0" />
+                      )}
+                      <span className="font-medium truncate max-w-[180px]">{file.name}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${file.name}`}
+                        onClick={() => setPendingFiles((files) => files.filter((_, i) => i !== index))}
+                        disabled={isLoading}
+                        className="text-neutral-500 hover:text-neutral-300 disabled:opacity-40"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {attachmentError && <p role="alert" className="mb-2 text-xs text-rose-400">{attachmentError}</p>}
+            {isUploadingAttachments && (
+              <p role="status" className="mb-2 text-xs text-neutral-400">Saving attachments to this chat…</p>
+            )}
+
+            <div className="chat-view__input-shell flex items-center gap-3 bg-[#161616] border border-[#2c2c2c] rounded-xl px-4 py-3 shadow-inner focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => {
+                  const chosen = Array.from(e.target.files ?? []);
+                  if (chosen.length) {
+                    setPendingFiles((files) => {
+                      const existing = new Set(files.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
+                      return [
+                        ...files,
+                        ...chosen.filter((file) => !existing.has(`${file.name}:${file.size}:${file.lastModified}`)),
+                      ];
+                    });
+                    setAttachmentError('');
+                  }
+                  e.currentTarget.value = '';
+                }}
+                className="hidden"
+                accept="application/pdf,.pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif"
+                multiple
+              />
+              <button
+                className="chat-view__attach-button text-neutral-400 hover:text-neutral-200 transition-colors p-1"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!user || shouldShowChatLoading}
+                title="Attach PDFs or photos to this chat"
+                type="button"
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+
+              <input
+                ref={chatInputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                placeholder={user ? 'Ask a statutory legal question or attach case documents...' : 'Ask a legal question...'}
+                disabled={shouldShowChatLoading}
+                className="flex-1 bg-transparent border-none text-neutral-100 placeholder-neutral-500 text-sm min-w-0 outline-none"
+              />
+
+              <button
+                className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-lg disabled:opacity-40 transition-colors"
+                onClick={handleSend}
+                disabled={isLoading || (!input.trim() && pendingFiles.length === 0)}
+                type="button"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
-          )}
-          {attachmentError && <p role="alert" className="mb-2 text-xs text-rose-400">{attachmentError}</p>}
-          {isUploadingAttachments && (
-            <p role="status" className="mb-2 text-xs text-neutral-400">Saving attachments to this chat…</p>
-          )}
-
-          <div className="chat-view__input-shell flex items-center gap-3 bg-[#161616] border border-[#2c2c2c] rounded-xl px-4 py-3 shadow-inner focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={(e) => {
-                const chosen = Array.from(e.target.files ?? []);
-                if (chosen.length) {
-                  setPendingFiles((files) => {
-                    const existing = new Set(files.map((file) => `${file.name}:${file.size}:${file.lastModified}`));
-                    return [
-                      ...files,
-                      ...chosen.filter((file) => !existing.has(`${file.name}:${file.size}:${file.lastModified}`)),
-                    ];
-                  });
-                  setAttachmentError('');
-                }
-                e.currentTarget.value = '';
-              }}
-              className="hidden"
-              accept="application/pdf,.pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif"
-              multiple
-            />
-            <button
-              className="chat-view__attach-button text-neutral-400 hover:text-neutral-200 transition-colors p-1"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!user || shouldShowChatLoading}
-              title="Attach PDFs or photos to this chat"
-              type="button"
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
-
-            <input
-              ref={chatInputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={user ? 'Ask a legal question or attach case documents...' : 'Ask a legal question...'}
-              disabled={shouldShowChatLoading}
-              className="flex-1 bg-transparent border-none text-neutral-100 placeholder-neutral-500 text-sm min-w-0 outline-none"
-            />
-
-            <button
-              className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-lg disabled:opacity-40 transition-colors"
-              onClick={handleSend}
-              disabled={isLoading || (!input.trim() && pendingFiles.length === 0)}
-              type="button"
-            >
-              <Send className="w-4 h-4" />
-            </button>
+            <p className="text-center text-[11px] text-neutral-500 mt-2 font-mono">
+              Statutory verification powered by official BNS, BNSS, and BSA source registries.
+            </p>
           </div>
-          <p className="text-center text-[11px] text-neutral-500 mt-2">
-            PDFs and photos are analyzed with this chat session for follow-up statutory queries.
-          </p>
         </div>
       </div>
     </div>
