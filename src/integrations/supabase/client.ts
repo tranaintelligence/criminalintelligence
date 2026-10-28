@@ -46,8 +46,8 @@ function createSupabaseFetch(supabaseUrl: string, supabaseKey: string): typeof f
 }
 
 
-const DEFAULT_SUPABASE_URL = 'https://c--8955b411-9848-45a1-95e5-55fad33476a5-prod.lovable.cloud';
-const DEFAULT_SUPABASE_KEY = 'sb_publishable_e0e_z8D9dOK1Qxamw2Qazw_p_diqM4k';
+const DEFAULT_SUPABASE_URL = 'https://yutenmwnirotmdjhhtdr.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dGVubXduaXJvdG1kamhodGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMjAyNjIsImV4cCI6MjEwODc5NjI2Mn0.4oF7vZmdzLC8JB9NdLa5q8zV3NdLhwKUmlKxPDinBNg';
 
 function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)

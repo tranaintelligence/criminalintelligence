@@ -34,8 +34,8 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     
-    const SUPABASE_URL = process.env['SUPABASE_URL'] || process.env['VITE_SUPABASE_URL'] || 'https://c--8955b411-9848-45a1-95e5-55fad33476a5-prod.lovable.cloud';
-    const SUPABASE_PUBLISHABLE_KEY = process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || 'sb_publishable_e0e_z8D9dOK1Qxamw2Qazw_p_diqM4k';
+    const SUPABASE_URL = process.env['SUPABASE_URL'] || process.env['VITE_SUPABASE_URL'] || 'https://yutenmwnirotmdjhhtdr.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dGVubXduaXJvdG1kamhodGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMjAyNjIsImV4cCI6MjEwODc5NjI2Mn0.4oF7vZmdzLC8JB9NdLa5q8zV3NdLhwKUmlKxPDinBNg';
     
     const request = getRequest();
 
