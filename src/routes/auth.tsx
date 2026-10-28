@@ -30,7 +30,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const dest = redirect ?? "/dashboard";
+  const dest = redirect ?? "/dashboard/chat";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
