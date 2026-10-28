@@ -31,8 +31,18 @@ export function useProfile() {
   return useQuery({
     queryKey: ["profile", user.id],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
-      return { name: data?.full_name || user.email?.split("@")[0] || "there", email: user.email ?? "" };
+      try {
+        const { data } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+        return {
+          name: data?.full_name || (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "there",
+          email: user.email ?? "",
+        };
+      } catch {
+        return {
+          name: (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "there",
+          email: user.email ?? "",
+        };
+      }
     },
   });
 }
@@ -46,7 +56,11 @@ function DashboardLayout() {
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("trana_session_token");
+      localStorage.removeItem("trana_user");
+    }
+    await supabase.auth.signOut().catch(() => {});
     navigate({ to: "/auth", replace: true });
   }
 

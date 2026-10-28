@@ -58,73 +58,129 @@ export const authFetch = async (
 };
 
 /**
- * Hook providing the authenticated user and Supabase JWT / TRANA session credential.
+ * Read stored TRANA session token from localStorage if in browser.
+ */
+function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem('trana_session_token');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read stored TRANA user profile from localStorage if in browser.
+ */
+function getStoredUser(): AuthUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('trana_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hook providing the authenticated user and TRANA session token / Supabase JWT.
  */
 export const useTranaCredential = (): AuthContextValue => {
-  const [credential, setCredential] = useState<string | null>(null);
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [credential, setCredential] = useState<string | null>(() => getStoredToken());
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      if (session) {
-        const metadata = (session.user.user_metadata || {}) as Record<string, unknown>;
-        setCredential(session.access_token);
-        setUser({
-          id: session.user.id,
-          google_id: (typeof metadata['sub'] === 'string' ? metadata['sub'] : null) || session.user.id,
-          email: session.user.email || '',
-          name:
-            (typeof metadata['full_name'] === 'string' ? metadata['full_name'] : null) ||
-            (typeof metadata['name'] === 'string' ? metadata['name'] : null) ||
-            session.user.email ||
-            null,
-          picture:
-            (typeof metadata['avatar_url'] === 'string' ? metadata['avatar_url'] : null) ||
-            (typeof metadata['picture'] === 'string' ? metadata['picture'] : null) ||
-            null,
-        });
-      } else {
-        setCredential(null);
-        setUser(null);
-      }
+    // 1. Initial check: if already stored in localStorage, we are ready immediately
+    const localToken = getStoredToken();
+    const localUser = getStoredUser();
+    if (localToken && localUser) {
+      setCredential(localToken);
+      setUser(localUser);
       setLoading(false);
-    });
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 2. Listen to storage changes across tabs/windows or login triggers
+    const handleStorage = (e: StorageEvent) => {
       if (!mounted) return;
-      if (session) {
-        const metadata = (session.user.user_metadata || {}) as Record<string, unknown>;
-        setCredential(session.access_token);
-        setUser({
-          id: session.user.id,
-          google_id: (typeof metadata['sub'] === 'string' ? metadata['sub'] : null) || session.user.id,
-          email: session.user.email || '',
-          name:
-            (typeof metadata['full_name'] === 'string' ? metadata['full_name'] : null) ||
-            (typeof metadata['name'] === 'string' ? metadata['name'] : null) ||
-            session.user.email ||
-            null,
-          picture:
-            (typeof metadata['avatar_url'] === 'string' ? metadata['avatar_url'] : null) ||
-            (typeof metadata['picture'] === 'string' ? metadata['picture'] : null) ||
-            null,
-        });
-      } else {
-        setCredential(null);
-        setUser(null);
+      if (e.key === 'trana_session_token') {
+        setCredential(e.newValue);
       }
-      setLoading(false);
-    });
+      if (e.key === 'trana_user') {
+        try {
+          setUser(e.newValue ? JSON.parse(e.newValue) : null);
+        } catch {
+          setUser(null);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    // 3. Fallback to Supabase auth session only if no TRANA direct session is present
+    if (!localToken) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!mounted || getStoredToken()) return;
+        if (session) {
+          const metadata = (session.user.user_metadata || {}) as Record<string, unknown>;
+          setCredential(session.access_token);
+          setUser({
+            id: session.user.id,
+            google_id: (typeof metadata['sub'] === 'string' ? metadata['sub'] : null) || session.user.id,
+            email: session.user.email || '',
+            name:
+              (typeof metadata['full_name'] === 'string' ? metadata['full_name'] : null) ||
+              (typeof metadata['name'] === 'string' ? metadata['name'] : null) ||
+              session.user.email ||
+              null,
+            picture:
+              (typeof metadata['avatar_url'] === 'string' ? metadata['avatar_url'] : null) ||
+              (typeof metadata['picture'] === 'string' ? metadata['picture'] : null) ||
+              null,
+          });
+        }
+        setLoading(false);
+      });
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!mounted || getStoredToken()) return;
+        if (session) {
+          const metadata = (session.user.user_metadata || {}) as Record<string, unknown>;
+          setCredential(session.access_token);
+          setUser({
+            id: session.user.id,
+            google_id: (typeof metadata['sub'] === 'string' ? metadata['sub'] : null) || session.user.id,
+            email: session.user.email || '',
+            name:
+              (typeof metadata['full_name'] === 'string' ? metadata['full_name'] : null) ||
+              (typeof metadata['name'] === 'string' ? metadata['name'] : null) ||
+              session.user.email ||
+              null,
+            picture:
+              (typeof metadata['avatar_url'] === 'string' ? metadata['avatar_url'] : null) ||
+              (typeof metadata['picture'] === 'string' ? metadata['picture'] : null) ||
+              null,
+          });
+        } else {
+          setCredential(null);
+          setUser(null);
+        }
+        setLoading(false);
+      });
+
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+        window.removeEventListener('storage', handleStorage);
+      };
+    }
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -134,6 +190,9 @@ export const useTranaCredential = (): AuthContextValue => {
     sessionExpiresAt: null,
     signIn: async (nextCredential: string) => {
       setCredential(nextCredential);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('trana_session_token', nextCredential);
+      }
       try {
         const res = await fetch(`${API_URL}/api/auth/session`, {
           method: 'POST',
@@ -142,8 +201,18 @@ export const useTranaCredential = (): AuthContextValue => {
         });
         if (res.ok) {
           const data = (await res.json()) as { session_token?: string; user?: AuthUser };
-          if (data.session_token) setCredential(data.session_token);
-          if (data.user) setUser(data.user);
+          if (data.session_token) {
+            setCredential(data.session_token);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('trana_session_token', data.session_token);
+            }
+          }
+          if (data.user) {
+            setUser(data.user);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('trana_user', JSON.stringify(data.user));
+            }
+          }
         }
       } catch {
         // keep raw credential
@@ -156,7 +225,13 @@ export const useTranaCredential = (): AuthContextValue => {
           headers: { Authorization: `Bearer ${credential}` },
         }).catch(() => undefined);
       }
-      supabase.auth.signOut();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('trana_session_token');
+        localStorage.removeItem('trana_user');
+      }
+      supabase.auth.signOut().catch(() => {});
+      setCredential(null);
+      setUser(null);
     },
     loading,
   };

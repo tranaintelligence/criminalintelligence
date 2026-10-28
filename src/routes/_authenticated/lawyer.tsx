@@ -118,7 +118,11 @@ function LawyerLayout() {
   async function handleSignOut() {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("trana_session_token");
+      localStorage.removeItem("trana_user");
+    }
+    await supabase.auth.signOut().catch(() => {});
     navigate({ to: "/auth", replace: true });
   }
 

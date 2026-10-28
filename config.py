@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # ── Auth ────────────────────────────────────────────────────────────────
-    google_client_id: str | None = None
+    google_client_id: str | None = "597312527946-h633qaht8qkc3pa4njid8dijq0tqvbs7.apps.googleusercontent.com"
     google_client_secret: str | None = None
     # Rolling TRANA session lifetime after Google sign-in.
     auth_session_days: int = 30

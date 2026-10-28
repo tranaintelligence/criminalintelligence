@@ -1,8 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { API_URL } from "@/lib/trana-backend";
 
 type Search = { redirect?: string | undefined };
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: Record<string, unknown>) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+          prompt: (momentListener?: (notification: Record<string, unknown>) => void) => void;
+        };
+      };
+    };
+  }
+}
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): Search => {
@@ -20,6 +35,10 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const GOOGLE_CLIENT_ID =
+  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_GOOGLE_CLIENT_ID ||
+  "597312527946-h633qaht8qkc3pa4njid8dijq0tqvbs7.apps.googleusercontent.com";
+
 function AuthPage() {
   const { redirect } = Route.useSearch();
   const navigate = useNavigate();
@@ -30,93 +49,271 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
   const dest = redirect ?? "/dashboard/chat";
 
+  // 1. If already signed in via TRANA or Supabase, immediately navigate to destination
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedToken = localStorage.getItem("trana_session_token");
+      if (storedToken) {
+        navigate({ to: dest, replace: true });
+        return;
+      }
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: dest, replace: true });
     });
+
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) navigate({ to: dest, replace: true });
     });
+
     return () => sub.subscription.unsubscribe();
   }, [dest, navigate]);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true); setErr(null); setMsg(null);
-    if (mode === "up") {
-      const { data, error } = await supabase.auth.signUp({
-        email, password,
-        options: { emailRedirectTo: window.location.origin + "/dashboard", data: { full_name: name } },
-      });
-      if (error) setErr(error.message);
-      else if (!data.session) setMsg("Check your email to confirm your account, then sign in.");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setErr(error.message);
-    }
-    setBusy(false);
-  }
-
-  async function google() {
-    setErr(null);
+  // 2. Handle Google ID token received directly on website
+  async function handleGoogleCredential(credential: string) {
     setBusy(true);
-
-    const redirectUrl = `${window.location.origin}/auth?redirect=${encodeURIComponent(dest)}`;
-
+    setErr(null);
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
+      const res = await fetch(`${API_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
       });
-      if (error) {
-        setErr(`Google sign-in error: ${error.message}`);
-      } else if (data?.url) {
-        window.location.href = data.url;
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Google authentication failed on server.");
       }
-    } catch {
-      setErr("Google sign-in failed. Please verify Google OAuth is configured in your Supabase project.");
+
+      const authData = (await res.json()) as { session_token: string; user: Record<string, unknown> };
+      if (authData.session_token && authData.user) {
+        localStorage.setItem("trana_session_token", authData.session_token);
+        localStorage.setItem("trana_user", JSON.stringify(authData.user));
+        navigate({ to: dest, replace: true });
+      } else {
+        throw new Error("Invalid session response received from backend.");
+      }
+    } catch (exc: unknown) {
+      const message = exc instanceof Error ? exc.message : "Failed to sign in with Google.";
+      setErr(message);
     } finally {
       setBusy(false);
     }
   }
 
-  const input = "w-full border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none";
+  // 3. Initialize Google Identity Services script
+  useEffect(() => {
+    let script = document.getElementById("google-gsi-client") as HTMLScriptElement | null;
+
+    function initGoogle() {
+      if (!window.google?.accounts?.id) return;
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (response: { credential?: string }) => {
+            if (response.credential) {
+              void handleGoogleCredential(response.credential);
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        if (googleBtnRef.current) {
+          googleBtnRef.current.innerHTML = "";
+          window.google.accounts.id.renderButton(googleBtnRef.current, {
+            theme: "outline",
+            size: "large",
+            width: 380,
+            text: "continue_with",
+            shape: "rectangular",
+            logo_alignment: "left",
+          });
+        }
+        setGoogleReady(true);
+      } catch (e) {
+        console.warn("Failed to initialize Google Sign-In:", e);
+      }
+    }
+
+    if (!script) {
+      script = document.createElement("script");
+      script.id = "google-gsi-client";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = initGoogle;
+      document.head.appendChild(script);
+    } else if (window.google?.accounts?.id) {
+      initGoogle();
+    }
+
+    const timer = setTimeout(() => {
+      if (window.google?.accounts?.id) initGoogle();
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [dest]);
+
+  // 4. Custom Google button fallback if user clicks directly
+  function triggerGooglePrompt() {
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
+    } else {
+      setErr("Google authentication service is loading. Please try again in a moment.");
+    }
+  }
+
+  // 5. Submit Email / Password directly to TRANA backend
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+
+    const endpoint = mode === "up" ? `${API_URL}/api/auth/register` : `${API_URL}/api/auth/login`;
+    const payload = mode === "up" ? { email, password, name } : { email, password };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Authentication request failed.");
+      }
+
+      const data = (await res.json()) as { session_token: string; user: Record<string, unknown> };
+      if (data.session_token && data.user) {
+        localStorage.setItem("trana_session_token", data.session_token);
+        localStorage.setItem("trana_user", JSON.stringify(data.user));
+        navigate({ to: dest, replace: true });
+      } else {
+        throw new Error("Could not create session. Please try again.");
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Authentication failed.";
+      setErr(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const input =
+    "w-full border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="w-full max-w-md">
-        <Link to="/" className="font-display text-3xl font-semibold tracking-[0.25em] text-foreground">TRANA</Link>
+        <Link to="/" className="font-display text-3xl font-semibold tracking-[0.25em] text-foreground">
+          TRANA
+        </Link>
         <h1 className="mt-10 font-display text-4xl text-foreground">
           {mode === "in"
-            ? (dest?.includes("lawyer") ? "Welcome back Counsel" : "Welcome back")
-            : (dest?.includes("lawyer") ? "Create your lawyer account" : "Create your account")}
+            ? dest?.includes("lawyer")
+              ? "Welcome back Counsel"
+              : "Welcome back"
+            : dest?.includes("lawyer")
+              ? "Create your lawyer account"
+              : "Create your account"}
         </h1>
-        <button onClick={google} disabled={busy} className="btn-line mt-8 w-full">
-          {busy ? "Connecting..." : "Continue with Google"}
-        </button>
-        <div className="my-6 flex items-center gap-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" />
+
+        {/* Google Sign-In Container */}
+        <div className="mt-8 flex flex-col items-center justify-center">
+          <div ref={googleBtnRef} className="w-full flex justify-center min-h-[44px]" />
+          {!googleReady && (
+            <button
+              onClick={triggerGooglePrompt}
+              disabled={busy}
+              type="button"
+              className="btn-line w-full flex items-center justify-center gap-3"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              {busy ? "Signing in..." : "Continue with Google"}
+            </button>
+          )}
         </div>
+
+        <div className="my-6 flex items-center gap-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          or
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        {/* Email & Password Form */}
         <form onSubmit={submit} className="space-y-3">
-          {mode === "up" && <input className={input} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />}
-          <input className={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input className={input} type="password" placeholder="Password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          {mode === "up" && (
+            <input
+              className={input}
+              placeholder="Full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          )}
+          <input
+            className={input}
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className={input}
+            type="password"
+            placeholder="Password (minimum 6 characters)"
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           {err && <p className="text-sm text-destructive">{err}</p>}
           {msg && <p className="text-sm text-foreground">{msg}</p>}
-          <button disabled={busy} className="btn-solid w-full disabled:opacity-50">{busy ? "Please wait…" : mode === "in" ? "Sign in" : "Sign up"}</button>
+          <button disabled={busy} className="btn-solid w-full disabled:opacity-50">
+            {busy ? "Please wait…" : mode === "in" ? "Sign in" : "Sign up"}
+          </button>
         </form>
-        <button onClick={() => setMode(mode === "in" ? "up" : "in")} className="mt-6 text-sm text-muted-foreground hover:text-foreground">
+
+        <button
+          onClick={() => {
+            setMode(mode === "in" ? "up" : "in");
+            setErr(null);
+            setMsg(null);
+          }}
+          type="button"
+          className="mt-6 text-sm text-muted-foreground hover:text-foreground"
+        >
           {mode === "in" ? "New to TRANA? Create an account" : "Already have an account? Sign in"}
         </button>
-        <p className="mt-10 text-xs leading-relaxed text-muted-foreground">TRANA provides legal information and first aid not legal advice. Always consult a qualified lawyer.</p>
+        <p className="mt-10 text-xs leading-relaxed text-muted-foreground">
+          TRANA provides legal information and first aid not legal advice. Always consult a qualified lawyer.
+        </p>
       </div>
     </div>
   );
