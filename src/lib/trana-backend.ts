@@ -1,17 +1,13 @@
-const configuredApiUrl =
+const configuredApiUrl = (
   import.meta.env.VITE_TRANA_BACKEND_URL ||
   import.meta.env.VITE_BACKEND_URL ||
   import.meta.env.VITE_API_URL ||
-  '';
-const productionApiUrl = 'https://legal-rag-advisor-api.onrender.com';
+  ''
+).trim().replace(/\/+$/, '');
 
-// Long-running Gemini requests should go directly to Render in production.
-// The rewrite is useful for short requests but can time out while the
-// deep model is still generating a response.
-export const API_URL = import.meta.env.PROD
-  ? configuredApiUrl && configuredApiUrl !== 'http://localhost:8000'
-    ? configuredApiUrl.replace(/\/$/, '')
-    : productionApiUrl
-  : configuredApiUrl || 'https://legal-rag-advisor-api.onrender.com';
+const productionApiUrl = 'https://criminalintelligence.onrender.com';
+
+// Long-running Gemini requests go directly to the Render backend.
+export const API_URL = configuredApiUrl || productionApiUrl;
 
 export const CHAT_API_URL = API_URL;

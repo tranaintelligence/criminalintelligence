@@ -1,5 +1,5 @@
 param(
-    [string]$ApiUrl = "https://legal-rag-advisor-api.onrender.com",
+    [string]$ApiUrl = "https://criminalintelligence.onrender.com",
     [ValidateRange(60, 3600)]
     [int]$IntervalSeconds = 240,
     [ValidateRange(5, 120)]
@@ -17,7 +17,7 @@ try {
     }
 }
 catch {
-    throw "Invalid API URL '$ApiUrl'. Use a value such as https://legal-rag-advisor-api.onrender.com"
+    throw "Invalid API URL '$ApiUrl'. Use a value such as https://criminalintelligence.onrender.com"
 }
 
 $healthUriBuilder = [UriBuilder]$baseUri

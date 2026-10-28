@@ -45,7 +45,7 @@ This repository is unified: both the **Python FastAPI Backend** and the **TanSta
 5. Build Command: `npm run build` (or `bun run build`).
 6. Output Directory: `.output` (or `dist` / default).
 7. Environment Variables in Vercel:
-   - `VITE_TRANA_BACKEND_URL`: URL of your Render backend without trailing slash (e.g. `https://legal-rag-advisor-api.onrender.com`).
+   - `VITE_TRANA_BACKEND_URL`: URL of your Render backend without trailing slash (e.g. `https://criminalintelligence.onrender.com`).
    - `VITE_BACKEND_URL`: Same as above.
    - `VITE_SUPABASE_URL`: Your Supabase Project URL.
    - `VITE_SUPABASE_PUBLISHABLE_KEY`: Your Supabase Publishable / Anon Key.

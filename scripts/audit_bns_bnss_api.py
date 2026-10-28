@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 
 
-DEFAULT_ENDPOINT = "https://legal-rag-advisor-api.onrender.com/__test/analyze"
+DEFAULT_ENDPOINT = "https://criminalintelligence.onrender.com/__test/analyze"
 FIELDS = (
     "act",
     "section",
