@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 
 type Search = { redirect?: string | undefined };
 
@@ -65,21 +64,6 @@ function AuthPage() {
     setBusy(true);
 
     const redirectUrl = `${window.location.origin}/auth?redirect=${encodeURIComponent(dest)}`;
-    const isLovable = typeof window !== "undefined" && window.location.hostname.includes("lovable.cloud");
-
-    if (isLovable) {
-      try {
-        const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: redirectUrl });
-        if (r.error) {
-          setErr(r.error.message ?? "Google sign-in failed.");
-          setBusy(false);
-          return;
-        }
-        if (r.redirected) return;
-      } catch {
-        // Fall back to direct Supabase OAuth
-      }
-    }
 
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
