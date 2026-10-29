@@ -27,7 +27,7 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in TRANA" },
-      { name: "description", content: "Sign in or create your TRANA account to understand your legal situation and reach a lawyer." },
+      { name: "description", content: "Sign in with Google to access TRANA legal intelligence and chat." },
       { property: "og:title", content: "Sign in TRANA" },
       { property: "og:description", content: "Access your TRANA legal first-aid dashboard." },
     ],
@@ -42,12 +42,7 @@ const GOOGLE_CLIENT_ID =
 function AuthPage() {
   const { redirect } = Route.useSearch();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"in" | "up">("in");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
@@ -127,7 +122,7 @@ function AuthPage() {
         if (googleBtnRef.current) {
           googleBtnRef.current.innerHTML = "";
           window.google.accounts.id.renderButton(googleBtnRef.current, {
-            theme: "outline",
+            theme: "filled_black",
             size: "large",
             width: 380,
             text: "continue_with",
@@ -155,60 +150,18 @@ function AuthPage() {
 
     const timer = setTimeout(() => {
       if (window.google?.accounts?.id) initGoogle();
-    }, 800);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [dest]);
 
-  // 4. Custom Google button fallback if user clicks directly
   function triggerGooglePrompt() {
     if (window.google?.accounts?.id) {
       window.google.accounts.id.prompt();
     } else {
-      setErr("Google authentication service is loading. Please try again in a moment.");
+      setErr("Google sign-in is initializing. Please wait a moment and try again.");
     }
   }
-
-  // 5. Submit Email / Password directly to TRANA backend
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setErr(null);
-    setMsg(null);
-
-    const endpoint = mode === "up" ? `${API_URL}/api/auth/register` : `${API_URL}/api/auth/login`;
-    const payload = mode === "up" ? { email, password, name } : { email, password };
-
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Authentication request failed.");
-      }
-
-      const data = (await res.json()) as { session_token: string; user: Record<string, unknown> };
-      if (data.session_token && data.user) {
-        localStorage.setItem("trana_session_token", data.session_token);
-        localStorage.setItem("trana_user", JSON.stringify(data.user));
-        navigate({ to: dest, replace: true });
-      } else {
-        throw new Error("Could not create session. Please try again.");
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Authentication failed.";
-      setErr(message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const input =
-    "w-full border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
@@ -216,15 +169,15 @@ function AuthPage() {
         <Link to="/" className="font-display text-3xl font-semibold tracking-[0.25em] text-foreground">
           TRANA
         </Link>
+
         <h1 className="mt-10 font-display text-4xl text-foreground">
-          {mode === "in"
-            ? dest?.includes("lawyer")
-              ? "Welcome back Counsel"
-              : "Welcome back"
-            : dest?.includes("lawyer")
-              ? "Create your lawyer account"
-              : "Create your account"}
+          {dest?.includes("lawyer") ? "Counsel Portal" : "Sign in to TRANA"}
         </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {dest?.includes("lawyer")
+            ? "Sign in with your Google account to access the Advocate Workspace."
+            : "Sign in with your Google account to access Legal Chat and First-Aid analysis."}
+        </p>
 
         {/* Google Sign-In Container */}
         <div className="mt-8 flex flex-col items-center justify-center">
@@ -254,66 +207,28 @@ function AuthPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              {busy ? "Signing in..." : "Continue with Google"}
+              {busy ? "Connecting..." : "Continue with Google"}
             </button>
           )}
         </div>
 
-        <div className="my-6 flex items-center gap-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
+        {busy && (
+          <p className="mt-4 text-center text-xs text-muted-foreground animate-pulse">
+            Authenticating your Google account...
+          </p>
+        )}
+
+        {err && (
+          <div className="mt-4 p-3 border border-destructive/40 bg-destructive/10 text-xs text-destructive rounded">
+            {err}
+          </div>
+        )}
+
+        <div className="mt-12 pt-6 border-t border-border">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            TRANA provides legal information and first aid, not legal advice. All conversations and document analyses are encrypted and confidential.
+          </p>
         </div>
-
-        {/* Email & Password Form */}
-        <form onSubmit={submit} className="space-y-3">
-          {mode === "up" && (
-            <input
-              className={input}
-              placeholder="Full name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          )}
-          <input
-            className={input}
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className={input}
-            type="password"
-            placeholder="Password (minimum 6 characters)"
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {err && <p className="text-sm text-destructive">{err}</p>}
-          {msg && <p className="text-sm text-foreground">{msg}</p>}
-          <button disabled={busy} className="btn-solid w-full disabled:opacity-50">
-            {busy ? "Please wait…" : mode === "in" ? "Sign in" : "Sign up"}
-          </button>
-        </form>
-
-        <button
-          onClick={() => {
-            setMode(mode === "in" ? "up" : "in");
-            setErr(null);
-            setMsg(null);
-          }}
-          type="button"
-          className="mt-6 text-sm text-muted-foreground hover:text-foreground"
-        >
-          {mode === "in" ? "New to TRANA? Create an account" : "Already have an account? Sign in"}
-        </button>
-        <p className="mt-10 text-xs leading-relaxed text-muted-foreground">
-          TRANA provides legal information and first aid not legal advice. Always consult a qualified lawyer.
-        </p>
       </div>
     </div>
   );
