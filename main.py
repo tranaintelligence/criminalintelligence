@@ -295,6 +295,17 @@ def _ensure_chat_message_metadata_columns() -> None:
 # Application Lifecycle
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _migrate_db_schema():
+    try:
+        from database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;"))
+            conn.execute(text("ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL;"))
+            conn.commit()
+    except Exception as exc:
+        logger.info("Database schema migration notice: %s", exc)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -353,20 +364,7 @@ async def lifespan(app: FastAPI):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _migrate_db_schema():
-    try:
-        from database import engine
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;"))
-            conn.execute(text("ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL;"))
-            conn.commit()
-    except Exception as exc:
-        logger.info("Database schema migration notice: %s", exc)
 
-@app.on_event("startup")
-def on_startup():
-    _migrate_db_schema()
 
 app = FastAPI(
     title="TRANA",
