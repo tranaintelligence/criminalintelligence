@@ -237,8 +237,14 @@ export function AdminView() {
         }
 
         const [nextKeys, nextUsage, nextIps, currentIp] = await Promise.all([
-          getAdminKeys(credential),
-          getAdminUsage(credential),
+          getAdminKeys(credential).catch((err) => {
+            console.warn('Failed to load admin keys:', err);
+            return [];
+          }),
+          getAdminUsage(credential).catch((err) => {
+            console.warn('Failed to load admin usage:', err);
+            return [];
+          }),
           getAdminIPs(credential).catch(() => []),
           getAdminClientIP().catch(() => ''),
         ]);

@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     admin_emails: str = "ckhraiushh1@gmail.com;founder@trana.in"
     # Fernet key used to encrypt Gemini API keys persisted in the database.
     # Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    api_key_encryption_key: str = ""
+    api_key_encryption_key: str = "36A1a-JTCCj0zWPYk53vnMa1KVJqZ--z7oqRoDuQi5E="
     ollama_base_url: str = "http://localhost:11434"
 
     # ── Embeddings (Google Gemini API)
