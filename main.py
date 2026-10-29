@@ -39,6 +39,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from pydantic import BaseModel
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
