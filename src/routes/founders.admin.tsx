@@ -11,6 +11,9 @@ import {
   ShieldCheck,
   Trash2,
   XCircle,
+  Globe,
+  Plus,
+  Network,
 } from 'lucide-react';
 import { useTranaCredential } from '@/lib/trana-auth';
 import {
@@ -21,8 +24,12 @@ import {
   getAdminKeys,
   getAdminUsage,
   updateAdminKey,
+  getAdminIPs,
+  getAdminClientIP,
+  createAdminIP,
+  deleteAdminIP,
 } from '@/lib/trana-admin-api';
-import type { AdminKey, AdminUsageRow, UsageBucket } from '@/lib/trana-admin-api';
+import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP } from '@/lib/trana-admin-api';
 
 export const Route = createFileRoute('/founders/admin')({
   head: () => ({
@@ -197,6 +204,16 @@ export function AdminView() {
   const [savingKeyId, setSavingKeyId] = useState<string | null>(null);
   const [rotationDrafts, setRotationDrafts] = useState<Record<string, string>>({});
 
+  // IP Management State
+  const [adminTab, setAdminTab] = useState<'ips' | 'keys'>('ips');
+  const [ips, setIps] = useState<AdminIP[]>([]);
+  const [clientIp, setClientIp] = useState('');
+  const [ipAddressInput, setIpAddressInput] = useState('');
+  const [ipDescInput, setIpDescInput] = useState('');
+  const [isAddingIp, setIsAddingIp] = useState(false);
+  const [deletingIpId, setDeletingIpId] = useState<string | null>(null);
+  const [ipSuccessMsg, setIpSuccessMsg] = useState<string | null>(null);
+
   const loadDashboard = useCallback(
     async (isRefresh = false) => {
       if (authLoading) return;
@@ -219,13 +236,17 @@ export function AdminView() {
           return;
         }
 
-        const [nextKeys, nextUsage] = await Promise.all([
+        const [nextKeys, nextUsage, nextIps, currentIp] = await Promise.all([
           getAdminKeys(credential),
           getAdminUsage(credential),
+          getAdminIPs(credential).catch(() => []),
+          getAdminClientIP().catch(() => ''),
         ]);
         setAccessState('authorized');
         setKeys(nextKeys);
         setUsage(nextUsage);
+        setIps(nextIps);
+        setClientIp(currentIp);
         setRotationDrafts(
           Object.fromEntries(nextKeys.map((keyRecord) => [keyRecord.id, String(keyRecord.rotationOrder)])),
         );
@@ -327,6 +348,51 @@ export function AdminView() {
     }
   };
 
+  const handleAddIp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credential || !ipAddressInput.trim()) return;
+    setIsAddingIp(true);
+    setError(null);
+    setIpSuccessMsg(null);
+    try {
+      const created = await createAdminIP(credential, {
+        ip_address: ipAddressInput.trim(),
+        description: ipDescInput.trim() || undefined,
+      });
+      setIps((prev) => [created, ...prev]);
+      setIpAddressInput('');
+      setIpDescInput('');
+      setIpSuccessMsg(`IP ${created.ip_address} added to whitelist successfully.`);
+    } catch (err) {
+      setError(getErrorText(err, 'Failed to add IP address.'));
+    } finally {
+      setIsAddingIp(false);
+    }
+  };
+
+  const handleDeleteIp = async (ipRecord: AdminIP) => {
+    if (!credential || !window.confirm(`Remove IP ${ipRecord.ip_address}?`)) return;
+    setDeletingIpId(ipRecord.id);
+    setError(null);
+    setIpSuccessMsg(null);
+    try {
+      await deleteAdminIP(credential, ipRecord.id);
+      setIps((prev) => prev.filter((item) => item.id !== ipRecord.id));
+      setIpSuccessMsg(`IP ${ipRecord.ip_address} removed.`);
+    } catch (err) {
+      setError(getErrorText(err, 'Failed to remove IP address.'));
+    } finally {
+      setDeletingIpId(null);
+    }
+  };
+
+  const handleWhitelistCurrentIp = () => {
+    if (clientIp) {
+      setIpAddressInput(clientIp);
+      setIpDescInput(`Admin workstation (${user?.email || 'current'})`);
+    }
+  };
+
   const handleDeleteKey = async (keyRecord: AdminKey) => {
     if (!credential || !window.confirm(`Delete ${keyRecord.label}? This cannot be undone.`)) return;
     setSavingKeyId(keyRecord.id);
@@ -398,21 +464,57 @@ export function AdminView() {
           <p className="admin-eyebrow text-xs uppercase tracking-widest font-mono text-amber-200/80 mb-1">
             TRANA Operations
           </p>
-          <h2 className="text-3xl font-serif tracking-tight text-neutral-100">API Keys & Security Console</h2>
+          <h2 className="text-3xl font-serif tracking-tight text-neutral-100">Admin & Security Console</h2>
           <p className="admin-page__subtitle text-xs text-neutral-400 mt-1">
-            Manage provider rotation and monitor Quick Thinking statutory capacity.
+            Configure IP whitelisting / network access and LLM provider rotation.
           </p>
         </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            className="admin-secondary-button inline-flex items-center gap-2 bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-medium px-4 py-2 rounded-xl transition-colors"
+            onClick={() => void loadDashboard(true)}
+            disabled={refreshing || loading}
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      {/* Admin Tab Switcher */}
+      <div className="flex items-center gap-3 border-b border-[#222222] pb-4">
         <button
           type="button"
-          className="admin-secondary-button inline-flex items-center gap-2 bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-medium px-4 py-2 rounded-xl transition-colors shrink-0"
-          onClick={() => void loadDashboard(true)}
-          disabled={refreshing || loading}
+          onClick={() => setAdminTab('ips')}
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+            adminTab === 'ips'
+              ? 'bg-amber-400/10 border border-amber-400/50 text-amber-300 font-semibold'
+              : 'bg-[#141414] border border-[#222222] text-neutral-400 hover:text-neutral-200'
+          }`}
         >
-          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
+          <Network size={14} />
+          <span>IP Whitelist Management</span>
+          <span className="ml-1.5 px-2 py-0.5 rounded-full bg-[#222222] text-[10px] font-mono text-neutral-300">
+            {ips.length}
+          </span>
         </button>
-      </header>
+        <button
+          type="button"
+          onClick={() => setAdminTab('keys')}
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+            adminTab === 'keys'
+              ? 'bg-amber-400/10 border border-amber-400/50 text-amber-300 font-semibold'
+              : 'bg-[#141414] border border-[#222222] text-neutral-400 hover:text-neutral-200'
+          }`}
+        >
+          <KeyRound size={14} />
+          <span>LLM Provider Keys & Rotation</span>
+          <span className="ml-1.5 px-2 py-0.5 rounded-full bg-[#222222] text-[10px] font-mono text-neutral-300">
+            {keys.length}
+          </span>
+        </button>
+      </div>
 
       {error && (
         <div className="admin-alert admin-alert--error flex items-center gap-2.5 p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300">
@@ -421,6 +523,150 @@ export function AdminView() {
         </div>
       )}
 
+      {ipSuccessMsg && (
+        <div className="flex items-center gap-2.5 p-4 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-xs text-emerald-300">
+          <Check size={16} />
+          {ipSuccessMsg}
+        </div>
+      )}
+
+      {adminTab === 'ips' && (
+        <div className="space-y-8">
+          {/* Current IP Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#121212] border border-[#242424]">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 rounded-xl bg-[#1a1a1a] border border-[#2c2c2c] text-amber-300">
+                <Globe size={22} />
+              </div>
+              <div>
+                <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
+                  Detected Client IP
+                </p>
+                <div className="font-mono text-lg font-semibold text-neutral-100 mt-0.5">
+                  {clientIp || 'Detecting client IP...'}
+                </div>
+              </div>
+            </div>
+            {clientIp && (
+              <button
+                type="button"
+                onClick={handleWhitelistCurrentIp}
+                className="btn-solid text-xs py-2 px-4 flex items-center gap-2 shrink-0"
+              >
+                <Plus size={14} />
+                <span>Quick-Add Current IP</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* IP Add Form */}
+            <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-5">
+              <div>
+                <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Security Control</p>
+                <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Add Allowed IP</h3>
+                <p className="text-xs text-neutral-400 mt-1">Register an IP address to grant network access.</p>
+              </div>
+
+              <form onSubmit={handleAddIp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-mono text-neutral-300 mb-1.5">IP Address *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 103.21.14.88"
+                    value={ipAddressInput}
+                    onChange={(e) => setIpAddressInput(e.target.value)}
+                    required
+                    className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs font-mono text-neutral-100 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-neutral-300 mb-1.5">Description / Label</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Main Office / Workstation"
+                    value={ipDescInput}
+                    onChange={(e) => setIpDescInput(e.target.value)}
+                    className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isAddingIp || !ipAddressInput.trim()}
+                  className="btn-solid w-full text-xs py-2.5 flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} />
+                  <span>{isAddingIp ? 'Adding IP...' : 'Add to Whitelist'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Configured IPs List */}
+            <div className="lg:col-span-2 p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Network Rule</p>
+                  <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Whitelisted IP Addresses</h3>
+                </div>
+                <span className="text-xs font-mono text-neutral-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#262626]">
+                  {ips.length} {ips.length === 1 ? 'address' : 'addresses'} active
+                </span>
+              </div>
+
+              {ips.length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-[#262626] rounded-xl text-neutral-500 text-xs">
+                  No IP addresses currently whitelisted. Add an IP using the form on the left.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {ips.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#141414] border border-[#242424] hover:border-[#303030] transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#1c1c1c] border border-[#2a2a2a] flex items-center justify-center text-amber-300">
+                          <Network size={16} />
+                        </div>
+                        <div>
+                          <div className="font-mono text-sm font-semibold text-neutral-100">
+                            {item.ip_address}
+                          </div>
+                          {item.description && (
+                            <div className="text-xs text-neutral-400 mt-0.5">{item.description}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {item.created_at && (
+                          <span className="text-[11px] font-mono text-neutral-500">
+                            {formatIst(item.created_at)}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteIp(item)}
+                          disabled={deletingIpId === item.id}
+                          className="p-2 rounded-lg bg-[#1a1a1a] border border-[#2e2e2e] text-rose-400 hover:bg-rose-950/40 hover:border-rose-900 transition-colors"
+                          title="Remove IP"
+                        >
+                          <Trash2 size={15} />
+                          <span className="sr-only">Delete {item.ip_address}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {adminTab === 'keys' && (
       <div className="admin-page__content space-y-8">
         <section className="admin-panel admin-panel--intro flex items-start gap-4 p-5 rounded-2xl bg-[#121212] border border-[#222222]">
           <div className="admin-panel__icon p-2.5 rounded-xl bg-[#1a1a1a] border border-[#2c2c2c] text-amber-200/90 shrink-0">
@@ -695,6 +941,7 @@ export function AdminView() {
           )}
         </section>
       </div>
+      )}
     </div>
   );
 }

@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     gemini_api_key_4: str = ""
     # Comma-separated verified Google email addresses allowed to use the
     # backend administration API.
-    admin_emails: str = ""
+    admin_emails: str = "ckhraiushh1@gmail.com;founder@trana.in"
     # Fernet key used to encrypt Gemini API keys persisted in the database.
     # Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     api_key_encryption_key: str = ""
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     # ── Database ────────────────────────────────────────────────────────────
     # Keep the local SQLite database in the project directory by default. The
     # value can be overridden with DATABASE_URL on Render or another host.
-    database_url: str = "sqlite:///./legal.db"
+    database_url: str = "postgresql://postgres.yutenmwnirotmdjhhtdr:criminalintelligenc@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
 
     # ── Helpers ─────────────────────────────────────────────────────────────
     def ensure_directories(self) -> None:

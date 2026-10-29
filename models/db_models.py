@@ -28,6 +28,15 @@ class AuthSession(Base):
     expires_at = Column(DateTime, nullable=False, index=True)
     revoked_at = Column(DateTime, nullable=True)
 
+class AllowedIP(Base):
+    __tablename__ = 'allowed_ips'
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    ip_address = Column(String, unique=True, index=True, nullable=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 

@@ -209,3 +209,41 @@ export const updateAdminKey = (
 
 export const deleteAdminKey = (credential: string, keyId: string) =>
   request<unknown>(credential, `/api/admin/keys/${encodeURIComponent(keyId)}`, { method: 'DELETE' });
+
+
+export interface AdminIP {
+  id: string;
+  ip_address: string;
+  description?: string | null;
+  created_at?: string;
+}
+
+export const getAdminClientIP = async (): Promise<string> => {
+  try {
+    const res = await fetch(API_URL + '/api/admin/client-ip');
+    if (res.ok) {
+      const data = (await res.json()) as { client_ip?: string };
+      return data.client_ip || '';
+    }
+  } catch {
+    // ignore
+  }
+  return '';
+};
+
+export const getAdminIPs = (credential: string): Promise<AdminIP[]> =>
+  request<AdminIP[]>(credential, '/api/admin/ips');
+
+export const createAdminIP = (
+  credential: string,
+  input: { ip_address: string; description?: string },
+): Promise<AdminIP> =>
+  request<AdminIP>(credential, '/api/admin/ips', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+export const deleteAdminIP = (credential: string, ipId: string): Promise<{ ok: boolean }> =>
+  request<{ ok: boolean }>(credential, '/api/admin/ips/' + encodeURIComponent(ipId), {
+    method: 'DELETE',
+  });

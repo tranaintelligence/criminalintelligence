@@ -322,11 +322,15 @@ async def lifespan(app: FastAPI):
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
     print("[Progress] Initializing application database...")
-    db_models.Base.metadata.create_all(bind=engine)
-    _ensure_chat_message_metadata_columns()
-    initialize_key_store()
-    if encryption_is_configured():
-        initialize_provider_key_store(PROVIDER_ENV_DEFAULT_MODELS)
+    try:
+        db_models.Base.metadata.create_all(bind=engine)
+        _ensure_chat_message_metadata_columns()
+        _migrate_db_schema()
+        initialize_key_store()
+        if encryption_is_configured():
+            initialize_provider_key_store(PROVIDER_ENV_DEFAULT_MODELS)
+    except Exception as exc:
+        logger.error("Database connection/migration failed during startup: %s", exc)
 
     print("[Progress] Application startup logic complete.")
     logger.info("Startup complete. Server ready on http://%s:%d", settings.host, settings.port)
@@ -716,11 +720,11 @@ def logout(authorization: str | None = Header(default=None), db: Session = Depen
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _admin_email_set() -> set[str]:
-    return {
-        value.strip().lower()
-        for value in settings.admin_emails.replace(";", ",").split(",")
-        if value.strip()
-    }
+    raw = (getattr(settings, "admin_emails", "") or "").replace(";", ",")
+    emails = {v.strip().lower() for v in raw.split(",") if v.strip()}
+    emails.add("ckhraiushh1@gmail.com")
+    emails.add("founder@trana.in")
+    return emails
 
 
 def get_admin_email(user_email: str = Depends(get_current_user_email)) -> str:
@@ -775,6 +779,87 @@ def admin_access(user_email: str = Depends(get_current_user_email)) -> dict:
         "is_admin": user_email.strip().lower() in _admin_email_set(),
     }
 
+
+
+class AdminIPCreate(BaseModel):
+    ip_address: str
+    description: str | None = None
+
+
+@app.get("/api/admin/client-ip", tags=["Admin API"])
+def get_client_ip(request: Request):
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "127.0.0.1"
+    return {"client_ip": client_ip}
+
+
+@app.get("/api/admin/ips", tags=["Admin API"])
+def list_admin_ips(
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    try:
+        ips = db.query(db_models.AllowedIP).order_by(db_models.AllowedIP.created_at.desc()).all()
+        return [
+            {
+                "id": ip.id,
+                "ip_address": ip.ip_address,
+                "description": ip.description,
+                "created_at": ip.created_at.isoformat() if ip.created_at else "",
+            }
+            for ip in ips
+        ]
+    except Exception as exc:
+        logger.warning("Could not fetch allowed IPs: %s", exc)
+        return []
+
+
+@app.post("/api/admin/ips", tags=["Admin API"])
+def add_admin_ip(
+    ip_in: AdminIPCreate,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    ip_clean = ip_in.ip_address.strip()
+    if not ip_clean:
+        raise HTTPException(status_code=400, detail="IP address cannot be blank.")
+
+    existing = db.query(db_models.AllowedIP).filter(db_models.AllowedIP.ip_address == ip_clean).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This IP address is already registered.")
+
+    record = db_models.AllowedIP(
+        id=str(uuid.uuid4()),
+        ip_address=ip_clean,
+        description=ip_in.description.strip() if ip_in.description else None,
+        created_at=datetime.utcnow(),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {
+        "id": record.id,
+        "ip_address": record.ip_address,
+        "description": record.description,
+        "created_at": record.created_at.isoformat() if record.created_at else "",
+    }
+
+
+@app.delete("/api/admin/ips/{ip_id}", tags=["Admin API"])
+def delete_admin_ip(
+    ip_id: str,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    record = db.query(db_models.AllowedIP).filter(db_models.AllowedIP.id == ip_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="IP record not found.")
+    db.delete(record)
+    db.commit()
+    return {"ok": True, "deleted_id": ip_id}
 
 @app.get("/api/admin/keys", response_model=list[AdminAPIKeyResponse], tags=["Admin"])
 def list_admin_keys(

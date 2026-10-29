@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -88,6 +88,13 @@ function DashboardLayout() {
         <Link to="/lawyer" className="mt-3 flex items-center justify-between text-xs text-foreground/80 hover:text-foreground border border-border px-2.5 py-1.5 transition-colors">
           <span>Advocate Workspace</span>
           <span className="font-mono text-[0.65rem] text-amber-400">/lawyer →</span>
+        </Link>
+        <Link to="/founders/admin" className="mt-2 flex items-center justify-between text-xs text-foreground/80 hover:text-foreground border border-border px-2.5 py-1.5 transition-colors">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+            <span>Admin Console</span>
+          </span>
+          <span className="font-mono text-[0.65rem] text-amber-400">/admin →</span>
         </Link>
         <button onClick={signOut} className="mt-3 text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground">Log out</button>
       </div>
