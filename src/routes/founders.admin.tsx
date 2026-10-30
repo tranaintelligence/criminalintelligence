@@ -14,8 +14,10 @@ import {
   Globe,
   Plus,
   Network,
+  Download,
 } from 'lucide-react';
 import { useTranaCredential } from '@/lib/trana-auth';
+import { downloadCSV } from '@/lib/csv-export';
 import {
   AdminApiError,
   createAdminKey,
@@ -413,6 +415,52 @@ export function AdminView() {
     }
   };
 
+  const exportAdminCSV = () => {
+    if (adminTab === 'keys') {
+      const headers = [
+        'Key ID',
+        'Label',
+        'Provider',
+        'Model',
+        'Mode',
+        'Active',
+        'Rotation Order',
+        'Status',
+        'Day Total Requests',
+        'Day Success',
+        'Day Failure',
+        'Day Quota Hits',
+        'Last Used At',
+        'Created At',
+      ];
+      const usageMap = new Map(usage.map((u) => [u.keyId, u]));
+      const rows = keys.map((k) => {
+        const u = usageMap.get(k.id);
+        return [
+          k.id,
+          k.label,
+          k.provider,
+          k.model,
+          k.mode,
+          k.active ? 'Yes' : 'No',
+          k.rotationOrder,
+          k.status || 'Ready',
+          u?.day.total ?? 0,
+          u?.day.success ?? 0,
+          u?.day.failure ?? 0,
+          u?.day.quota ?? 0,
+          k.lastUsedAt || '—',
+          k.createdAt || '—',
+        ];
+      });
+      downloadCSV(`trana_provider_keys_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    } else {
+      const headers = ['IP Address', 'Description / Label', 'Created At'];
+      const rows = ips.map((ip) => [ip.ip_address, ip.description || '—', ip.created_at || '—']);
+      downloadCSV(`trana_allowed_ips_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    }
+  };
+
   if (accessState === 'unauthenticated') {
     return (
       <AdminState
@@ -476,6 +524,15 @@ export function AdminView() {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 border border-white/40 bg-[#161616] text-xs font-medium px-4 py-2 rounded-xl text-white hover:bg-white hover:text-black transition-colors"
+            onClick={exportAdminCSV}
+            title={adminTab === 'keys' ? 'Export Keys and Usage telemetry to CSV' : 'Export Allowed IPs to CSV'}
+          >
+            <Download size={14} />
+            <span>Export CSV</span>
+          </button>
           <button
             type="button"
             className="admin-secondary-button inline-flex items-center gap-2 bg-[#181818] hover:bg-[#222222] border border-[#2a2a2a] text-xs font-medium px-4 py-2 rounded-xl transition-colors"
@@ -647,7 +704,7 @@ export function AdminView() {
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
-                        {item.created_at && (
+                                  {item.created_at && (
                           <span className="text-[11px] font-mono text-neutral-500">
                             {formatIst(item.created_at)}
                           </span>

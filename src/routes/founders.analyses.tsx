@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, Download, FileText, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { downloadCSV } from "@/lib/csv-export";
 
 export const Route = createFileRoute("/founders/analyses")({
   head: () => ({
@@ -173,25 +174,22 @@ function FoundersAnalysesPage() {
   function exportCSV() {
     const headers = ["ID", "Date", "Time", "User", "Matter Type", "Sections Identified", "Bail Status", "Lawyer Referred", "AI Response Time"];
     const rows = filtered.map((a) => [
-      `"${a.id}"`,
-      `"${a.date}"`,
-      `"${a.time}"`,
-      `"${a.user}"`,
-      `"${a.matterType}"`,
-      `"${a.sectionsIdentified}"`,
-      `"${a.bailStatus}"`,
+      a.id,
+      a.date,
+      a.time,
+      a.user,
+      a.matterType,
+      a.sectionsIdentified,
+      a.bailStatus,
       a.lawyerReferred ? "Yes" : "No",
-      `"${a.aiResponseTime}"`,
+      a.aiResponseTime,
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `trana_fir_analyses_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCSV(
+      `trana_fir_analyses_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows
+    );
     toast.success(`Exported ${filtered.length} analyses to CSV.`);
   }
 

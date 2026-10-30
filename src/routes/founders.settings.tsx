@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { downloadCSV } from "@/lib/csv-export";
 
 export const Route = createFileRoute("/founders/settings")({
   head: () => ({
@@ -163,16 +164,10 @@ function FoundersSettingsPage() {
   // Handler: Export waitlist
   function exportWaitlistCSV() {
     const headers = ["ID", "Email", "Date Registered"];
-    const rows = waitlist.map((w) => [`"${w.id}"`, `"${w.email}"`, `"${w.date}"`]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `trana_waitlist_leads_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Exported ${waitlist.length} waitlist emails.`);
+    const rows = waitlist.map((w) => [w.id, w.email, w.date]);
+
+    downloadCSV(`trana_waitlist_leads_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success(`Exported ${waitlist.length} waitlist emails to CSV.`);
   }
 
   const filteredWaitlist = waitlist.filter((w) =>

@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Calendar,
   Clock,
+  Download,
   FileText,
   MessageSquare,
   MessagesSquare,
@@ -19,6 +20,7 @@ import {
   ExternalLink,
   Paperclip,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { useTranaCredential } from "@/lib/trana-auth";
 import {
@@ -27,7 +29,8 @@ import {
   type AdminUserChatSession,
   type AdminChatMessage,
 } from "@/lib/trana-admin-api";
-import { MessageBubble } from "@/components/Chat/MessageBubble";
+import { downloadCSV } from "@/lib/csv-export";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/founders/users/$userId")({
   head: () => ({
@@ -42,7 +45,15 @@ export const Route = createFileRoute("/founders/users/$userId")({
 function FounderUserDetailPage() {
   const params = useParams({ strict: false }) as { userId?: string };
   const rawUserId = params.userId || "";
-  const userId = decodeURIComponent(rawUserId);
+  let userId = rawUserId;
+  try {
+    userId = decodeURIComponent(rawUserId);
+    if (userId.includes("%")) {
+      userId = decodeURIComponent(userId);
+    }
+  } catch {
+    userId = rawUserId;
+  }
 
   const { credential } = useTranaCredential();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -53,6 +64,7 @@ function FounderUserDetailPage() {
     refetch: refetchUser,
     isFetching: isFetchingUser,
     isError: isUserError,
+    error: userError,
   } = useQuery({
     queryKey: ["founder-user-detail", userId, credential],
     queryFn: async () => {
@@ -68,6 +80,8 @@ function FounderUserDetailPage() {
     data: chatSessions = [],
     refetch: refetchChats,
     isFetching: isFetchingChats,
+    isError: isChatsError,
+    error: chatsError,
   } = useQuery({
     queryKey: ["founder-user-chats", userId, credential],
     queryFn: async () => {
@@ -99,6 +113,83 @@ function FounderUserDetailPage() {
     }
   };
 
+  // CSV Export for user chat transcripts
+  function exportUserChatsCSV() {
+    if (!chatSessions || chatSessions.length === 0) {
+      toast.error("No chat messages recorded to export for this user.");
+      return;
+    }
+
+    const headers = [
+      "Session ID",
+      "Session Title",
+      "Session Created At",
+      "Session Updated At",
+      "Message Index",
+      "Sender Role",
+      "Model Used",
+      "Processing Time (s)",
+      "Timestamp",
+      "Message Content",
+      "Legal Citations / Law Summary",
+    ];
+
+    const rows: (string | number | boolean | null | undefined)[][] = [];
+
+    chatSessions.forEach((session) => {
+      const messages = session.messages || [];
+      if (messages.length === 0) {
+        rows.push([
+          session.id,
+          session.title || "Untitled Session",
+          session.created_at,
+          session.updated_at,
+          0,
+          "—",
+          "—",
+          "—",
+          "—",
+          "No messages in session",
+          "—",
+        ]);
+      } else {
+        messages.forEach((msg, idx) => {
+          let summary = "";
+          if (msg.structured_content) {
+            summary =
+              typeof msg.structured_content === "object"
+                ? msg.structured_content.summary ||
+                  msg.structured_content.plain_english_summary ||
+                  msg.structured_content.bail_status ||
+                  ""
+                : String(msg.structured_content);
+          }
+          rows.push([
+            session.id,
+            session.title || "Untitled Session",
+            session.created_at,
+            session.updated_at,
+            idx + 1,
+            msg.role === "user" ? "Citizen / User" : "TRANA Legal AI",
+            msg.model_used || "—",
+            msg.processing_time_seconds ?? "—",
+            msg.created_at || "—",
+            msg.content || "",
+            summary,
+          ]);
+        });
+      }
+    });
+
+    const safeEmail = (userDetail?.email || userId).replace(/[^a-zA-Z0-9]/g, "_");
+    downloadCSV(
+      `trana_chats_${safeEmail}_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows,
+    );
+    toast.success(`Exported ${rows.length} chat message rows to CSV.`);
+  }
+
   return (
     <div className="space-y-6 font-mono text-[#F0F0F0] pb-12">
       {/* Top Breadcrumb & Nav */}
@@ -117,7 +208,7 @@ function FounderUserDetailPage() {
                 Users Directory
               </Link>
               <span>/</span>
-              <span className="text-amber-200/90 font-medium">
+              <span className="text-amber-200/90 font-medium truncate max-w-[200px] sm:max-w-none">
                 {userDetail?.name || userId}
               </span>
             </div>
@@ -127,17 +218,29 @@ function FounderUserDetailPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            refetchUser();
-            refetchChats();
-          }}
-          disabled={isFetchingUser || isFetchingChats}
-          className="border border-[#333333] bg-[#161616] px-3.5 py-2 text-xs uppercase tracking-wider text-white hover:border-white transition-colors flex items-center gap-2 self-start sm:self-auto rounded"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetchingUser || isFetchingChats ? "animate-spin" : ""}`} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={exportUserChatsCSV}
+            disabled={chatSessions.length === 0}
+            className="border border-white/40 bg-[#161616] px-3.5 py-2 text-xs uppercase tracking-wider text-white hover:bg-white hover:text-black transition-colors flex items-center gap-2 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Download CSV transcript of all sessions for this user"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export Chats CSV</span>
+          </button>
+
+          <button
+            onClick={() => {
+              refetchUser();
+              refetchChats();
+            }}
+            disabled={isFetchingUser || isFetchingChats}
+            className="border border-[#333333] bg-[#161616] px-3.5 py-2 text-xs uppercase tracking-wider text-white hover:border-white transition-colors flex items-center gap-2 self-start sm:self-auto rounded"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetchingUser || isFetchingChats ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* User Identity & Key Stats Banner */}
@@ -279,12 +382,56 @@ function FounderUserDetailPage() {
               Read-Only Chat Audit Console
             </span>
           </div>
-          <span className="text-[11px] font-mono text-neutral-400">
-            Viewing {chatSessions.length} {chatSessions.length === 1 ? "session" : "sessions"} recorded
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-mono text-neutral-400">
+              Viewing {chatSessions.length} {chatSessions.length === 1 ? "session" : "sessions"} recorded
+            </span>
+            {chatSessions.length > 0 && (
+              <button
+                type="button"
+                onClick={exportUserChatsCSV}
+                className="text-[11px] text-amber-300 hover:text-white flex items-center gap-1 font-mono transition-colors"
+                title="Download CSV transcript of all sessions for this user"
+              >
+                <Download className="h-3 w-3" />
+                <span>Download CSV</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {chatSessions.length === 0 ? (
+        {isFetchingChats ? (
+          <div className="p-16 text-center text-neutral-400 space-y-3">
+            <RefreshCw className="h-8 w-8 mx-auto animate-spin text-amber-300" />
+            <p className="text-sm font-medium text-neutral-200">
+              Loading chat sessions and message audit...
+            </p>
+            <p className="text-xs text-neutral-500">
+              Retrieving full legal inquiry history from the secure database.
+            </p>
+          </div>
+        ) : isChatsError ? (
+          <div className="p-12 text-center text-rose-300 space-y-3 bg-rose-950/20 border-t border-rose-900/30">
+            <AlertCircle className="h-8 w-8 mx-auto text-rose-400" />
+            <p className="text-sm font-medium">
+              Could not retrieve user chat logs.
+            </p>
+            <p className="text-xs text-rose-400 font-mono">
+              {chatsError instanceof Error
+                ? chatsError.message
+                : "Ensure you are signed in with an authorized admin account."}
+            </p>
+            <button
+              onClick={() => {
+                refetchUser();
+                refetchChats();
+              }}
+              className="mt-2 px-3.5 py-1.5 rounded bg-rose-900/50 hover:bg-rose-900 text-white text-xs uppercase tracking-wider"
+            >
+              Retry
+            </button>
+          </div>
+        ) : chatSessions.length === 0 ? (
           <div className="p-16 text-center text-neutral-500 space-y-3">
             <MessageSquare className="h-10 w-10 mx-auto opacity-30 text-amber-200" />
             <p className="text-sm font-medium text-neutral-300">
@@ -432,4 +579,3 @@ function FounderUserDetailPage() {
     </div>
   );
 }
-

@@ -5,6 +5,7 @@ import { Search, Download, RefreshCw, MessageSquare, ChevronRight, User as UserI
 import { supabase } from "@/integrations/supabase/client";
 import { useTranaCredential } from "@/lib/trana-auth";
 import { getAdminUsers, type AdminUser } from "@/lib/trana-admin-api";
+import { downloadCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/founders/users")({
@@ -89,7 +90,7 @@ function FoundersUsersPage() {
       const isLawyer = lawyerIds.has(u.id);
 
       list.push({
-        id: u.id || u.email,
+        id: u.email || u.id,
         name: u.name || em.split("@")[0],
         email: u.email,
         dateJoined: u.created_at
@@ -176,34 +177,30 @@ function FoundersUsersPage() {
       "Status",
     ];
     const rows = filteredUsers.map((u) => [
-      `"${u.id}"`,
-      `"${u.name}"`,
-      `"${u.email}"`,
-      `"${u.dateJoined}"`,
-      `"${u.city}"`,
-      `"${u.userType}"`,
+      u.id,
+      u.name,
+      u.email,
+      u.dateJoined,
+      u.city,
+      u.userType,
       u.chatsCount,
       u.messagesCount,
-      `"${u.lastActive}"`,
-      `"${u.status}"`,
+      u.lastActive,
+      u.status,
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `trana_real_users_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Exported ${filteredUsers.length} real user records to CSV.`);
+    downloadCSV(
+      `trana_real_users_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows,
+    );
+    toast.success(`Exported ${filteredUsers.length} user records to CSV.`);
   }
 
   const handleRowClick = (user: MergedPlatformUser) => {
     navigate({
       to: "/founders/users/$userId",
-      params: { userId: encodeURIComponent(user.id || user.email) },
+      params: { userId: user.email || user.id },
     });
   };
 

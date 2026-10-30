@@ -40,7 +40,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Depends, Header, Request
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Depends, Header, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -55,7 +55,8 @@ from config import settings
 from database import engine, get_db, Base
 import models.db_models as db_models
 import json
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
+from urllib.parse import unquote
 
 print("[Progress] Loading schemas...")
 from models.schemas import (
@@ -723,6 +724,8 @@ def _admin_email_set() -> set[str]:
     emails = {v.strip().lower() for v in raw.split(",") if v.strip()}
     emails.add("ckhraiushh1@gmail.com")
     emails.add("founder@trana.in")
+    emails.add("tranaintelligence@gmail.com")
+    emails.add("admin@trana.in")
     return emails
 
 
@@ -931,7 +934,7 @@ def list_admin_users(
 
         if em not in users_by_email:
             users_by_email[em] = {
-                "id": s.id,
+                "id": s.user_email,
                 "email": s.user_email,
                 "name": s.user_email.split("@")[0],
                 "picture": None,
@@ -970,6 +973,53 @@ def list_admin_users(
     return result
 
 
+def _resolve_user_and_sessions(user_identifier: str, db: Session):
+    raw_identifier = user_identifier.strip()
+    identifier = unquote(raw_identifier).strip()
+    if "%" in identifier:
+        try:
+            identifier = unquote(identifier).strip()
+        except Exception:
+            pass
+
+    # 1. Search User by id, case-insensitive email, or google_id
+    user = db.query(db_models.User).filter(
+        (db_models.User.id == identifier) |
+        (func.lower(db_models.User.email) == identifier.lower()) |
+        (db_models.User.google_id == identifier)
+    ).first()
+
+    resolved_email = user.email if user else identifier
+
+    # 2. If not found by user record, check if identifier is a ChatSession ID
+    if not user:
+        session_match = db.query(db_models.ChatSession).filter(db_models.ChatSession.id == identifier).first()
+        if session_match and session_match.user_email:
+            resolved_email = session_match.user_email
+            user = db.query(db_models.User).filter(
+                func.lower(db_models.User.email) == resolved_email.lower()
+            ).first()
+
+    # 3. Query all chat sessions matching email or identifier
+    sessions = db.query(db_models.ChatSession).filter(
+        (func.lower(db_models.ChatSession.user_email) == resolved_email.lower()) |
+        (db_models.ChatSession.user_email == resolved_email)
+    ).order_by(db_models.ChatSession.updated_at.desc()).all()
+
+    # If still no sessions, check if identifier matched a chat session directly
+    if not sessions:
+        direct_session = db.query(db_models.ChatSession).filter(db_models.ChatSession.id == identifier).all()
+        if direct_session:
+            sessions = direct_session
+            if not user and sessions[0].user_email:
+                resolved_email = sessions[0].user_email
+                user = db.query(db_models.User).filter(
+                    func.lower(db_models.User.email) == resolved_email.lower()
+                ).first()
+
+    return user, resolved_email, sessions
+
+
 @app.get("/api/admin/users/{user_identifier}", tags=["Admin API"])
 def get_admin_user_detail(
     user_identifier: str,
@@ -977,18 +1027,30 @@ def get_admin_user_detail(
     db: Session = Depends(get_db),
 ):
     """Return user profile and detailed analytics."""
-    identifier = user_identifier.strip()
-    user = db.query(db_models.User).filter(
-        (db_models.User.id == identifier) | (db_models.User.email == identifier)
-    ).first()
-
-    email = user.email if user else identifier
-    sessions = db.query(db_models.ChatSession).filter(
-        db_models.ChatSession.user_email == email
-    ).order_by(db_models.ChatSession.updated_at.desc()).all()
+    user, email, sessions = _resolve_user_and_sessions(user_identifier, db)
 
     if not user and not sessions:
-        raise HTTPException(status_code=404, detail="User not found in system or chat records.")
+        display_name = email.split("@")[0] if "@" in email else email
+        return {
+            "id": user_identifier,
+            "email": email if "@" in email else f"{email}@trana.in",
+            "name": display_name,
+            "picture": None,
+            "created_at": None,
+            "status": "Inactive",
+            "stats": {
+                "total_chats": 0,
+                "total_messages": 0,
+                "user_messages_count": 0,
+                "assistant_messages_count": 0,
+                "total_attachments": 0,
+                "avg_messages_per_chat": 0,
+                "avg_response_time_seconds": 0.0,
+                "models_used": {},
+                "first_active_at": None,
+                "last_active_at": None,
+            },
+        }
 
     session_ids = [s.id for s in sessions]
     messages = db.query(db_models.ChatMessage).filter(
@@ -1017,10 +1079,13 @@ def get_admin_user_detail(
     cutoff_30d = datetime.utcnow() - timedelta(days=30)
     is_active = (last_active >= cutoff_30d) if last_active else False
 
+    email_to_show = user.email if user else email
+    name_to_show = user.name if (user and user.name) else email_to_show.split("@")[0]
+
     return {
-        "id": user.id if user else email,
-        "email": email,
-        "name": user.name if (user and user.name) else email.split("@")[0],
+        "id": user.id if user else email_to_show,
+        "email": email_to_show,
+        "name": name_to_show,
         "picture": user.picture if user else None,
         "created_at": _iso(user.created_at if user else first_active),
         "status": "Active" if is_active else "Inactive",
@@ -1046,15 +1111,7 @@ def get_admin_user_chats(
     db: Session = Depends(get_db),
 ):
     """Return all chat sessions and complete read-only message history for a user."""
-    identifier = user_identifier.strip()
-    user = db.query(db_models.User).filter(
-        (db_models.User.id == identifier) | (db_models.User.email == identifier)
-    ).first()
-
-    email = user.email if user else identifier
-    sessions = db.query(db_models.ChatSession).filter(
-        db_models.ChatSession.user_email == email
-    ).order_by(db_models.ChatSession.updated_at.desc()).all()
+    _user, _email, sessions = _resolve_user_and_sessions(user_identifier, db)
 
     session_ids = [s.id for s in sessions]
     messages = db.query(db_models.ChatMessage).filter(
@@ -1121,6 +1178,113 @@ def get_admin_user_chats(
         }
         for s in sessions
     ]
+
+
+@app.get("/api/admin/users/{user_identifier}/chats/export-csv", tags=["Admin API"])
+def export_admin_user_chats_csv(
+    user_identifier: str,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Generate and stream a CSV file containing all messages for the specified user."""
+    sessions_data = get_admin_user_chats(user_identifier=user_identifier, _admin_email=_admin_email, db=db)
+    
+    import io
+    import csv
+    output = io.StringIO()
+    output.write("\ufeff")
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([
+        "Session ID",
+        "Session Title",
+        "Session Created At",
+        "Session Updated At",
+        "Message ID",
+        "Sender Role",
+        "Model Used",
+        "Processing Time (s)",
+        "Message Timestamp",
+        "Message Content",
+        "Statutory Findings / Law Summary"
+    ])
+    
+    for s in sessions_data:
+        s_id = s.get("id", "")
+        s_title = s.get("title", "")
+        s_created = s.get("created_at", "")
+        s_updated = s.get("updated_at", "")
+        for m in s.get("messages", []):
+            structured = m.get("structured_content")
+            summary = ""
+            if isinstance(structured, dict):
+                summary = structured.get("summary") or structured.get("plain_english_summary") or ""
+            writer.writerow([
+                s_id,
+                s_title,
+                s_created,
+                s_updated,
+                m.get("id", ""),
+                m.get("role", ""),
+                m.get("model_used", ""),
+                m.get("processing_time_seconds", ""),
+                m.get("created_at", ""),
+                m.get("content", ""),
+                summary
+            ])
+            
+    csv_bytes = output.getvalue().encode("utf-8")
+    safe_name = "".join(c if c.isalnum() or c in "._-" else "_" for c in user_identifier)
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="trana_chats_{safe_name}_{datetime.utcnow().strftime("%Y%m%d")}.csv"'
+        }
+    )
+
+
+@app.get("/api/admin/users-export-csv", tags=["Admin API"])
+def export_admin_users_csv(
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Generate and stream a CSV file containing all users from the chat database."""
+    users_data = list_admin_users(_admin_email=_admin_email, db=db)
+    
+    import io
+    import csv
+    output = io.StringIO()
+    output.write("\ufeff")
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([
+        "User ID",
+        "Name",
+        "Email",
+        "Created At",
+        "Last Active At",
+        "Status",
+        "Total Chats",
+        "Total Messages"
+    ])
+    for u in users_data:
+        writer.writerow([
+            u.get("id", ""),
+            u.get("name", ""),
+            u.get("email", ""),
+            u.get("created_at", ""),
+            u.get("last_active_at", ""),
+            u.get("status", ""),
+            u.get("total_chats", 0),
+            u.get("total_messages", 0)
+        ])
+    csv_bytes = output.getvalue().encode("utf-8")
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="trana_users_{datetime.utcnow().strftime("%Y%m%d")}.csv"'
+        }
+    )
 
 
 @app.get("/api/admin/keys", response_model=list[AdminAPIKeyResponse], tags=["Admin"])
