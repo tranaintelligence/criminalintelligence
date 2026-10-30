@@ -28,3 +28,4 @@ export function downloadCSV(
   document.body.removeChild(link);
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
+
