@@ -95,10 +95,10 @@ function FoundersUsersPage() {
         email: u.email,
         dateJoined: u.created_at
           ? new Date(u.created_at).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
           : "Recent",
         city: u.city || "New Delhi",
         userType: isLawyer ? "Lawyer" : "Citizen",
@@ -106,10 +106,10 @@ function FoundersUsersPage() {
         messagesCount: u.total_messages || 0,
         lastActive: u.last_active_at
           ? new Date(u.last_active_at).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
           : "—",
         status: u.status || "Active",
       });
@@ -126,10 +126,10 @@ function FoundersUsersPage() {
           email: pEmail,
           dateJoined: p.created_at
             ? new Date(p.created_at).toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
             : "—",
           city: p.city || "New Delhi",
           userType: isLawyer ? "Lawyer" : "Citizen",
@@ -345,13 +345,12 @@ function FoundersUsersPage() {
                   <td className="py-3 px-4 text-[#CCCCCC]">{u.city}</td>
                   <td className="py-3 px-4">
                     <span
-                      className={`inline-block px-2 py-0.5 text-[0.6rem] rounded border ${
-                        u.userType === "Lawyer"
-                          ? "border-amber-500/40 text-amber-300 bg-amber-950/20"
-                          : u.userType === "Law Student"
+                      className={`inline-block px-2 py-0.5 text-[0.6rem] rounded border ${u.userType === "Lawyer"
+                        ? "border-amber-500/40 text-amber-300 bg-amber-950/20"
+                        : u.userType === "Law Student"
                           ? "border-sky-500/40 text-sky-300 bg-sky-950/20"
                           : "border-neutral-700 text-[#AAAAAA] bg-neutral-900"
-                      }`}
+                        }`}
                     >
                       {u.userType}
                     </span>
@@ -368,11 +367,10 @@ function FoundersUsersPage() {
                   <td className="py-3 px-4 text-[#888888] text-[11px]">{u.lastActive}</td>
                   <td className="py-3 px-4 text-center">
                     <span
-                      className={`inline-block px-2 py-0.5 text-[0.65rem] rounded-full border ${
-                        u.status === "Active"
-                          ? "border-emerald-500/40 text-emerald-400 bg-emerald-950/20"
-                          : "border-neutral-800 text-[#666666] bg-neutral-950"
-                      }`}
+                      className={`inline-block px-2 py-0.5 text-[0.65rem] rounded-full border ${u.status === "Active"
+                        ? "border-emerald-500/40 text-emerald-400 bg-emerald-950/20"
+                        : "border-neutral-800 text-[#666666] bg-neutral-950"
+                        }`}
                     >
                       {u.status}
                     </span>
