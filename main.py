@@ -860,6 +860,269 @@ def delete_admin_ip(
     db.commit()
     return {"ok": True, "deleted_id": ip_id}
 
+@app.get("/api/admin/overview-stats", tags=["Admin API"])
+def get_admin_overview_stats(
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return platform overview stats from the database."""
+    total_db_users = db.query(db_models.User).count()
+    distinct_chat_emails = db.query(db_models.ChatSession.user_email).distinct().count()
+    total_users = max(total_db_users, distinct_chat_emails)
+    
+    total_chats = db.query(db_models.ChatSession).count()
+    total_messages = db.query(db_models.ChatMessage).count()
+    total_attachments = db.query(db_models.ChatAttachment).count()
+
+    cutoff_30d = datetime.utcnow() - timedelta(days=30)
+    active_users_30d = db.query(db_models.ChatSession.user_email).filter(
+        db_models.ChatSession.updated_at >= cutoff_30d
+    ).distinct().count()
+
+    active_keys = db.query(db_models.ProviderAPIKey).filter(db_models.ProviderAPIKey.is_active == True).count()
+
+    return {
+        "total_users": total_users,
+        "total_chats": total_chats,
+        "total_messages": total_messages,
+        "total_attachments": total_attachments,
+        "active_users_30d": active_users_30d,
+        "active_keys": active_keys,
+    }
+
+
+@app.get("/api/admin/users", tags=["Admin API"])
+def list_admin_users(
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return real users from the chat database with activity telemetry."""
+    users_by_email: dict[str, dict] = {}
+
+    registered_users = db.query(db_models.User).all()
+    for u in registered_users:
+        users_by_email[u.email.strip().lower()] = {
+            "id": u.id,
+            "email": u.email,
+            "name": u.name or u.email.split("@")[0],
+            "picture": u.picture,
+            "created_at": _iso(u.created_at),
+            "total_chats": 0,
+            "total_messages": 0,
+            "last_active_at": _iso(u.created_at),
+            "status": "Inactive",
+        }
+
+    sessions = db.query(db_models.ChatSession).all()
+    session_counts: dict[str, int] = {}
+    session_latest: dict[str, datetime] = {}
+    session_to_email: dict[str, str] = {}
+
+    for s in sessions:
+        em = s.user_email.strip().lower() if s.user_email else ""
+        if not em:
+            continue
+        session_to_email[s.id] = em
+        session_counts[em] = session_counts.get(em, 0) + 1
+        curr_latest = session_latest.get(em)
+        s_date = s.updated_at or s.created_at
+        if s_date and (not curr_latest or s_date > curr_latest):
+            session_latest[em] = s_date
+
+        if em not in users_by_email:
+            users_by_email[em] = {
+                "id": s.id,
+                "email": s.user_email,
+                "name": s.user_email.split("@")[0],
+                "picture": None,
+                "created_at": _iso(s.created_at),
+                "total_chats": 0,
+                "total_messages": 0,
+                "last_active_at": _iso(s_date),
+                "status": "Inactive",
+            }
+
+    messages = db.query(db_models.ChatMessage.session_id).all()
+    message_counts: dict[str, int] = {}
+    for (sid,) in messages:
+        if sid in session_to_email:
+            em = session_to_email[sid]
+            message_counts[em] = message_counts.get(em, 0) + 1
+
+    cutoff_30d = datetime.utcnow() - timedelta(days=30)
+    result = []
+    for em, data in users_by_email.items():
+        data["total_chats"] = session_counts.get(em, 0)
+        data["total_messages"] = message_counts.get(em, 0)
+        latest_dt = session_latest.get(em)
+        if latest_dt:
+            data["last_active_at"] = _iso(latest_dt)
+            data["status"] = "Active" if latest_dt >= cutoff_30d else "Inactive"
+        elif data.get("created_at"):
+            try:
+                c_dt = datetime.fromisoformat(data["created_at"])
+                data["status"] = "Active" if c_dt >= cutoff_30d else "Inactive"
+            except Exception:
+                pass
+        result.append(data)
+
+    result.sort(key=lambda x: (x.get("last_active_at") or "", x.get("total_messages", 0)), reverse=True)
+    return result
+
+
+@app.get("/api/admin/users/{user_identifier}", tags=["Admin API"])
+def get_admin_user_detail(
+    user_identifier: str,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return user profile and detailed analytics."""
+    identifier = user_identifier.strip()
+    user = db.query(db_models.User).filter(
+        (db_models.User.id == identifier) | (db_models.User.email == identifier)
+    ).first()
+
+    email = user.email if user else identifier
+    sessions = db.query(db_models.ChatSession).filter(
+        db_models.ChatSession.user_email == email
+    ).order_by(db_models.ChatSession.updated_at.desc()).all()
+
+    if not user and not sessions:
+        raise HTTPException(status_code=404, detail="User not found in system or chat records.")
+
+    session_ids = [s.id for s in sessions]
+    messages = db.query(db_models.ChatMessage).filter(
+        db_models.ChatMessage.session_id.in_(session_ids)
+    ).all() if session_ids else []
+
+    attachments_count = db.query(db_models.ChatAttachment).filter(
+        db_models.ChatAttachment.chat_id.in_(session_ids)
+    ).count() if session_ids else 0
+
+    user_msgs = [m for m in messages if m.role == "user"]
+    assistant_msgs = [m for m in messages if m.role == "assistant"]
+
+    models_used: dict[str, int] = {}
+    for m in assistant_msgs:
+        model_name = m.model_used or "quick-thinking"
+        models_used[model_name] = models_used.get(model_name, 0) + 1
+
+    latencies = [m.processing_time_seconds for m in assistant_msgs if m.processing_time_seconds is not None]
+    avg_latency = (sum(latencies) / len(latencies)) if latencies else 0.0
+
+    all_dates = [s.created_at for s in sessions if s.created_at] + [s.updated_at for s in sessions if s.updated_at]
+    first_active = min(all_dates) if all_dates else (user.created_at if user else None)
+    last_active = max(all_dates) if all_dates else (user.created_at if user else None)
+
+    cutoff_30d = datetime.utcnow() - timedelta(days=30)
+    is_active = (last_active >= cutoff_30d) if last_active else False
+
+    return {
+        "id": user.id if user else email,
+        "email": email,
+        "name": user.name if (user and user.name) else email.split("@")[0],
+        "picture": user.picture if user else None,
+        "created_at": _iso(user.created_at if user else first_active),
+        "status": "Active" if is_active else "Inactive",
+        "stats": {
+            "total_chats": len(sessions),
+            "total_messages": len(messages),
+            "user_messages_count": len(user_msgs),
+            "assistant_messages_count": len(assistant_msgs),
+            "total_attachments": attachments_count,
+            "avg_messages_per_chat": round(len(messages) / len(sessions), 1) if sessions else 0,
+            "avg_response_time_seconds": round(avg_latency, 2),
+            "models_used": models_used,
+            "first_active_at": _iso(first_active),
+            "last_active_at": _iso(last_active),
+        },
+    }
+
+
+@app.get("/api/admin/users/{user_identifier}/chats", tags=["Admin API"])
+def get_admin_user_chats(
+    user_identifier: str,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return all chat sessions and complete read-only message history for a user."""
+    identifier = user_identifier.strip()
+    user = db.query(db_models.User).filter(
+        (db_models.User.id == identifier) | (db_models.User.email == identifier)
+    ).first()
+
+    email = user.email if user else identifier
+    sessions = db.query(db_models.ChatSession).filter(
+        db_models.ChatSession.user_email == email
+    ).order_by(db_models.ChatSession.updated_at.desc()).all()
+
+    session_ids = [s.id for s in sessions]
+    messages = db.query(db_models.ChatMessage).filter(
+        db_models.ChatMessage.session_id.in_(session_ids)
+    ).order_by(db_models.ChatMessage.created_at.asc()).all() if session_ids else []
+
+    attachments = db.query(
+        db_models.ChatAttachment.id,
+        db_models.ChatAttachment.chat_id,
+        db_models.ChatAttachment.filename,
+        db_models.ChatAttachment.content_type,
+        db_models.ChatAttachment.size,
+        db_models.ChatAttachment.created_at,
+    ).filter(
+        db_models.ChatAttachment.chat_id.in_(session_ids)
+    ).all() if session_ids else []
+
+    msgs_by_session: dict[str, list] = {}
+    for m in messages:
+        structured = None
+        if m.structured_content:
+            try:
+                structured = json.loads(m.structured_content)
+            except Exception:
+                structured = m.structured_content
+        sources = None
+        if m.sources:
+            try:
+                sources = json.loads(m.sources)
+            except Exception:
+                sources = None
+
+        msgs_by_session.setdefault(m.session_id, []).append({
+            "id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "structured_content": structured,
+            "sources": sources,
+            "model_used": m.model_used,
+            "processing_time_seconds": m.processing_time_seconds,
+            "created_at": _iso(m.created_at),
+        })
+
+    att_by_session: dict[str, list] = {}
+    for a in attachments:
+        att_by_session.setdefault(a.chat_id, []).append({
+            "id": a.id,
+            "filename": a.filename,
+            "content_type": a.content_type,
+            "size": a.size,
+            "created_at": _iso(a.created_at),
+        })
+
+    return [
+        {
+            "id": s.id,
+            "title": s.title,
+            "user_email": s.user_email,
+            "created_at": _iso(s.created_at),
+            "updated_at": _iso(s.updated_at),
+            "message_count": len(msgs_by_session.get(s.id, [])),
+            "messages": msgs_by_session.get(s.id, []),
+            "attachments": att_by_session.get(s.id, []),
+        }
+        for s in sessions
+    ]
+
+
 @app.get("/api/admin/keys", response_model=list[AdminAPIKeyResponse], tags=["Admin"])
 def list_admin_keys(
     _admin_email: str = Depends(get_admin_email),

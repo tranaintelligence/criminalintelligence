@@ -247,3 +247,92 @@ export const deleteAdminIP = (credential: string, ipId: string): Promise<{ ok: b
   request<{ ok: boolean }>(credential, '/api/admin/ips/' + encodeURIComponent(ipId), {
     method: 'DELETE',
   });
+
+
+export interface AdminOverviewStats {
+  total_users: number;
+  total_chats: number;
+  total_messages: number;
+  total_attachments: number;
+  active_users_30d: number;
+  active_keys: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string | null;
+  created_at?: string | null;
+  total_chats: number;
+  total_messages: number;
+  last_active_at?: string | null;
+  status: 'Active' | 'Inactive';
+  city?: string | null;
+  userType?: 'Citizen' | 'Lawyer' | 'Law Student' | string;
+}
+
+export interface AdminUserStats {
+  total_chats: number;
+  total_messages: number;
+  user_messages_count: number;
+  assistant_messages_count: number;
+  total_attachments: number;
+  avg_messages_per_chat: number;
+  avg_response_time_seconds: number;
+  models_used: Record<string, number>;
+  first_active_at?: string | null;
+  last_active_at?: string | null;
+}
+
+export interface AdminUserDetail {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string | null;
+  created_at?: string | null;
+  status: 'Active' | 'Inactive';
+  stats: AdminUserStats;
+}
+
+export interface AdminChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  structured_content?: any;
+  sources?: any;
+  model_used?: string | null;
+  processing_time_seconds?: number | null;
+  created_at?: string | null;
+}
+
+export interface AdminChatAttachment {
+  id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  created_at?: string | null;
+}
+
+export interface AdminUserChatSession {
+  id: string;
+  title: string;
+  user_email: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  messages: AdminChatMessage[];
+  attachments?: AdminChatAttachment[];
+}
+
+export const getAdminOverviewStats = (credential: string): Promise<AdminOverviewStats> =>
+  request<AdminOverviewStats>(credential, '/api/admin/overview-stats');
+
+export const getAdminUsers = (credential: string): Promise<AdminUser[]> =>
+  request<AdminUser[]>(credential, '/api/admin/users');
+
+export const getAdminUserDetail = (credential: string, userIdentifier: string): Promise<AdminUserDetail> =>
+  request<AdminUserDetail>(credential, `/api/admin/users/${encodeURIComponent(userIdentifier)}`);
+
+export const getAdminUserChats = (credential: string, userIdentifier: string): Promise<AdminUserChatSession[]> =>
+  request<AdminUserChatSession[]>(credential, `/api/admin/users/${encodeURIComponent(userIdentifier)}/chats`);

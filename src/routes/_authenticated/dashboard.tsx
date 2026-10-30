@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Menu, X, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranaCredential } from "@/lib/trana-auth";
+import { getAdminAccess } from "@/lib/trana-admin-api";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -52,6 +54,14 @@ function DashboardLayout() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const { credential } = useTranaCredential();
+  const { data: adminAccess } = useQuery({
+    queryKey: ["admin-access", credential],
+    queryFn: () => (credential ? getAdminAccess(credential) : Promise.resolve({ authorized: false })),
+    enabled: Boolean(credential),
+    staleTime: 5 * 60 * 1000,
+  });
+  const isAdmin = Boolean(adminAccess?.authorized);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -89,13 +99,15 @@ function DashboardLayout() {
           <span>Advocate Workspace</span>
           <span className="font-mono text-[0.65rem] text-amber-400">/lawyer →</span>
         </Link>
-        <Link to="/founders/admin" className="mt-2 flex items-center justify-between text-xs text-foreground/80 hover:text-foreground border border-border px-2.5 py-1.5 transition-colors">
+        {isAdmin && (
+          <Link to="/founders/admin" className="mt-2 flex items-center justify-between text-xs text-foreground/80 hover:text-foreground border border-border px-2.5 py-1.5 transition-colors">
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
             <span>Admin Console</span>
           </span>
           <span className="font-mono text-[0.65rem] text-amber-400">/admin →</span>
         </Link>
+        )}
         <button onClick={signOut} className="mt-3 text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground">Log out</button>
       </div>
     </div>
