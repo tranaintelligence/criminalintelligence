@@ -42,6 +42,7 @@ import { Route as AuthenticatedLawyerNetworkRouteImport } from './routes/_authen
 import { Route as AuthenticatedLawyerProfileRouteImport } from './routes/_authenticated/lawyer.profile'
 import { Route as AuthenticatedLawyerReferralsRouteImport } from './routes/_authenticated/lawyer.referrals'
 import { Route as AuthenticatedLawyerResearchRouteImport } from './routes/_authenticated/lawyer.research'
+import { Route as FoundersUsersIndexRouteImport } from './routes/founders.users.index'
 import { Route as FoundersUsersUserIdRouteImport } from './routes/founders.users.$userId'
 import { Route as AuthenticatedDashboardChatIdRouteImport } from './routes/_authenticated/dashboard.chat.$id'
 
@@ -224,6 +225,11 @@ const AuthenticatedLawyerResearchRoute =
     path: '/research',
     getParentRoute: () => AuthenticatedLawyerRoute,
   } as any)
+const FoundersUsersIndexRoute = FoundersUsersIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FoundersUsersRoute,
+} as any)
 const FoundersUsersUserIdRoute = FoundersUsersUserIdRouteImport.update({
   id: '/$userId',
   path: '/$userId',
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/lawyer/': typeof AuthenticatedLawyerIndexRoute
+  '/founders/users/': typeof FoundersUsersIndexRoute
   '/dashboard/chat/$id': typeof AuthenticatedDashboardChatIdRoute
 }
 export interface FileRoutesByTo {
@@ -285,7 +292,6 @@ export interface FileRoutesByTo {
   '/founders/lawyers': typeof FoundersLawyersRoute
   '/founders/research-logs': typeof FoundersResearchLogsRoute
   '/founders/settings': typeof FoundersSettingsRoute
-  '/founders/users': typeof FoundersUsersRouteWithChildren
   '/founders': typeof FoundersIndexRoute
   '/dashboard/analyse': typeof AuthenticatedDashboardAnalyseRoute
   '/dashboard/chat': typeof AuthenticatedDashboardChatRouteWithChildren
@@ -303,6 +309,7 @@ export interface FileRoutesByTo {
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/lawyer': typeof AuthenticatedLawyerIndexRoute
+  '/founders/users': typeof FoundersUsersIndexRoute
   '/dashboard/chat/$id': typeof AuthenticatedDashboardChatIdRoute
 }
 export interface FileRoutesById {
@@ -341,6 +348,7 @@ export interface FileRoutesById {
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/lawyer/': typeof AuthenticatedLawyerIndexRoute
+  '/founders/users/': typeof FoundersUsersIndexRoute
   '/_authenticated/dashboard/chat/$id': typeof AuthenticatedDashboardChatIdRoute
 }
 export interface FileRouteTypes {
@@ -379,6 +387,7 @@ export interface FileRouteTypes {
     | '/founders/users/$userId'
     | '/dashboard/'
     | '/lawyer/'
+    | '/founders/users/'
     | '/dashboard/chat/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -394,7 +403,6 @@ export interface FileRouteTypes {
     | '/founders/lawyers'
     | '/founders/research-logs'
     | '/founders/settings'
-    | '/founders/users'
     | '/founders'
     | '/dashboard/analyse'
     | '/dashboard/chat'
@@ -412,6 +420,7 @@ export interface FileRouteTypes {
     | '/founders/users/$userId'
     | '/dashboard'
     | '/lawyer'
+    | '/founders/users'
     | '/dashboard/chat/$id'
   id:
     | '__root__'
@@ -449,6 +458,7 @@ export interface FileRouteTypes {
     | '/founders/users/$userId'
     | '/_authenticated/dashboard/'
     | '/_authenticated/lawyer/'
+    | '/founders/users/'
     | '/_authenticated/dashboard/chat/$id'
   fileRoutesById: FileRoutesById
 }
@@ -695,6 +705,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLawyerResearchRouteImport
       parentRoute: typeof AuthenticatedLawyerRoute
     }
+    '/founders/users/': {
+      id: '/founders/users/'
+      path: '/'
+      fullPath: '/founders/users/'
+      preLoaderRoute: typeof FoundersUsersIndexRouteImport
+      parentRoute: typeof FoundersUsersRoute
+    }
     '/founders/users/$userId': {
       id: '/founders/users/$userId'
       path: '/$userId'
@@ -794,10 +811,12 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface FoundersUsersRouteChildren {
   FoundersUsersUserIdRoute: typeof FoundersUsersUserIdRoute
+  FoundersUsersIndexRoute: typeof FoundersUsersIndexRoute
 }
 
 const FoundersUsersRouteChildren: FoundersUsersRouteChildren = {
   FoundersUsersUserIdRoute: FoundersUsersUserIdRoute,
+  FoundersUsersIndexRoute: FoundersUsersIndexRoute,
 }
 
 const FoundersUsersRouteWithChildren = FoundersUsersRoute._addFileChildren(
