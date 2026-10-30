@@ -223,7 +223,8 @@ export function ChatViewContent() {
   const params = (useParams({ strict: false }) as { id?: string }) || {};
   const routeChatId = params.id;
   const { credential, user } = useTranaCredential();
-  const preloadedMessages = (location.state as { preloadedMessages?: ChatMessage[] } | null)?.preloadedMessages;
+  const navState = location.state as { preloadedMessages?: ChatMessage[]; forChatId?: string } | null;
+  const preloadedMessages = navState?.forChatId === routeChatId ? navState?.preloadedMessages : undefined;
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     preloadedMessages ?? (routeChatId ? [] : credential ? [createWelcomeMessage()] : readTemporaryChat()),
   );
@@ -630,7 +631,10 @@ export function ChatViewContent() {
             to: '/dashboard/chat/$id',
             params: { id: activeChatId },
             replace: true,
-            state: { preloadedMessages: [...messagesForNavigation, newMessage, assistantMessage] } as any,
+            state: {
+              forChatId: activeChatId,
+              preloadedMessages: [...messagesForNavigation, newMessage, assistantMessage],
+            } as any,
           });
           pendingChatIdRef.current = null;
         }
@@ -641,6 +645,8 @@ export function ChatViewContent() {
           const err = (await res.json()) as { detail?: unknown };
           if (typeof err.detail === 'string') {
             detail = err.detail;
+          } else if (Array.isArray(err.detail)) {
+            detail = err.detail.map((d: any) => d?.msg || JSON.stringify(d)).join(', ');
           } else if (err.detail && typeof err.detail === 'object') {
             const structuredDetail = err.detail as { code?: unknown; message?: unknown };
             errorCode = typeof structuredDetail.code === 'string' ? structuredDetail.code : '';
@@ -744,7 +750,7 @@ export function ChatViewContent() {
                 <button
                   type="button"
                   onClick={() => {
-                    navigate({ to: '/dashboard/chat/$id', params: { id: chat.id } });
+                    navigate({ to: '/dashboard/chat/$id', params: { id: chat.id }, state: {} as any });
                   }}
                   className="w-full text-left px-3 py-2.5 pr-8 text-xs truncate"
                   title={chat.title}

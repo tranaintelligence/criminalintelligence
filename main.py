@@ -2114,7 +2114,7 @@ async def analyze(
             db.add(user_msg)
             
             # Update chat title if it's "New Chat"
-            if chat_session.title == "New Chat":
+            if chat_session.title in ("New Chat", "New Inquiry") or not chat_session.title.strip():
                 chat_session.title = request.query[:30] + ("..." if len(request.query) > 30 else "")
             
             db.commit()
@@ -2172,7 +2172,12 @@ async def analyze(
         assistant_msg = db_models.ChatMessage(
             session_id=request.chat_id,
             role="assistant",
-            content="", # We use structured_content instead
+            content=(
+                response.analysis.conversational_reply
+                or response.analysis.general_analysis
+                or response.analysis.situation_meaning
+                or "Analysis completed."
+            ),
             structured_content=structured_json,
             sources=sources_json,
             model_used=response.model_used,

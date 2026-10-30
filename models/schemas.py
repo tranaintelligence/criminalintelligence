@@ -215,7 +215,7 @@ class AnalysisRequest(BaseModel):
 
     query: str = Field(
         ...,
-        min_length=3,
+        min_length=1,
         max_length=2000,
         description="The legal question or analysis request from the user.",
     )
