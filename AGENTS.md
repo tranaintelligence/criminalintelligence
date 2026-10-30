@@ -5,3 +5,4 @@
 - **Backend**: Deployed on [Render](https://render.com)
 - **Database**: Managed on [Supabase](https://supabase.com)
 - **Authentication**: Google OAuth (via Supabase / Google Authentication)
+after changing automatically commit and sync
