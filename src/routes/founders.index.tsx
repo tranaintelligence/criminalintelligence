@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Scale, FileText, PhoneCall, RefreshCw, MessageSquare, MessagesSquare, Shield, ArrowUpRight, CheckSquare, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,13 +54,32 @@ function FoundersOverview() {
     refetchInterval: 15000,
   });
 
-  const filteredDisclaimers = disclaimerLogs.filter((log) => {
-    if (!disclaimerSearch.trim()) return true;
-    const q = disclaimerSearch.toLowerCase();
-    const nameMatch = (log.user_name || "").toLowerCase().includes(q);
-    const emailMatch = (log.user_email || "").toLowerCase().includes(q);
-    return nameMatch || emailMatch;
-  });
+  // Deduplicate so each user account appears only ONCE in the founders dashboard
+  const uniqueDisclaimerLogs = useMemo(() => {
+    const seen = new Set<string>();
+    const list: typeof disclaimerLogs = [];
+    for (const log of disclaimerLogs) {
+      const key =
+        (log.user_id && log.user_id.trim()) ||
+        (log.user_email && log.user_email.trim().toLowerCase()) ||
+        log.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(log);
+      }
+    }
+    return list;
+  }, [disclaimerLogs]);
+
+  const filteredDisclaimers = useMemo(() => {
+    return uniqueDisclaimerLogs.filter((log) => {
+      if (!disclaimerSearch.trim()) return true;
+      const q = disclaimerSearch.toLowerCase();
+      const nameMatch = (log.user_name || "").toLowerCase().includes(q);
+      const emailMatch = (log.user_email || "").toLowerCase().includes(q);
+      return nameMatch || emailMatch;
+    });
+  }, [uniqueDisclaimerLogs, disclaimerSearch]);
 
   // Query actual metrics with real counts from database and backend
   const { data: metrics, refetch, isFetching } = useQuery({
@@ -264,7 +283,7 @@ function FoundersOverview() {
                 STATUTORY COMPLIANCE · AUDIT TRAIL
               </span>
               <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[0.68rem] text-emerald-400 font-semibold">
-                {disclaimerLogs.length} Checked
+                {uniqueDisclaimerLogs.length} Checked
               </span>
             </div>
             <h2 className="font-display text-2xl font-medium text-[#F0F0F0] mt-1.5 flex items-center gap-2">
@@ -292,7 +311,7 @@ function FoundersOverview() {
 
         {filteredDisclaimers.length === 0 ? (
           <div className="py-12 text-center text-[#777777] text-xs">
-            {disclaimerLogs.length === 0
+            {uniqueDisclaimerLogs.length === 0
               ? "No acknowledgements recorded yet. When citizens click 'Find a Lawyer' and check the notice box, their verified records will appear here."
               : "No acknowledgements match your search query."}
           </div>

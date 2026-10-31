@@ -56,6 +56,53 @@ function DashboardLayout() {
   const [showLawyerModal, setShowLawyerModal] = useState(false);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
+  // Check if current logged-in user has already accepted the advocate notice
+  const { data: hasAcknowledged } = useQuery({
+    queryKey: ["advocate-disclaimer-acknowledged", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return false;
+      if (typeof window !== "undefined") {
+        const cached = localStorage.getItem(`trana_disclaimer_accepted_${user.id}`);
+        if (cached === "true") return true;
+      }
+      try {
+        const { data } = await supabase
+          .from("advocate_disclaimers")
+          .select("id")
+          .or(`user_id.eq.${user.id},user_email.eq.${user.email || ""}`)
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`trana_disclaimer_accepted_${user.id}`, "true");
+          }
+          return true;
+        }
+      } catch (err) {
+        console.warn("Could not check advocate disclaimer status:", err);
+      }
+      return false;
+    },
+    staleTime: Infinity,
+    enabled: Boolean(user?.id),
+  });
+
+  function handleFindLawyerClick(e?: React.MouseEvent) {
+    if (e) e.preventDefault();
+    setOpen(false);
+
+    // If logged in and already acknowledged, go directly without prompting again
+    const isCached = user?.id && typeof window !== "undefined" && localStorage.getItem(`trana_disclaimer_accepted_${user.id}`) === "true";
+    if (hasAcknowledged || isCached) {
+      navigate({ to: "/dashboard/lawyers" });
+      return;
+    }
+
+    setDisclaimerChecked(false);
+    setShowLawyerModal(true);
+  }
+
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
@@ -79,11 +126,7 @@ function DashboardLayout() {
               <button
                 key={n.to}
                 type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setDisclaimerChecked(false);
-                  setShowLawyerModal(true);
-                }}
+                onClick={handleFindLawyerClick}
                 className={`border-l-2 text-left px-3 py-2.5 text-sm transition-colors hover:text-foreground ${
                   isActive ? "!border-foreground !text-foreground" : "border-transparent text-muted-foreground"
                 }`}
@@ -132,9 +175,12 @@ function DashboardLayout() {
         onClickCapture={(e) => {
           const target = (e.target as HTMLElement).closest('a[href="/dashboard/lawyers"]');
           if (target) {
-            e.preventDefault();
-            setDisclaimerChecked(false);
-            setShowLawyerModal(true);
+            const isCached = user?.id && typeof window !== "undefined" && localStorage.getItem(`trana_disclaimer_accepted_${user.id}`) === "true";
+            if (!hasAcknowledged && !isCached) {
+              e.preventDefault();
+              setDisclaimerChecked(false);
+              setShowLawyerModal(true);
+            }
           }
         }}
       >
@@ -212,15 +258,29 @@ function DashboardLayout() {
                 disabled={!disclaimerChecked}
                 onClick={async () => {
                   try {
-                    await supabase.from("advocate_disclaimers").insert({
-                      user_id: user?.id || null,
-                      user_email: user?.email || profile?.email || null,
-                      user_name: profile?.name || (user as any)?.user_metadata?.full_name || "Citizen Account",
-                      notice_text: "I have read and understood this notice and voluntarily elect to view advocate details.",
-                    });
+                    // Check if already in DB before inserting to prevent duplicate records
+                    const { data: existing } = await supabase
+                      .from("advocate_disclaimers")
+                      .select("id")
+                      .or(`user_id.eq.${user?.id || ""},user_email.eq.${user?.email || profile?.email || ""}`)
+                      .limit(1)
+                      .maybeSingle();
+
+                    if (!existing) {
+                      await supabase.from("advocate_disclaimers").insert({
+                        user_id: user?.id || null,
+                        user_email: user?.email || profile?.email || null,
+                        user_name: profile?.name || (user as any)?.user_metadata?.full_name || "Citizen Account",
+                        notice_text: "I have read and understood this notice and voluntarily elect to view advocate details.",
+                      });
+                    }
                   } catch (err) {
                     console.warn("Could not log advocate disclaimer acceptance:", err);
                   }
+                  if (user?.id && typeof window !== "undefined") {
+                    localStorage.setItem(`trana_disclaimer_accepted_${user.id}`, "true");
+                  }
+                  qc.setQueryData(["advocate-disclaimer-acknowledged", user?.id], true);
                   setShowLawyerModal(false);
                   setDisclaimerChecked(false);
                   navigate({ to: "/dashboard/lawyers" });
