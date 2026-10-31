@@ -152,11 +152,48 @@ function GlobalAnnouncementBanner() {
   );
 }
 
+function ScrollToTopOnOpen() {
+  const router = useRouter();
+  const pathname = router.state.location.pathname;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    try {
+      sessionStorage.removeItem("tsr-scroll-restoration-v1_3");
+    } catch {
+      // ignore
+    }
+
+    // Force scroll to top on initial website open and route changes
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+
+    const raf = requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    });
+
+    const timeout = setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }, 100);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timeout);
+    };
+  }, [pathname]);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ScrollToTopOnOpen />
       <GlobalAnnouncementBanner />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />

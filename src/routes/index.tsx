@@ -25,6 +25,15 @@ function H2({ children, light }: { children: React.ReactNode; light?: boolean })
 
 function Index() {
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      if ("scrollRestoration" in window.history) {
+        window.history.scrollRestoration = "manual";
+      }
+      try {
+        sessionStorage.removeItem("tsr-scroll-restoration-v1_3");
+      } catch {}
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
     const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && e.target.classList.add("in")), { threshold: 0.12 });
     document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
     return () => io.disconnect();
