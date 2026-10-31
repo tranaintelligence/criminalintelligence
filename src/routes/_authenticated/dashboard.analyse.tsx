@@ -8,10 +8,10 @@ import { analyseSituation, type Analysis } from "@/lib/analyse.functions";
 export const Route = createFileRoute("/_authenticated/dashboard/analyse")({
   head: () => ({
     meta: [
-      { title: "Legal First Aid TRANA" },
+      { title: "FIR Analyser TRANA" },
       { name: "description", content: "Describe what happened or upload a document and understand your rights and next steps." },
-      { property: "og:title", content: "Legal First Aid TRANA" },
-      { property: "og:description", content: "Understand your legal situation in plain language." },
+      { property: "og:title", content: "FIR Analyser TRANA" },
+      { property: "og:description", content: "Let us understand your situation in plain language." },
     ],
   }),
   component: Analyse,
@@ -61,10 +61,14 @@ function Analyse() {
 
   return (
     <div>
-      <div className="bg-paper p-8 text-ink md:p-10">
-        <span className="inline-block border border-ink px-3 py-1 text-[0.65rem] uppercase tracking-[0.2em]">AI-Assisted · In Development</span>
-        <h1 className="mt-5 font-display text-4xl leading-tight md:text-5xl">Legal First Aid Understand Your Situation</h1>
-        <p className="mt-4 max-w-2xl text-sm text-ink-muted">
+      <div className="bg-paper p-8 text-ink md:p-10 border border-paper-border">
+        <span className="inline-block border border-ink px-3 py-1 text-[0.65rem] uppercase tracking-[0.2em]">
+          AI-Assisted · In Development
+        </span>
+        <h1 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-medium leading-[1.15] text-balance">
+          Let Us Understand Your Situation
+        </h1>
+        <p className="mt-3.5 max-w-2xl text-sm leading-relaxed text-ink-muted">
           Describe what happened or upload a document. TRANA will help you understand it and connect you to a lawyer if needed.
         </p>
       </div>

@@ -23,9 +23,9 @@ import { API_URL } from '@/lib/trana-backend';
 export const Route = createFileRoute('/_authenticated/dashboard/chat')({
   head: () => ({
     meta: [
-      { title: 'Legal Chat TRANA' },
+      { title: 'Legal First Aid TRANA' },
       { name: 'description', content: 'Statutory AI legal advisor with verified citations and legal document analysis.' },
-      { property: 'og:title', content: 'Legal Chat TRANA' },
+      { property: 'og:title', content: 'Legal First Aid TRANA' },
     ],
   }),
   component: ChatView,

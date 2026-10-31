@@ -176,7 +176,7 @@ function AuthPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           {dest?.includes("lawyer")
             ? "Sign in with your Google account to access the Advocate Workspace."
-            : "Sign in with your Google account to access Legal Chat and First-Aid analysis."}
+            : "Sign in with your Google account to access Legal First Aid and FIR analysis."}
         </p>
 
         {/* Google Sign-In Container */}

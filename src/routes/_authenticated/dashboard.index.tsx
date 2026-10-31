@@ -13,7 +13,7 @@ function greeting() {
 }
 
 const cards = [
-  { title: "Understand My Situation", body: "Describe what happened or upload a legal document. Get a plain-language explanation of your rights and next steps.", cta: "Get Started", to: "/dashboard/analyse" },
+  { title: "FIR Analyser", body: "Describe what happened or upload a legal document. Get a plain-language explanation of your rights and next steps.", cta: "Get Started", to: "/dashboard/analyse" },
   { title: "Find a Legal Professional", body: "Connect with verified lawyers and legal experts. Arrange a consultation by call or chat.", cta: "Find a Lawyer", to: "/dashboard/lawyers" },
 ] as const;
 

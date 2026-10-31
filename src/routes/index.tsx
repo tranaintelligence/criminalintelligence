@@ -48,11 +48,11 @@ function Index() {
           <div className="hidden gap-8 text-sm text-muted-foreground md:flex">
             <a href="#who" className="hover:text-foreground">Who we help</a>
             <a href="#features" className="hover:text-foreground">Features</a>
-            <Link to="/dashboard/chat" className="hover:text-foreground">Legal Chat</Link>
+            <Link to="/dashboard/chat" className="hover:text-foreground">Legal First Aid</Link>
             <Link to="/lawyer" className="hover:text-foreground">For Lawyers</Link>
             <a href="#how" className="hover:text-foreground">How it works</a>
           </div>
-          <Link to="/dashboard/chat" className="btn-solid !px-3 !py-2 !text-[0.65rem] md:!px-4 md:!py-2.5 md:!text-[0.7rem]">Legal Chat</Link>
+          <Link to="/dashboard/chat" className="btn-solid !px-3 !py-2 !text-[0.65rem] md:!px-4 md:!py-2.5 md:!text-[0.7rem]">Legal First Aid</Link>
         </div>
       </nav>
 
