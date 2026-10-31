@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
@@ -50,7 +50,10 @@ function DashboardLayout() {
   const { data: profile } = useProfile();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [showLawyerModal, setShowLawyerModal] = useState(false);
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -68,18 +71,39 @@ function DashboardLayout() {
       <Link to="/" className="font-display text-3xl font-semibold tracking-[0.25em] text-foreground">TRANA</Link>
       <p className="mt-1 text-xs text-muted-foreground">त्राणा — Protection.</p>
       <nav className="mt-12 flex flex-col gap-1">
-        {nav.map((n) => (
-          <Link
-            key={n.to}
-            to={n.to}
-            activeOptions={{ exact: "exact" in n }}
-            onClick={() => setOpen(false)}
-            className="border-l-2 border-transparent px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            activeProps={{ className: "!border-foreground !text-foreground" }}
-          >
-            {n.label}
-          </Link>
-        ))}
+        {nav.map((n) => {
+          if (n.to === "/dashboard/lawyers") {
+            const isActive = location.pathname === "/dashboard/lawyers";
+            return (
+              <button
+                key={n.to}
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setDisclaimerChecked(false);
+                  setShowLawyerModal(true);
+                }}
+                className={`border-l-2 text-left px-3 py-2.5 text-sm transition-colors hover:text-foreground ${
+                  isActive ? "!border-foreground !text-foreground" : "border-transparent text-muted-foreground"
+                }`}
+              >
+                {n.label}
+              </button>
+            );
+          }
+          return (
+            <Link
+              key={n.to}
+              to={n.to}
+              activeOptions={{ exact: "exact" in n }}
+              onClick={() => setOpen(false)}
+              className="border-l-2 border-transparent px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              activeProps={{ className: "!border-foreground !text-foreground" }}
+            >
+              {n.label}
+            </Link>
+          );
+        })}
       </nav>
       <div className="mt-auto border-t border-border pt-5">
         <p className="truncate text-sm text-foreground">{profile?.name}</p>
@@ -102,11 +126,94 @@ function DashboardLayout() {
           {sidebar}
         </div>
       )}
-      <main className="md:ml-[260px]">
+      <main
+        className="md:ml-[260px]"
+        onClickCapture={(e) => {
+          const target = (e.target as HTMLElement).closest('a[href="/dashboard/lawyers"]');
+          if (target) {
+            e.preventDefault();
+            setDisclaimerChecked(false);
+            setShowLawyerModal(true);
+          }
+        }}
+      >
         <div className="mx-auto max-w-5xl px-6 py-10 md:px-12 md:py-14">
           <Outlet />
         </div>
       </main>
+
+      {showLawyerModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-lg border border-border bg-card p-6 md:p-8 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-border pb-4">
+              <div>
+                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
+                  Statutory & Bar Council Disclaimer
+                </p>
+                <h3 className="font-display text-2xl text-foreground mt-1">
+                  Advocate Directory Notice
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLawyerModal(false);
+                  setDisclaimerChecked(false);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+              TRANA does not advertise, endorse or rank any advocate, and takes no fee or commission from advocates. Advocates listed here joined on their own and provided their own details. You are choosing to view them.
+            </p>
+
+            <label className="mt-6 flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={disclaimerChecked}
+                onChange={(e) => setDisclaimerChecked(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-border bg-background text-foreground accent-foreground focus:ring-1 focus:ring-foreground"
+              />
+              <span className="text-xs text-foreground leading-normal">
+                I understand, and I choose to view the advocate details.
+              </span>
+            </label>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLawyerModal(false);
+                  setDisclaimerChecked(false);
+                }}
+                className="border border-border px-5 py-2.5 text-xs uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!disclaimerChecked}
+                onClick={() => {
+                  setShowLawyerModal(false);
+                  setDisclaimerChecked(false);
+                  navigate({ to: "/dashboard/lawyers" });
+                }}
+                className="btn-solid text-xs py-2.5 px-6 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:hover:text-primary-foreground"
+              >
+                Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
