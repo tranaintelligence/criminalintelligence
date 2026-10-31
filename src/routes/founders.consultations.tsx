@@ -9,8 +9,9 @@ import { downloadCSV } from "@/lib/csv-export";
 export const Route = createFileRoute("/founders/consultations")({
   head: () => ({
     meta: [
-      { title: "Consultations Audit TRANA Founders" },
+      { title: "Founders Dashboard — TRANA" },
       { name: "description", content: "Audit log of all client-advocate consultations, call routing, and follow-up tracking." },
+      { property: "og:title", content: "Founders Dashboard — TRANA" },
     ],
   }),
   component: FoundersConsultationsPage,

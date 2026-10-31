@@ -11,8 +11,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/founders/lawyers")({
   head: () => ({
     meta: [
-      { title: "Lawyer Management TRANA Founders" },
+      { title: "Founders Dashboard — TRANA" },
       { name: "description", content: "Review advocate applications, verify Bar Council Sanads, and track internal performance ratings." },
+      { property: "og:title", content: "Founders Dashboard — TRANA" },
     ],
   }),
   component: FoundersLawyersPage,

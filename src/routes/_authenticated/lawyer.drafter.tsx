@@ -10,8 +10,9 @@ import { useLawyerAuth } from "./lawyer";
 export const Route = createFileRoute("/_authenticated/lawyer/drafter")({
   head: () => ({
     meta: [
-      { title: "AI Drafter TRANA Lawyer Workspace" },
+      { title: "Legal Professional Workspace — TRANA" },
       { name: "description", content: "Generate bail applications, petitions, legal notices and court pleadings using TRANA AI." },
+      { property: "og:title", content: "Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerDrafter,

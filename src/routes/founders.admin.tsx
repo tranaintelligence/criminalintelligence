@@ -36,8 +36,9 @@ import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP } from '@/lib/trana-
 export const Route = createFileRoute('/founders/admin')({
   head: () => ({
     meta: [
-      { title: 'API Keys & Admin Console TRANA' },
+      { title: 'Founders Dashboard — TRANA' },
       { name: 'description', content: 'Manage provider rotation and monitor Quick Thinking capacity.' },
+      { property: 'og:title', content: 'Founders Dashboard — TRANA' },
     ],
   }),
   component: AdminView,

@@ -12,8 +12,9 @@ import { formatCourtsHeader } from "@/lib/courts-data";
 export const Route = createFileRoute("/_authenticated/lawyer/")({
   head: () => ({
     meta: [
-      { title: "Lawyer Overview TRANA" },
+      { title: "Legal Professional Workspace — TRANA" },
       { name: "description", content: "Overview of your legal practice, referrals, and active matters on TRANA." },
+      { property: "og:title", content: "Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerOverview,

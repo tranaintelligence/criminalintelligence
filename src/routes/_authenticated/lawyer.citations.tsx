@@ -6,8 +6,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/lawyer/citations")({
   head: () => ({
     meta: [
-      { title: "Citation Finder TRANA Lawyer Workspace" },
+      { title: "Legal Professional Workspace — TRANA" },
       { name: "description", content: "Search BNS, BNSS, BSA and case law with exact citations and section references." },
+      { property: "og:title", content: "Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerCitations,

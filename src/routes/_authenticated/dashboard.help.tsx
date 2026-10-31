@@ -3,9 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/_authenticated/dashboard/help")({
   head: () => ({
     meta: [
-      { title: "Help & Support TRANA" },
+      { title: "Citizens Dashboard — TRANA" },
       { name: "description", content: "Get help using TRANA and find emergency legal resources." },
-      { property: "og:title", content: "Help & Support TRANA" },
+      { property: "og:title", content: "Citizens Dashboard — TRANA" },
       { property: "og:description", content: "Help using TRANA." },
     ],
   }),

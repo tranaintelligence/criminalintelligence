@@ -12,8 +12,9 @@ import { downloadCSV } from "@/lib/csv-export";
 export const Route = createFileRoute("/founders/settings")({
   head: () => ({
     meta: [
-      { title: "Founders Settings & Flags TRANA" },
+      { title: "Founders Dashboard — TRANA" },
       { name: "description", content: "Access control, site-wide announcement banners, feature flags, and waitlist management." },
+      { property: "og:title", content: "Founders Dashboard — TRANA" },
     ],
   }),
   component: FoundersSettingsPage,

@@ -20,8 +20,9 @@ import {
 export const Route = createFileRoute("/_authenticated/lawyer/profile")({
   head: () => ({
     meta: [
-      { title: "My Profile TRANA Lawyer Workspace" },
+      { title: "Legal Professional Workspace — TRANA" },
       { name: "description", content: "Manage your legal profile, Bar registration, specialisations, and consultation preferences." },
+      { property: "og:title", content: "Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerProfilePage,

@@ -36,8 +36,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/founders/users/$userId")({
   head: () => ({
     meta: [
-      { title: "User Chat History & Telemetry TRANA Founders" },
+      { title: "Founders Dashboard — TRANA" },
       { name: "description", content: "Read-only chat audit and engagement telemetry for citizen inquiry." },
+      { property: "og:title", content: "Founders Dashboard — TRANA" },
     ],
   }),
   component: FounderUserDetailPage,

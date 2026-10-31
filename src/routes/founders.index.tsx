@@ -9,8 +9,9 @@ import { getAdminOverviewStats } from "@/lib/trana-admin-api";
 export const Route = createFileRoute("/founders/")({
   head: () => ({
     meta: [
-      { title: "Founders Overview TRANA" },
+      { title: "Founders Dashboard — TRANA" },
       { name: "description", content: "Executive operational overview and key platform metrics for TRANA." },
+      { property: "og:title", content: "Founders Dashboard — TRANA" },
     ],
   }),
   component: FoundersOverview,

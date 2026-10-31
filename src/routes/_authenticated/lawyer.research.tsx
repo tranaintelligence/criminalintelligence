@@ -6,8 +6,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/lawyer/research")({
   head: () => ({
     meta: [
-      { title: "Case Research TRANA Lawyer Workspace" },
+      { title: "Legal Professional Workspace — TRANA" },
       { name: "description", content: "TRANA Case Law and Statutory Research engine." },
+      { property: "og:title", content: "Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerResearchPage,

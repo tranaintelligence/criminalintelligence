@@ -7,9 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/dashboard/lawyers")({
   head: () => ({
     meta: [
-      { title: "Find a Lawyer TRANA" },
+      { title: "Citizens Dashboard — TRANA" },
       { name: "description", content: "Connect with verified lawyers and arrange a consultation by call or chat." },
-      { property: "og:title", content: "Find a Lawyer TRANA" },
+      { property: "og:title", content: "Citizens Dashboard — TRANA" },
       { property: "og:description", content: "Verified legal professionals across India." },
     ],
   }),

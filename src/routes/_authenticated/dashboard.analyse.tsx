@@ -8,9 +8,9 @@ import { analyseSituation, type Analysis } from "@/lib/analyse.functions";
 export const Route = createFileRoute("/_authenticated/dashboard/analyse")({
   head: () => ({
     meta: [
-      { title: "FIR Analyser TRANA" },
+      { title: "Citizens Dashboard — TRANA" },
       { name: "description", content: "Describe what happened or upload a document and understand your rights and next steps." },
-      { property: "og:title", content: "FIR Analyser TRANA" },
+      { property: "og:title", content: "Citizens Dashboard — TRANA" },
       { property: "og:description", content: "Let us understand your situation in plain language." },
     ],
   }),

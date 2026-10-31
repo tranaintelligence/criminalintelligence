@@ -13,9 +13,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/lawyer")({
   head: () => ({
     meta: [
-      { title: "Lawyer Workspace TRANA" },
+      { title: "Legal Professional Workspace — TRANA" },
       { name: "description", content: "TRANA Legal Professional Workspace for verified advocates." },
-      { property: "og:title", content: "Lawyer Workspace TRANA" },
+      { property: "og:title", content: "Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerLayout,
@@ -121,6 +121,10 @@ function LawyerLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.title = "Legal Professional Workspace — TRANA";
+  }, [location.pathname]);
   const [isVerifying, setIsVerifying] = useState(false);
   const [barNumberInput, setBarNumberInput] = useState("");
   const [fullNameInput, setFullNameInput] = useState("");

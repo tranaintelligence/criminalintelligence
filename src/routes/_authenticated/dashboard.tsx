@@ -1,15 +1,15 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard TRANA" },
+      { title: "Citizens Dashboard — TRANA" },
       { name: "description", content: "Your TRANA legal first-aid dashboard." },
-      { property: "og:title", content: "Dashboard TRANA" },
+      { property: "og:title", content: "Citizens Dashboard — TRANA" },
       { property: "og:description", content: "Understand your situation and connect with a lawyer." },
     ],
   }),
@@ -55,6 +55,10 @@ function DashboardLayout() {
   const [open, setOpen] = useState(false);
   const [showLawyerModal, setShowLawyerModal] = useState(false);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+
+  useEffect(() => {
+    document.title = "Citizens Dashboard — TRANA";
+  }, [location.pathname]);
 
   // Check if current logged-in user has already accepted the advocate notice
   const { data: hasAcknowledged } = useQuery({

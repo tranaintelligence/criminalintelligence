@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useState, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { 
   BarChart3, Users, Scale, Settings, Menu, X, ShieldCheck 
 } from "lucide-react";
@@ -8,8 +8,9 @@ import { Toaster } from "@/components/ui/sonner";
 export const Route = createFileRoute("/founders")({
   head: () => ({
     meta: [
-      { title: "Founders TRANA" },
+      { title: "Founders Dashboard — TRANA" },
       { name: "description", content: "Executive operations, metrics and platform management for TRANA founding team." },
+      { property: "og:title", content: "Founders Dashboard — TRANA" },
     ],
   }),
   component: FoundersLayout,
@@ -46,6 +47,10 @@ const navItems = [
 function FoundersLayout() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.title = "Founders Dashboard — TRANA";
+  }, [location.pathname]);
 
   const sidebar = (
     <div className="flex h-full flex-col bg-[#111111] text-[#F0F0F0]">
