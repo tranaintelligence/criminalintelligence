@@ -2,11 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { 
   User, ShieldCheck, Check, Clock, Upload, 
-  MapPin, Phone, MessageSquare, Users, Save, AlertCircle, Camera 
+  MapPin, Phone, MessageSquare, Users, Save, AlertCircle, Camera,
+  X, Search, Plus, Landmark
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLawyerAuth } from "./lawyer";
+import {
+  SUPREME_COURT,
+  ALL_HIGH_COURTS,
+  DISTRICT_COURTS_BY_STATE,
+  ALL_TRIBUNALS,
+  parseCourtsList,
+  formatCourtsHeader,
+} from "@/lib/courts-data";
 
 export const Route = createFileRoute("/_authenticated/lawyer/profile")({
   head: () => ({
@@ -40,7 +49,11 @@ function LawyerProfilePage() {
   const [barRegNo, setBarRegNo] = useState("");
   const [selectedSpecialisations, setSelectedSpecialisations] = useState<string[]>([]);
   const [city, setCity] = useState("");
-  const [courts, setCourts] = useState("");
+  const [selectedCourts, setSelectedCourts] = useState<string[]>([]);
+  const [selectedState, setSelectedState] = useState<string>("Delhi");
+  const [selectedDistrictCourt, setSelectedDistrictCourt] = useState<string>("");
+  const [customDistrictInput, setCustomDistrictInput] = useState<string>("");
+  const [highCourtSearch, setHighCourtSearch] = useState<string>("");
   const [offersCall, setOffersCall] = useState(true);
   const [offersChat, setOffersChat] = useState(true);
   const [offersInPerson, setOffersInPerson] = useState(false);
@@ -56,7 +69,14 @@ function LawyerProfilePage() {
       setFullName(lawyer.full_name || "");
       setBarRegNo(lawyer.bar_reg_no || "D/1429/2019");
       setCity(lawyer.city || "New Delhi");
-      setCourts(lawyer.courts || "Supreme Court of India & Delhi High Court");
+      
+      const parsedCourts = parseCourtsList(lawyer.courts);
+      setSelectedCourts(
+        parsedCourts.length > 0
+          ? parsedCourts
+          : [SUPREME_COURT, "Delhi High Court"]
+      );
+
       setBio(
         lawyer.bio ||
           "Advocate with extensive trial and appellate experience in criminal jurisprudence, anticipatory bail applications under BNSS, and constitutional writ petitions."
@@ -81,6 +101,27 @@ function LawyerProfilePage() {
     );
   }
 
+  function toggleCourt(court: string) {
+    setSelectedCourts((prev) =>
+      prev.includes(court) ? prev.filter((c) => c !== court) : [...prev, court]
+    );
+  }
+
+  function handleAddCourt(court: string) {
+    const trimmed = court.trim();
+    if (!trimmed) return;
+    if (!selectedCourts.includes(trimmed)) {
+      setSelectedCourts((prev) => [...prev, trimmed]);
+      toast.success(`Added "${trimmed}" to Courts of Practice`);
+    } else {
+      toast.info(`"${trimmed}" is already selected`);
+    }
+  }
+
+  function handleRemoveCourt(court: string) {
+    setSelectedCourts((prev) => prev.filter((c) => c !== court));
+  }
+
   function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
@@ -95,6 +136,7 @@ function LawyerProfilePage() {
     setIsSaving(true);
     try {
       const specString = selectedSpecialisations.join(", ") || "General Practice";
+      const courtsPayload = JSON.stringify(selectedCourts);
 
       // 1. Update Supabase lawyers table
       await supabase.from("lawyers").upsert({
@@ -120,7 +162,7 @@ function LawyerProfilePage() {
         data: {
           full_name: fullName,
           bar_reg_no: barRegNo,
-          courts: courts,
+          courts: courtsPayload,
           bio: bio,
         },
       });
@@ -128,7 +170,7 @@ function LawyerProfilePage() {
       // 4. Update localStorage
       if (typeof window !== "undefined") {
         localStorage.setItem(`trana_lawyer_bar_${user.id}`, barRegNo);
-        localStorage.setItem(`trana_lawyer_courts_${user.id}`, courts);
+        localStorage.setItem(`trana_lawyer_courts_${user.id}`, courtsPayload);
       }
 
       await refetch();
@@ -140,6 +182,12 @@ function LawyerProfilePage() {
       setIsSaving(false);
     }
   }
+
+  const availableStates = Object.keys(DISTRICT_COURTS_BY_STATE);
+  const currentDistrictOptions = DISTRICT_COURTS_BY_STATE[selectedState] || [];
+  const filteredHighCourts = ALL_HIGH_COURTS.filter((hc) =>
+    hc.toLowerCase().includes(highCourtSearch.toLowerCase().trim())
+  );
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -279,39 +327,309 @@ function LawyerProfilePage() {
           </div>
         </div>
 
-        {/* SECTION 3: CITY & COURTS */}
-        <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-4">
-          <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888] border-b border-[#282828] pb-3">
-            03 Jurisdiction & Courts of Practice
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* SECTION 3: JURISDICTION & COURTS OF PRACTICE */}
+        <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#282828] pb-3">
             <div>
-              <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
-                City / Principal Seat
-              </label>
-              <input
-                type="text"
-                required
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="e.g. New Delhi"
-                className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-3 text-sm text-white focus:border-white focus:outline-none"
-              />
+              <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888]">
+                03 Jurisdiction & Courts of Practice
+              </h2>
+              <p className="text-xs text-[#999999] mt-1">
+                Select your courts of practice. Selected courts will update your Advocate Portal header dynamically.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-white bg-[#0A0A0A] border border-[#333333] px-3 py-1">
+                {selectedCourts.length} {selectedCourts.length === 1 ? "Court" : "Courts"} Selected
+              </span>
+            </div>
+          </div>
+
+          {/* City / Principal Seat */}
+          <div>
+            <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+              City / Principal Seat
+            </label>
+            <input
+              type="text"
+              required
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. New Delhi"
+              className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-3 text-sm text-white focus:border-white focus:outline-none"
+            />
+          </div>
+
+          {/* Active Selected Courts & Live Header Preview */}
+          <div className="space-y-3 border border-[#2A2A2A] bg-[#0F0F0F] p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[0.7rem] uppercase tracking-[0.15em] text-[#888888] font-medium">
+                Active Courts of Practice
+              </span>
+              {selectedCourts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourts([])}
+                  className="text-[0.7rem] text-[#888888] hover:text-rose-400 transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
 
+            {selectedCourts.length === 0 ? (
+              <p className="text-xs text-[#666666] py-1 italic">
+                No courts selected yet. Choose from Supreme Court, High Courts, District Courts, or Tribunals below.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {selectedCourts.map((court) => (
+                  <span
+                    key={court}
+                    className="inline-flex items-center gap-1.5 bg-[#1C1C1C] border border-[#3E3E3E] text-white text-xs px-3 py-1.5"
+                  >
+                    <span>{court}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCourt(court)}
+                      className="text-[#888888] hover:text-white transition-colors ml-0.5"
+                      title={`Remove ${court}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Live Header Display Preview */}
+            <div className="pt-2.5 border-t border-[#222222] flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+              <span className="text-[#777777] text-[0.7rem] uppercase tracking-wider shrink-0">
+                Portal Header Preview:
+              </span>
+              <span className="font-mono text-white text-[0.75rem] uppercase tracking-[0.2em] bg-[#161616] px-2.5 py-1 border border-[#333333] break-all">
+                {formatCourtsHeader(JSON.stringify(selectedCourts))}
+              </span>
+            </div>
+          </div>
+
+          {/* 1. SUPREME COURT OF INDIA */}
+          <div className="space-y-2">
+            <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
+              1. Apex Court
+            </label>
             <div>
-              <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
-                Court(s) of Practice
+              <button
+                type="button"
+                onClick={() => toggleCourt(SUPREME_COURT)}
+                className={`w-full sm:w-auto px-4 py-2.5 text-xs border transition-colors flex items-center justify-between sm:justify-start gap-3 ${
+                  selectedCourts.includes(SUPREME_COURT)
+                    ? "border-white bg-white text-black font-semibold"
+                    : "border-[#333333] bg-[#0E0E0E] text-[#CCCCCC] hover:text-white hover:border-[#666666]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Landmark className="h-4 w-4" />
+                  <span>{SUPREME_COURT}</span>
+                </div>
+                {selectedCourts.includes(SUPREME_COURT) ? (
+                  <Check className="h-4 w-4 text-black" />
+                ) : (
+                  <span className="text-[0.65rem] text-[#777777] uppercase tracking-wider border border-[#333333] px-1.5 py-0.5">
+                    Apex Court
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* 2. HIGH COURTS (LIST OF ALL HIGH COURTS) */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
+                2. High Courts ({ALL_HIGH_COURTS.length} Constitutional Benches)
               </label>
-              <input
-                type="text"
-                required
-                value={courts}
-                onChange={(e) => setCourts(e.target.value)}
-                placeholder="e.g. Supreme Court of India & Delhi High Court"
-                className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-3 text-sm text-white focus:border-white focus:outline-none"
-              />
+              <div className="relative w-full sm:w-64">
+                <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#666666]" />
+                <input
+                  type="text"
+                  value={highCourtSearch}
+                  onChange={(e) => setHighCourtSearch(e.target.value)}
+                  placeholder="Filter High Courts..."
+                  className="w-full border border-[#333333] bg-[#0A0A0A] pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1 p-2.5 bg-[#0E0E0E] border border-[#262626]">
+              {filteredHighCourts.map((court) => {
+                const isSelected = selectedCourts.includes(court);
+                return (
+                  <button
+                    type="button"
+                    key={court}
+                    onClick={() => toggleCourt(court)}
+                    className={`px-3 py-1.5 text-xs border transition-colors flex items-center gap-1.5 ${
+                      isSelected
+                        ? "border-white bg-white text-black font-semibold"
+                        : "border-[#2A2A2A] bg-[#141414] text-[#999999] hover:text-white hover:border-[#555555]"
+                    }`}
+                  >
+                    {isSelected && <Check className="h-3.5 w-3.5" />}
+                    <span>{court}</span>
+                  </button>
+                );
+              })}
+              {filteredHighCourts.length === 0 && (
+                <p className="text-xs text-[#666666] py-3 px-2">
+                  No High Court matching "{highCourtSearch}".
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 3. DISTRICT & SESSIONS COURTS (CHOOSE STATE, THEN DISTRICT) */}
+          <div className="space-y-3">
+            <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
+              3. District & Sessions Courts (Choose State, Then District)
+            </label>
+
+            <div className="bg-[#0E0E0E] border border-[#262626] p-4 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* State selector */}
+                <div>
+                  <label className="block text-[0.7rem] uppercase tracking-[0.15em] text-[#777777] mb-1">
+                    Select State / UT
+                  </label>
+                  <select
+                    value={selectedState}
+                    onChange={(e) => {
+                      setSelectedState(e.target.value);
+                      setSelectedDistrictCourt("");
+                    }}
+                    className="w-full border border-[#333333] bg-[#0A0A0A] px-3 py-2 text-xs text-white focus:border-white focus:outline-none"
+                  >
+                    {availableStates.map((state) => (
+                      <option key={state} value={state} className="bg-[#111111] text-white">
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* District court dropdown */}
+                <div>
+                  <label className="block text-[0.7rem] uppercase tracking-[0.15em] text-[#777777] mb-1">
+                    Select District Court ({selectedState})
+                  </label>
+                  <select
+                    value={selectedDistrictCourt}
+                    onChange={(e) => setSelectedDistrictCourt(e.target.value)}
+                    className="w-full border border-[#333333] bg-[#0A0A0A] px-3 py-2 text-xs text-white focus:border-white focus:outline-none"
+                  >
+                    <option value="" className="bg-[#111111] text-[#777777]">
+                      -- Select Court Complex --
+                    </option>
+                    {currentDistrictOptions.map((dc) => (
+                      <option key={dc} value={dc} className="bg-[#111111] text-white">
+                        {dc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Add District Button & Custom Entry */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-[#1C1C1C]">
+                <button
+                  type="button"
+                  disabled={!selectedDistrictCourt}
+                  onClick={() => {
+                    if (selectedDistrictCourt) {
+                      handleAddCourt(selectedDistrictCourt);
+                      setSelectedDistrictCourt("");
+                    }
+                  }}
+                  className={`px-4 py-2 text-xs uppercase tracking-[0.15em] font-medium border transition-colors flex items-center justify-center gap-1.5 ${
+                    selectedDistrictCourt
+                      ? "border-white bg-white text-black hover:bg-neutral-200"
+                      : "border-[#2A2A2A] bg-[#141414] text-[#555555] cursor-not-allowed"
+                  }`}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Selected District Court</span>
+                </button>
+
+                {/* Custom district court input fallback */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customDistrictInput}
+                    onChange={(e) => setCustomDistrictInput(e.target.value)}
+                    placeholder="Other District Court..."
+                    className="border border-[#333333] bg-[#0A0A0A] px-3 py-1.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none w-56"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (customDistrictInput.trim()) {
+                          handleAddCourt(customDistrictInput.trim());
+                          setCustomDistrictInput("");
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!customDistrictInput.trim()}
+                    onClick={() => {
+                      if (customDistrictInput.trim()) {
+                        handleAddCourt(customDistrictInput.trim());
+                        setCustomDistrictInput("");
+                      }
+                    }}
+                    className={`px-3 py-1.5 text-xs border transition-colors ${
+                      customDistrictInput.trim()
+                        ? "border-[#555555] text-white hover:border-white"
+                        : "border-[#222222] text-[#444444] cursor-not-allowed"
+                    }`}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. TRIBUNALS */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
+                4. Statutory Tribunals & Appellate Boards
+              </label>
+              <span className="text-[0.7rem] text-[#666666]">
+                NCLAT, NCLT, NGT, CAT, DRT, ITAT, CESTAT, etc.
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2 p-2.5 bg-[#0E0E0E] border border-[#262626]">
+              {ALL_TRIBUNALS.map((tribunal) => {
+                const isSelected = selectedCourts.includes(tribunal);
+                return (
+                  <button
+                    type="button"
+                    key={tribunal}
+                    onClick={() => toggleCourt(tribunal)}
+                    className={`px-3 py-1.5 text-xs border transition-colors flex items-center gap-1.5 text-left ${
+                      isSelected
+                        ? "border-white bg-white text-black font-semibold"
+                        : "border-[#2A2A2A] bg-[#141414] text-[#999999] hover:text-white hover:border-[#555555]"
+                    }`}
+                  >
+                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                    <span>{tribunal}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

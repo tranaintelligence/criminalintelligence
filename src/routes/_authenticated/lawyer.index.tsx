@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLawyerAuth } from "./lawyer";
+import { formatCourtsHeader } from "@/lib/courts-data";
 
 export const Route = createFileRoute("/_authenticated/lawyer/")({
   head: () => ({
@@ -109,21 +110,33 @@ function LawyerOverview() {
     toast.success(`Referral status updated to "${newStatus}"`);
   }
 
+  const courtsHeaderLabel = formatCourtsHeader(lawyer?.courts);
+  const advocateName = lawyer?.full_name?.trim();
+  const welcomeHeading = advocateName ? `Welcome back, Counsel ${advocateName}` : "Welcome back, Counsel";
+
   return (
-    <div className="space-y-12">
+    <div className="space-y-8 md:space-y-10">
       {/* Top Banner / Welcome */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#222222] pb-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#222222] pb-5 md:pb-6">
         <div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#888888]">
             <span>Advocate Portal</span>
             <span>•</span>
-            <span className="text-white">{lawyer?.courts || "Supreme Court & High Court"}</span>
+            <span className="text-white">{courtsHeaderLabel}</span>
           </div>
-          <h1 className="mt-2 font-display text-4xl md:text-5xl font-medium text-white">
-            Welcome back Counsel, {lawyer?.full_name}
+          <h1
+            className="mt-1 font-display font-normal text-white [text-wrap:balance]"
+            style={{
+              fontSize: "clamp(28px, 4vw, 48px)",
+              fontWeight: 400,
+              lineHeight: 1.15,
+              textWrap: "balance",
+            }}
+          >
+            {welcomeHeading}
           </h1>
-          <p className="mt-2 text-sm text-[#999999]">
-            Manage client referrals, draft court pleadings with AI, and access statutory citations.
+          <p className="mt-1.5 text-sm text-[#999999]">
+            Manage consultation requests, draft court pleadings with AI, and access statutory citations.
           </p>
         </div>
 
