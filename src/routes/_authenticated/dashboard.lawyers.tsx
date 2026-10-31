@@ -38,7 +38,6 @@ function Lawyers() {
     if (city && l.city !== city) return false;
     if (type === "call" && !l.offers_call) return false;
     if (type === "chat" && !l.offers_chat) return false;
-    if (type === "in-person" && !l.offers_in_person) return false;
     return true;
   });
 
@@ -60,7 +59,7 @@ function Lawyers() {
         <div className="mt-3 flex flex-wrap gap-3">
           <select className={sel} value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area of law"><option value="">All areas of law</option>{areas.map((a) => <option key={a}>{a}</option>)}</select>
           <select className={sel} value={city} onChange={(e) => setCity(e.target.value)} aria-label="City"><option value="">All cities</option>{cities.map((c) => <option key={c}>{c}</option>)}</select>
-          <select className={sel} value={type} onChange={(e) => setType(e.target.value)} aria-label="Consultation type"><option value="">Any consultation type</option><option value="call">Call</option><option value="chat">Chat</option><option value="in-person">In-person</option></select>
+          <select className={sel} value={type} onChange={(e) => setType(e.target.value)} aria-label="Consultation type"><option value="">Any consultation type</option><option value="call">Call</option><option value="chat">Chat</option></select>
         </div>
       </div>
 
