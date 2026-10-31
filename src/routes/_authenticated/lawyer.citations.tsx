@@ -340,9 +340,14 @@ function LawyerCitations() {
                 </div>
 
                 {/* Cross-reference: Old IPC/CrPC equivalent */}
-                <div className="bg-[#111111] border border-[#2A2A2A] px-3.5 py-2 text-xs text-amber-300/90 font-mono flex items-center gap-2">
-                  <span className="text-[#888888]">Equivalent:</span>
-                  <span>{item.crossReference}</span>
+                <div className="bg-[#111111] border border-[#2A2A2A] px-3.5 py-2 flex items-center gap-2 flex-wrap">
+                  <span className="text-[#888888] text-xs font-mono">Equivalent:</span>
+                  <span
+                    className="text-slate-200 text-sm tracking-normal"
+                    style={{ fontFamily: '"Times New Roman", Times, serif' }}
+                  >
+                    {item.crossReference}
+                  </span>
                 </div>
               </div>
 
