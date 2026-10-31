@@ -62,8 +62,12 @@ export function useLawyerAuth() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      // 2. Also check user metadata and profile
-      const userMeta = user.user_metadata || {};
+      // 2. Also check live auth session to avoid stale route context
+      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const freshUser = authData?.user;
+      const freshMeta = freshUser?.user_metadata || {};
+      const userMeta = Object.keys(freshMeta).length > 0 ? freshMeta : (user.user_metadata || {});
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -84,6 +88,12 @@ export function useLawyerAuth() {
 
       const approved = dbLawyer?.approved ?? localVerification ?? (userMeta.role === "lawyer");
 
+      const localCourts = typeof window !== "undefined" 
+        ? localStorage.getItem(`trana_lawyer_courts_${user.id}`) || localStorage.getItem("trana_lawyer_courts")
+        : null;
+
+      const resolvedCourts = localCourts || freshMeta.courts || userMeta.courts || "Supreme Court of India & Delhi High Court";
+
       return {
         id: dbLawyer?.id || user.id,
         user_id: user.id,
@@ -91,7 +101,7 @@ export function useLawyerAuth() {
         bar_reg_no: userMeta.bar_reg_no || (typeof window !== "undefined" ? localStorage.getItem(`trana_lawyer_bar_${user.id}`) : null) || "D/1429/2019",
         specialisation: dbLawyer?.specialisation || "Criminal Law & Constitutional Writs",
         city: dbLawyer?.city || profile?.city || "New Delhi",
-        courts: userMeta.courts || (typeof window !== "undefined" ? localStorage.getItem(`trana_lawyer_courts_${user.id}`) : null) || "Supreme Court of India & Delhi High Court",
+        courts: resolvedCourts,
         bio: userMeta.bio || "Senior Advocate specializing in criminal defence, anticipatory bail, and appellate litigation.",
         offers_call: dbLawyer?.offers_call ?? true,
         offers_chat: dbLawyer?.offers_chat ?? true,
@@ -100,6 +110,7 @@ export function useLawyerAuth() {
         is_verified_lawyer: isVerifiedRole,
       };
     },
+    staleTime: 0,
   });
 }
 
@@ -147,19 +158,21 @@ function LawyerLayout() {
       });
 
       // Update user auth metadata
+      const initialCourts = JSON.stringify(["Supreme Court of India", "Delhi High Court"]);
       await supabase.auth.updateUser({
         data: {
           role: "lawyer",
           bar_reg_no: barNo,
-          courts: "Delhi High Court & Supreme Court",
+          courts: initialCourts,
         },
-      });
+      }).catch(() => {});
 
       // Save local session state
       if (typeof window !== "undefined") {
         localStorage.setItem(`trana_lawyer_verified_${user.id}`, "true");
         localStorage.setItem(`trana_lawyer_bar_${user.id}`, barNo);
-        localStorage.setItem(`trana_lawyer_courts_${user.id}`, "Delhi High Court & Supreme Court");
+        localStorage.setItem(`trana_lawyer_courts_${user.id}`, initialCourts);
+        localStorage.setItem("trana_lawyer_courts", initialCourts);
       }
 
       await refetch();

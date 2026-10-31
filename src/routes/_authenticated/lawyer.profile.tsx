@@ -60,6 +60,7 @@ function LawyerProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
 
   // Verification status
   const isApproved = lawyer?.approved ?? true;
@@ -92,8 +93,20 @@ function LawyerProfilePage() {
       } else {
         setSelectedSpecialisations(["Criminal Law & Bail", "BNS / BNSS Procedure"]);
       }
+
+      setHasLoadedProfile(true);
     }
   }, [lawyer]);
+
+  // Persist courts to local session whenever user updates selection
+  useEffect(() => {
+    if (!hasLoadedProfile || !user?.id) return;
+    const payload = JSON.stringify(selectedCourts);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`trana_lawyer_courts_${user.id}`, payload);
+      localStorage.setItem("trana_lawyer_courts", payload);
+    }
+  }, [selectedCourts, hasLoadedProfile, user?.id]);
 
   function toggleSpecialisation(spec: string) {
     setSelectedSpecialisations((prev) =>
@@ -138,7 +151,14 @@ function LawyerProfilePage() {
       const specString = selectedSpecialisations.join(", ") || "General Practice";
       const courtsPayload = JSON.stringify(selectedCourts);
 
-      // 1. Update Supabase lawyers table
+      // 1. Immediately persist to localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`trana_lawyer_bar_${user.id}`, barRegNo);
+        localStorage.setItem(`trana_lawyer_courts_${user.id}`, courtsPayload);
+        localStorage.setItem("trana_lawyer_courts", courtsPayload);
+      }
+
+      // 2. Update Supabase lawyers table
       await supabase.from("lawyers").upsert({
         user_id: user.id,
         full_name: fullName,
@@ -148,16 +168,16 @@ function LawyerProfilePage() {
         offers_chat: offersChat,
         offers_in_person: offersInPerson,
         approved: isApproved,
-      });
+      }).catch((err) => console.warn("lawyers upsert:", err));
 
-      // 2. Update Supabase profiles table
+      // 3. Update Supabase profiles table
       await supabase.from("profiles").upsert({
         id: user.id,
         full_name: fullName,
         city: city,
-      });
+      }).catch((err) => console.warn("profiles upsert:", err));
 
-      // 3. Update auth user metadata
+      // 4. Update auth user metadata
       await supabase.auth.updateUser({
         data: {
           full_name: fullName,
@@ -165,14 +185,9 @@ function LawyerProfilePage() {
           courts: courtsPayload,
           bio: bio,
         },
-      });
+      }).catch((err) => console.warn("auth updateUser:", err));
 
-      // 4. Update localStorage
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`trana_lawyer_bar_${user.id}`, barRegNo);
-        localStorage.setItem(`trana_lawyer_courts_${user.id}`, courtsPayload);
-      }
-
+      await supabase.auth.refreshSession().catch(() => {});
       await refetch();
       toast.success("Profile updated successfully!");
     } catch (err) {
