@@ -47,6 +47,7 @@ export function useProfile() {
 }
 
 function DashboardLayout() {
+  const { user } = Route.useRouteContext();
   const { data: profile } = useProfile();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -171,9 +172,17 @@ function DashboardLayout() {
               </button>
             </div>
 
-            <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-              TRANA does not advertise, endorse or rank any advocate, and takes no fee or commission from advocates. Advocates listed here joined on their own and provided their own details. You are choosing to view them.
-            </p>
+            <div className="mt-5 space-y-3 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                TRANA is a legal information platform. It does not advertise, solicit, endorse or rank any advocate, and it receives no fee, commission or other consideration from any advocate in connection with this listing.
+              </p>
+              <p>
+                The advocates shown have voluntarily elected to be listed and are solely responsible for the accuracy of the particulars they have furnished. These particulars are presented in alphabetical order, for information only.
+              </p>
+              <p>
+                Access to this information is entirely at your own initiative. Nothing herein constitutes a recommendation, an endorsement or legal advice, and no advocate-client relationship arises from viewing it.
+              </p>
+            </div>
 
             <label className="mt-6 flex items-start gap-3 cursor-pointer select-none">
               <input
@@ -183,7 +192,7 @@ function DashboardLayout() {
                 className="mt-1 h-4 w-4 rounded border-border bg-background text-foreground accent-foreground focus:ring-1 focus:ring-foreground"
               />
               <span className="text-xs text-foreground leading-normal">
-                I understand, and I choose to view the advocate details.
+                I have read and understood this notice and voluntarily elect to view advocate details.
               </span>
             </label>
 
@@ -201,7 +210,17 @@ function DashboardLayout() {
               <button
                 type="button"
                 disabled={!disclaimerChecked}
-                onClick={() => {
+                onClick={async () => {
+                  try {
+                    await supabase.from("advocate_disclaimers").insert({
+                      user_id: user?.id || null,
+                      user_email: user?.email || profile?.email || null,
+                      user_name: profile?.name || (user as any)?.user_metadata?.full_name || "Citizen Account",
+                      notice_text: "I have read and understood this notice and voluntarily elect to view advocate details.",
+                    });
+                  } catch (err) {
+                    console.warn("Could not log advocate disclaimer acceptance:", err);
+                  }
                   setShowLawyerModal(false);
                   setDisclaimerChecked(false);
                   navigate({ to: "/dashboard/lawyers" });

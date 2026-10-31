@@ -194,3 +194,15 @@ class ProviderAPIKeyUsage(Base):
             "bucket_start",
         ),
     )
+
+
+class AdvocateDisclaimer(Base):
+    __tablename__ = "advocate_disclaimers"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=True, index=True)
+    user_email = Column(String, nullable=True, index=True)
+    user_name = Column(String, nullable=True)
+    notice_text = Column(Text, nullable=True)
+    accepted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
