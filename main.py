@@ -1172,6 +1172,8 @@ def get_admin_user_chats(
             "user_email": s.user_email,
             "created_at": _iso(s.created_at),
             "updated_at": _iso(s.updated_at),
+            "deleted_by_user": bool(getattr(s, "deleted_by_user", False)),
+            "deleted_at": _iso(getattr(s, "deleted_at", None)),
             "message_count": len(msgs_by_session.get(s.id, [])),
             "messages": msgs_by_session.get(s.id, []),
             "attachments": att_by_session.get(s.id, []),
@@ -1197,6 +1199,7 @@ def export_admin_user_chats_csv(
     writer.writerow([
         "Session ID",
         "Session Title",
+        "Chat Status",
         "Session Created At",
         "Session Updated At",
         "Message ID",
@@ -1211,6 +1214,7 @@ def export_admin_user_chats_csv(
     for s in sessions_data:
         s_id = s.get("id", "")
         s_title = s.get("title", "")
+        s_status = "Deleted by User" if s.get("deleted_by_user") else "Active"
         s_created = s.get("created_at", "")
         s_updated = s.get("updated_at", "")
         for m in s.get("messages", []):
@@ -1221,6 +1225,7 @@ def export_admin_user_chats_csv(
             writer.writerow([
                 s_id,
                 s_title,
+                s_status,
                 s_created,
                 s_updated,
                 m.get("id", ""),
@@ -1526,7 +1531,10 @@ def admin_usage(
 
 @app.get("/api/chats", response_model=list[ChatSessionSummaryResponse], tags=["Chats"])
 def get_chats(user_email: str = Depends(get_current_user_email), db: Session = Depends(get_db)):
-    sessions = db.query(db_models.ChatSession).filter(db_models.ChatSession.user_email == user_email).order_by(db_models.ChatSession.updated_at.desc()).all()
+    sessions = db.query(db_models.ChatSession).filter(
+        db_models.ChatSession.user_email == user_email,
+        (db_models.ChatSession.deleted_by_user == False) | (db_models.ChatSession.deleted_by_user.is_(None))
+    ).order_by(db_models.ChatSession.updated_at.desc()).all()
     return [{
             "id": s.id,
             "title": s.title,
@@ -1541,6 +1549,7 @@ def get_chat(chat_id: str, user_email: str = Depends(get_current_user_email), db
     session = db.query(db_models.ChatSession).filter(
         db_models.ChatSession.id == chat_id,
         db_models.ChatSession.user_email == user_email,
+        (db_models.ChatSession.deleted_by_user == False) | (db_models.ChatSession.deleted_by_user.is_(None))
     ).first()
     if not session:
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -1603,14 +1612,17 @@ def create_chat(chat_in: ChatSessionCreate, user_email: str = Depends(get_curren
 
 @app.delete("/api/chats/{chat_id}", tags=["Chats"])
 def delete_chat(chat_id: str, user_email: str = Depends(get_current_user_email), db: Session = Depends(get_db)):
-    db_session = db.query(db_models.ChatSession).filter(db_models.ChatSession.id == chat_id, db_models.ChatSession.user_email == user_email).first()
+    db_session = db.query(db_models.ChatSession).filter(
+        db_models.ChatSession.id == chat_id,
+        db_models.ChatSession.user_email == user_email
+    ).first()
     if not db_session:
         raise HTTPException(status_code=404, detail="Chat not found")
-    db.query(db_models.ChatMessage).filter(db_models.ChatMessage.session_id == chat_id).delete()
-    db.query(db_models.ChatAttachment).filter(db_models.ChatAttachment.chat_id == chat_id).delete()
-    db.delete(db_session)
+    # Soft delete: mark as deleted by user, keep all messages and attachments intact for founders dashboard audit
+    db_session.deleted_by_user = True
+    db_session.deleted_at = datetime.utcnow()
     db.commit()
-    return {"status": "success"}
+    return {"status": "success", "deleted_by_user": True}
 
 
 def _chat_attachment_response(row):

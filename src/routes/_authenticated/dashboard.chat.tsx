@@ -503,7 +503,7 @@ export function ChatViewContent() {
 
   const handleDeleteChat = async (event: React.MouseEvent, chat: ChatSession) => {
     event.stopPropagation();
-    if (!credential || !window.confirm(`Delete “${chat.title || 'New Chat'}”? This cannot be undone.`)) return;
+    if (!credential || !window.confirm(`Delete “${chat.title || 'New Chat'}”? This will remove it from your chat history.`)) return;
 
     try {
       const response = await authFetch(`${API_URL}/api/chats/${chat.id}`, credential, {
@@ -760,7 +760,7 @@ export function ChatViewContent() {
                 <button
                   type="button"
                   onClick={(e) => void handleDeleteChat(e, chat)}
-                  className="absolute right-2 p-1 rounded text-neutral-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  className="absolute right-2 p-1 rounded text-neutral-500 hover:text-rose-400 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   title="Delete chat"
                   aria-label={`Delete ${chat.title || 'chat'}`}
                 >
@@ -838,6 +838,20 @@ export function ChatViewContent() {
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Quick Thinking rate-limited
               </div>
+            )}
+            {routeChatId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  const targetChat = chats.find((c) => c.id === routeChatId) || ({ id: routeChatId, title: currentChatTitle } as any);
+                  void handleDeleteChat(e, targetChat);
+                }}
+                className="text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1 rounded-lg border border-rose-900/40 hover:bg-rose-950/30 transition-colors flex items-center gap-1.5"
+                title="Delete this chat session"
+              >
+                <Trash2 size={13} />
+                <span className="hidden sm:inline">Delete Chat</span>
+              </button>
             )}
             <button
               type="button"

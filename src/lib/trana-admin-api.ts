@@ -320,6 +320,8 @@ export interface AdminUserChatSession {
   user_email: string;
   created_at: string;
   updated_at: string;
+  deleted_by_user?: boolean;
+  deleted_at?: string | null;
   message_count: number;
   messages: AdminChatMessage[];
   attachments?: AdminChatAttachment[];

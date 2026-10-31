@@ -43,6 +43,8 @@ class ChatSession(Base):
     id = Column(String, primary_key=True, index=True)
     user_email = Column(String, index=True, nullable=False)
     title = Column(String, nullable=False)
+    deleted_by_user = Column(Boolean, default=False, nullable=False, server_default="false")
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

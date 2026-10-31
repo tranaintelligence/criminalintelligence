@@ -21,6 +21,7 @@ import {
   Paperclip,
   CheckCircle2,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import { useTranaCredential } from "@/lib/trana-auth";
 import {
@@ -123,6 +124,7 @@ function FounderUserDetailPage() {
     const headers = [
       "Session ID",
       "Session Title",
+      "Chat Status",
       "Session Created At",
       "Session Updated At",
       "Message Index",
@@ -138,10 +140,12 @@ function FounderUserDetailPage() {
 
     chatSessions.forEach((session) => {
       const messages = session.messages || [];
+      const sessionStatus = session.deleted_by_user ? "Deleted by User" : "Active";
       if (messages.length === 0) {
         rows.push([
           session.id,
           session.title || "Untitled Session",
+          sessionStatus,
           session.created_at,
           session.updated_at,
           0,
@@ -167,6 +171,7 @@ function FounderUserDetailPage() {
           rows.push([
             session.id,
             session.title || "Untitled Session",
+            sessionStatus,
             session.created_at,
             session.updated_at,
             idx + 1,
@@ -472,9 +477,17 @@ function FounderUserDetailPage() {
 
                     <div className="flex items-center justify-between text-[10px] text-neutral-500 font-mono mt-2">
                       <span>{formatDate(session.updated_at || session.created_at)}</span>
-                      {isSelected && (
-                        <span className="text-amber-300 text-[10px] font-semibold">Active</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {session.deleted_by_user && (
+                          <span className="text-rose-400 text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-800/60 flex items-center gap-1">
+                            <Trash2 className="h-2.5 w-2.5" />
+                            Deleted
+                          </span>
+                        )}
+                        {isSelected && (
+                          <span className="text-amber-300 text-[10px] font-semibold">Selected</span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -487,11 +500,24 @@ function FounderUserDetailPage() {
               {currentSession && (
                 <div className="p-4 border-b border-[#222222] bg-[#121212] flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-white">
-                      {currentSession.title || "Untitled Session"}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-semibold text-white">
+                        {currentSession.title || "Untitled Session"}
+                      </h3>
+                      {currentSession.deleted_by_user && (
+                        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold flex items-center gap-1">
+                          <Trash2 className="h-3 w-3 inline text-rose-400" />
+                          Deleted by Citizen
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
                       Session ID: {currentSession.id} · Created: {formatDate(currentSession.created_at)}
+                      {currentSession.deleted_by_user && currentSession.deleted_at && (
+                        <span className="text-rose-400/90 ml-2">
+                          · Deleted on: {formatDate(currentSession.deleted_at)}
+                        </span>
+                      )}
                     </p>
                   </div>
 
