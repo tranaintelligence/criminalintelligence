@@ -9,7 +9,6 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLawyerAuth } from "./lawyer";
-import { ConsultationChatModal } from "@/components/ConsultationChatModal";
 
 export const Route = createFileRoute("/_authenticated/lawyer/referrals")({
   head: () => ({
@@ -141,12 +140,6 @@ function LawyerReferralsPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedBrief, setSelectedBrief] = useState<Referral | null>(null);
-  const [activeChat, setActiveChat] = useState<{
-    consultationId: string;
-    clientName: string;
-    lawyerName: string;
-    consultType: string;
-  } | null>(null);
 
   // Fetch live consultations from citizens who connected with this lawyer
   const { data: dbConsults = [] } = useQuery({
@@ -476,22 +469,6 @@ function LawyerReferralsPage() {
                   </>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActiveChat({
-                      consultationId: r.id,
-                      clientName: r.client,
-                      lawyerName: lawyer?.full_name || "Advocate Counsel",
-                      consultType: r.consultationType,
-                    })
-                  }
-                  className="border border-white/40 hover:border-white text-white bg-[#1A1A1A] hover:bg-[#252525] px-3 py-1.5 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors"
-                >
-                  <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Open Chat</span>
-                </button>
-
                 <Link
                   to="/lawyer/drafter"
                   className="border border-white/30 px-3 py-1.5 text-xs uppercase tracking-[0.1em] text-white hover:border-white transition-colors flex items-center gap-1.5"
@@ -542,19 +519,6 @@ function LawyerReferralsPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* CONFIDENTIAL CONSULTATION CHAT MODAL (LAWYER VIEW) */}
-      {activeChat && (
-        <ConsultationChatModal
-          isOpen={Boolean(activeChat)}
-          onClose={() => setActiveChat(null)}
-          consultationId={activeChat.consultationId}
-          consultationType={activeChat.consultType}
-          currentParty="lawyer"
-          clientName={activeChat.clientName}
-          lawyerName={activeChat.lawyerName}
-        />
       )}
     </div>
   );
