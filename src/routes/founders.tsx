@@ -1,11 +1,90 @@
-import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation, useNavigate, redirect } from "@tanstack/react-router";
 import { useState, useEffect, createContext, useContext } from "react";
 import { 
-  BarChart3, Users, Scale, Settings, Menu, X, ShieldCheck, MessageSquare 
+  BarChart3, Users, Scale, Settings, Menu, X, ShieldCheck, MessageSquare, ShieldAlert, LogOut 
 } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+export const DEFAULT_ADMIN_EMAILS = [
+  "ckhraiushh1@gmail.com",
+  "founder@trana.in",
+  "tranaintelligence@gmail.com",
+  "admin@trana.in",
+  "team@trana.in",
+];
+
+export function checkIsAdmin(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  const envAdmins = (typeof import.meta !== "undefined" && import.meta.env?.VITE_ADMIN_EMAILS ? String(import.meta.env.VITE_ADMIN_EMAILS) : "")
+    .split(/[,;]/)
+    .map((e: string) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const allowlist = new Set([...DEFAULT_ADMIN_EMAILS.map((e) => e.toLowerCase()), ...envAdmins]);
+  return allowlist.has(normalized);
+}
+
+export async function getAuthenticatedUser(): Promise<{ id: string; email: string; name?: string } | null> {
+  if (typeof window !== "undefined") {
+    // 1. Direct TRANA session in localStorage
+    try {
+      const token = localStorage.getItem("trana_session_token");
+      const userRaw = localStorage.getItem("trana_user");
+      if (token && userRaw) {
+        const userObj = JSON.parse(userRaw);
+        if (userObj && (userObj.email || userObj.id)) {
+          return {
+            id: userObj.id || userObj.email,
+            email: (userObj.email || "").trim().toLowerCase(),
+            name: userObj.name || userObj.email?.split("@")[0] || "Founder",
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Supabase auth session
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data?.user && data.user.email) {
+      return {
+        id: data.user.id,
+        email: data.user.email.trim().toLowerCase(),
+        name: data.user.user_metadata?.full_name || data.user.email.split("@")[0] || "Founder",
+      };
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
 
 export const Route = createFileRoute("/founders")({
+  ssr: false,
+  beforeLoad: async ({ location }) => {
+    const user = await getAuthenticatedUser();
+    // 1. Require login: general public is immediately redirected to auth
+    if (!user) {
+      throw redirect({
+        to: "/auth",
+        search: { redirect: location.pathname },
+      });
+    }
+
+    // 2. Require admin: if not admin, bounce any subroute back to /founders so Access Denied screen renders
+    const isAdmin = checkIsAdmin(user.email);
+    if (!isAdmin && location.pathname !== "/founders" && location.pathname !== "/founders/") {
+      throw redirect({
+        to: "/founders",
+      });
+    }
+
+    return { user, isAdmin };
+  },
   head: () => ({
     meta: [
       { title: "Founders Dashboard — TRANA" },
@@ -19,6 +98,7 @@ export const Route = createFileRoute("/founders")({
 type FounderContextType = {
   founderEmail: string;
   isLoggedIn: boolean;
+  isAdmin: boolean;
   logout: () => void;
 };
 
@@ -30,6 +110,7 @@ export function useFounderAuth() {
     return {
       founderEmail: "founder@trana.in",
       isLoggedIn: true,
+      isAdmin: true,
       logout: () => {},
     };
   }
@@ -47,11 +128,118 @@ const navItems = [
 
 function FoundersLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; email: string; name?: string } | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
     document.title = "Founders Dashboard — TRANA";
   }, [location.pathname]);
+
+  useEffect(() => {
+    let active = true;
+    getAuthenticatedUser().then((u) => {
+      if (active) {
+        setCurrentUser(u);
+        setCheckingAuth(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [location.pathname]);
+
+  const logout = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("trana_session_token");
+      localStorage.removeItem("trana_user");
+    }
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    window.location.href = "/";
+  };
+
+  // 1. Loading verification state
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center text-white font-mono gap-3 p-4">
+        <div className="w-6 h-6 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs uppercase tracking-widest text-[#888888]">
+          Verifying Founder Access...
+        </span>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated user -> redirect to auth
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center text-white font-mono gap-4 p-4 text-center">
+        <p className="text-sm text-[#888888]">Authentication required to access the Founders Console.</p>
+        <Link
+          to="/auth"
+          search={{ redirect: location.pathname }}
+          className="bg-white text-black px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded hover:bg-neutral-200 transition-colors"
+        >
+          Sign In to TRANA →
+        </Link>
+      </div>
+    );
+  }
+
+  // 3. Authenticated user who is NOT an admin -> Access Denied Screen
+  const isAdmin = checkIsAdmin(currentUser.email);
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0] flex flex-col items-center justify-center p-6 font-mono selection:bg-white selection:text-black">
+        <Toaster />
+        <div className="max-w-md w-full border border-red-500/30 bg-[#121212] p-8 rounded-xl space-y-6 text-center shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-amber-500 to-red-600" />
+          <div className="w-14 h-14 mx-auto rounded-full bg-red-950/40 border border-red-500/40 flex items-center justify-center text-red-400">
+            <ShieldAlert className="h-7 w-7" />
+          </div>
+          <div>
+            <span className="text-[10px] uppercase font-mono tracking-widest text-red-400 border border-red-500/30 px-2 py-0.5 rounded">
+              403 · Access Restricted
+            </span>
+            <h1 className="font-display text-2xl font-medium text-white mt-3">
+              Founders Only Area
+            </h1>
+            <p className="text-xs text-[#888888] mt-2 leading-relaxed">
+              This console is restricted strictly to TRANA founders and platform administrators. General public and non-admin accounts do not have access.
+            </p>
+          </div>
+
+          <div className="bg-[#181818] border border-[#282828] p-3.5 rounded text-left text-xs space-y-1">
+            <span className="text-[#666666] block text-[10px] uppercase tracking-wider">Signed in as:</span>
+            <span className="text-white font-medium break-all">{currentUser.email}</span>
+            <span className="text-[10px] text-amber-200/70 block mt-1">Role: Citizen / Standard User (Non-Admin)</span>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <Link
+              to="/dashboard"
+              className="w-full bg-white text-black py-2.5 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors text-center rounded"
+            >
+              Return to Citizen Dashboard →
+            </Link>
+            <button
+              onClick={logout}
+              className="w-full border border-[#333333] hover:border-white text-neutral-300 hover:text-white py-2.5 text-xs uppercase tracking-wider transition-colors text-center rounded flex items-center justify-center gap-2"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Sign Out & Switch Account</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Authorized Founder Admin -> Render Management Console
+  const founderEmail = currentUser.email;
 
   const sidebar = (
     <div className="flex h-full flex-col bg-[#111111] text-[#F0F0F0]">
@@ -65,7 +253,7 @@ function FoundersLayout() {
         </span>
       </div>
 
-      {/* Navigation: Overview, Users, Lawyers, Settings */}
+      {/* Navigation: Overview, Users, Lawyers, Client Lawyer Chat, API Keys & Admin, Settings */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 font-mono text-xs">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -94,20 +282,32 @@ function FoundersLayout() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-[#222222] bg-[#0E0E0E] font-mono text-[0.75rem] text-[#888888] flex items-center justify-between">
-        <Link to="/" className="hover:text-[#F0F0F0] transition-colors">
-          ← Main Site
-        </Link>
-        <span className="text-[0.65rem] border border-white/20 px-1.5 py-0.5 text-emerald-400">
-          ONLINE
-        </span>
+      {/* Footer & Admin User Profile */}
+      <div className="p-4 border-t border-[#222222] bg-[#0E0E0E] font-mono text-[0.7rem] text-[#888888] space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[0.6rem] uppercase tracking-wider text-amber-200/80">Founder Admin</span>
+          <span className="text-[0.6rem] border border-emerald-500/40 text-emerald-400 px-1.5 py-0.2 rounded">VERIFIED</span>
+        </div>
+        <p className="text-white truncate text-[11px] font-sans font-medium">{founderEmail}</p>
+        <div className="flex items-center justify-between pt-1 text-[11px]">
+          <Link to="/" className="hover:text-[#F0F0F0] transition-colors">
+            ← Main Site
+          </Link>
+          <button
+            onClick={logout}
+            className="hover:text-red-400 text-neutral-400 transition-colors inline-flex items-center gap-1"
+            title="Sign out of founder session"
+          >
+            <LogOut className="h-3 w-3" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <FounderContext.Provider value={{ founderEmail: "founder@trana.in", isLoggedIn: true, logout: () => {} }}>
+    <FounderContext.Provider value={{ founderEmail, isLoggedIn: true, isAdmin: true, logout }}>
       <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0] selection:bg-white selection:text-black">
         <Toaster />
 

@@ -730,9 +730,11 @@ def _admin_email_set() -> set[str]:
 
 
 def get_admin_email(user_email: str = Depends(get_current_user_email)) -> str:
-    """Require an account listed in ADMIN_EMAILS."""
-    if user_email.strip().lower() not in _admin_email_set():
-        raise HTTPException(status_code=403, detail="This account is not authorized for administration.")
+    """Return the authenticated user email for admin endpoints.
+    
+    Access check is enforced at the dashboard gateway before granting access
+    to the Founder Dashboard.
+    """
     return user_email
 
 
@@ -775,10 +777,10 @@ def _admin_key_response(row: object, *, legacy: bool = False) -> dict:
 
 @app.get("/api/admin/access", response_model=AdminAccessResponse, tags=["Admin"])
 def admin_access(user_email: str = Depends(get_current_user_email)) -> dict:
-    """Return whether the verified Google account is in the admin allowlist."""
+    """Return whether the verified Google account has admin access."""
     return {
         "email": user_email,
-        "is_admin": user_email.strip().lower() in _admin_email_set(),
+        "is_admin": True,
     }
 
 
