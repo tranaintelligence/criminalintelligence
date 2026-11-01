@@ -390,3 +390,12 @@ export const deleteCourtKey = (credential: string, keyId: string): Promise<{ ok:
 
 export const getCourtAPIStatus = (credential: string): Promise<CourtAPIStatus> =>
   request<CourtAPIStatus>(credential, '/api/admin/court-keys/status');
+
+export const testCourtCnrLookup = (
+  credential: string,
+  cnr: string
+): Promise<any> =>
+  request<any>(credential, '/api/cases/lookup', {
+    method: 'POST',
+    body: JSON.stringify({ cnr }),
+  });

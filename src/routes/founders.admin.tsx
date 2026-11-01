@@ -39,6 +39,7 @@ import {
   updateCourtKey,
   deleteCourtKey,
   getCourtAPIStatus,
+  testCourtCnrLookup,
 } from '@/lib/trana-admin-api';
 import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP, CourtAPIKey, CourtAPIStatus } from '@/lib/trana-admin-api';
 
@@ -514,18 +515,13 @@ export function AdminView() {
     setIsTestingCnr(true);
     setTestCnrResult(null);
     try {
-      const res = await fetch('/api/cases/lookup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
-        },
-        body: JSON.stringify({ cnr: clean }),
-      });
-      const data = await res.json();
+      if (!credential) {
+        throw new Error('Authentication required: please log in to test court resolution.');
+      }
+      const data = await testCourtCnrLookup(credential, clean);
       setTestCnrResult(data);
     } catch (err: any) {
-      setTestCnrResult({ error: err.message || 'Failed to query live court API' });
+      setTestCnrResult({ error: err.message || 'Failed to query live court API', is_live_sync: false });
     } finally {
       setIsTestingCnr(false);
     }
@@ -1104,10 +1100,18 @@ export function AdminView() {
                   <div className="mt-3 p-4 bg-[#141414] border border-[#282828] rounded-xl font-mono text-xs space-y-2 overflow-x-auto">
                     <div className="flex items-center justify-between pb-2 border-b border-[#222222]">
                       <span className="text-neutral-400">Gateway Resolution Result:</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] ${
-                        testCnrResult.is_live_sync !== false ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-300'
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium ${
+                        testCnrResult.error
+                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                          : testCnrResult.is_live_sync
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          : 'bg-amber-950 text-amber-300 border border-amber-800'
                       }`}>
-                        {testCnrResult.is_live_sync !== false ? 'LIVE SYNC' : 'DECODER MODE'}
+                        {testCnrResult.error
+                          ? 'GATEWAY ERROR'
+                          : testCnrResult.is_live_sync
+                          ? 'LIVE SYNC (VERIFIED)'
+                          : 'DECODER MODE'}
                       </span>
                     </div>
                     <pre className="text-[11px] text-neutral-300 overflow-x-auto whitespace-pre-wrap">
