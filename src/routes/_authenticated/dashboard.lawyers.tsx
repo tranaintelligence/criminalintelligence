@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Phone, MessageSquare, Lock } from "lucide-react";
+import { Phone, MessageSquare, Lock, X, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranaCredential } from "@/lib/trana-auth";
 import { buildClientIntakeBrief } from "@/lib/intake-brief";
+import { ConsultationChatModal } from "@/components/ConsultationChatModal";
 
 export const Route = createFileRoute("/_authenticated/dashboard/lawyers")({
   head: () => ({
@@ -125,47 +126,81 @@ function Lawyers() {
   const [requested, setRequested] = useState<Record<string, boolean>>({});
   const [loadingLawyerId, setLoadingLawyerId] = useState<string | null>(null);
 
+  // Consultation Mode modal state
+  const [consultingLawyer, setConsultingLawyer] = useState<Lawyer | null>(null);
+  const [isModeModalOpen, setIsModeModalOpen] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<"call" | "chat">("call");
+
+  // Private Masked Consultation Chat Modal
+  const [activeChat, setActiveChat] = useState<{
+    consultationId: string;
+    lawyerName: string;
+    clientName: string;
+    consultType: string;
+  } | null>(null);
+
   // Fetch verified advocates onboard with TRANA from Supabase
   const { data: dbLawyers = [], isLoading } = useQuery({
     queryKey: ["lawyers"],
     queryFn: async () => (await supabase.from("lawyers").select("*").order("full_name")).data ?? [],
   });
 
-  // User's existing consultations so previously requested lawyer boxes remain locked
+  // User's existing consultations so previously requested lawyer boxes remain locked unless denied
   const { data: userConsultations = [] } = useQuery({
     queryKey: ["citizen-consultations-lock", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data } = await supabase
         .from("consultations")
-        .select("lawyer_id, lawyer_name, status")
+        .select("id, lawyer_id, lawyer_name, status, consult_type")
         .eq("user_id", user.id);
       return data || [];
     },
     enabled: Boolean(user?.id),
   });
 
-  const lockedInfo = useMemo(() => {
+  const { lockedIds, lockedNames } = useMemo(() => {
     const ids = new Set<string>();
     const names = new Set<string>();
+    const deniedIds = new Set<string>();
+    const deniedNames = new Set<string>();
 
     userConsultations.forEach((c) => {
-      if (c.status !== "cancelled") {
+      const statusLower = (c.status || "").toLowerCase();
+      if (statusLower === "denied" || statusLower === "cancelled") {
+        if (c.lawyer_id) deniedIds.add(c.lawyer_id);
+        if (c.lawyer_name) deniedNames.add(c.lawyer_name.toLowerCase().trim());
+      } else if (statusLower === "requested" || statusLower === "confirmed" || statusLower === "upcoming") {
         if (c.lawyer_id) ids.add(c.lawyer_id);
         if (c.lawyer_name) names.add(c.lawyer_name.toLowerCase().trim());
       }
     });
+
+    // Also check local referrals in case case was denied in lawyer workspace
+    if (typeof window !== "undefined") {
+      try {
+        const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+        (localReferrals || []).forEach((r: any) => {
+          const st = (r.status || "").toLowerCase();
+          if (st === "denied" || st === "cancelled") {
+            if (r.lawyerId) deniedIds.add(r.lawyerId);
+            if (r.lawyerName) deniedNames.add(r.lawyerName.toLowerCase().trim());
+          }
+        });
+      } catch {
+        // ignore
+      }
+    }
 
     if (typeof window !== "undefined" && user?.id) {
       try {
         const stored = JSON.parse(localStorage.getItem(`trana_requested_lawyers_${user.id}`) || "[]");
         if (Array.isArray(stored)) {
           stored.forEach((item: any) => {
-            if (typeof item === "string") ids.add(item);
-            else if (item && typeof item === "object") {
-              if (item.id) ids.add(item.id);
-              if (item.name) names.add(item.name.toLowerCase().trim());
-            }
+            const itemId = typeof item === "string" ? item : item?.id;
+            const itemName = (typeof item === "object" ? item?.name : "")?.toLowerCase().trim();
+            if (itemId && !deniedIds.has(itemId)) ids.add(itemId);
+            if (itemName && !deniedNames.has(itemName)) names.add(itemName);
           });
         }
       } catch {
@@ -173,7 +208,11 @@ function Lawyers() {
       }
     }
 
-    return { ids, names };
+    // Explicitly delete any denied lawyers so their box is unlocked
+    deniedIds.forEach((id) => ids.delete(id));
+    deniedNames.forEach((n) => names.delete(n));
+
+    return { lockedIds: ids, lockedNames: names };
   }, [userConsultations, user?.id]);
 
   // Reconcile onboarded database lawyers, founders' newly added lawyers, and sample benchmark advocates
@@ -252,17 +291,43 @@ function Lawyers() {
     return true;
   });
 
-  async function request(l: Lawyer) {
+  function handleInitiateRequest(l: Lawyer) {
+    setConsultingLawyer(l);
+    // Default to available consultation type
+    const initialMode = l.offers_call && !l.offers_chat ? "call" : l.offers_chat && !l.offers_call ? "chat" : "call";
+    setSelectedMode(initialMode);
+    setIsModeModalOpen(true);
+  }
+
+  function handleOpenExistingChat(l: Lawyer) {
+    const clientName = (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
+    let consultId = `REF-${l.id}`;
+    const match = userConsultations.find(
+      (c) => c.lawyer_id === l.id || c.lawyer_name?.toLowerCase().trim() === l.full_name.toLowerCase().trim()
+    );
+    if (match) {
+      consultId = `REF-${match.id.slice(0, 8).toUpperCase()}`;
+    }
+
+    setActiveChat({
+      consultationId: consultId,
+      lawyerName: l.full_name,
+      clientName,
+      consultType: l.offers_chat ? "Chat" : "Call",
+    });
+  }
+
+  async function request(l: Lawyer, chosenMode: "call" | "chat") {
     setLoadingLawyerId(l.id);
     try {
-      const consultType = l.offers_call ? "call" : "chat";
+      const clientName = (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
       // Generate client intake brief from citizen's AI conversation / analysis
       const brief = await buildClientIntakeBrief({
         userId: user.id,
         userEmail: user.email,
-        userName: (user as any).name || (user as any).user_metadata?.full_name,
+        userName: clientName,
         lawyerName: l.full_name,
-        consultType,
+        consultType: chosenMode,
         credential,
       });
 
@@ -274,7 +339,7 @@ function Lawyers() {
         user_id: user.id,
         lawyer_id: isUuid ? l.id : null,
         lawyer_name: l.full_name,
-        consult_type: consultType,
+        consult_type: chosenMode,
         status: "requested",
         note: brief.fullBriefMarkdown,
         intake_brief: brief.fullBriefMarkdown,
@@ -288,7 +353,7 @@ function Lawyers() {
           user_id: user.id,
           lawyer_id: null,
           lawyer_name: l.full_name,
-          consult_type: consultType,
+          consult_type: chosenMode,
           status: "requested",
           note: brief.fullBriefMarkdown,
           intake_brief: brief.fullBriefMarkdown,
@@ -301,7 +366,6 @@ function Lawyers() {
 
       // Send all details to the lawyers dashboard under client referrals
       try {
-        const clientName = brief.clientName || (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
         const newReferral = {
           id: createdId,
           date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
@@ -309,7 +373,7 @@ function Lawyers() {
           phone: "+91 (Verified Account)",
           matterType: brief.matterType || "Legal Consultation Request",
           section: brief.sectionsSummary || "Applicable Statutes",
-          consultationType: (consultType === "call" ? "Call" : "Chat") as "Call" | "Chat",
+          consultationType: (chosenMode === "call" ? "Call" : "Chat") as "Call" | "Chat",
           status: "New Request" as const,
           summary: brief.summary || brief.facts || "Client requested consultation with counsel.",
           intakeBrief: brief.fullBriefMarkdown,
@@ -340,10 +404,18 @@ function Lawyers() {
       qc.invalidateQueries({ queryKey: ["lawyer-referrals-consultations"] });
       qc.invalidateQueries({ queryKey: ["lawyer-overview-consultations"] });
 
+      // Immediately open masked consultation chat between client and lawyer
+      setActiveChat({
+        consultationId: createdId,
+        lawyerName: l.full_name,
+        clientName,
+        consultType: chosenMode === "call" ? "Call" : "Chat",
+      });
+
       if (brief.hasConversation) {
-        toast.success(`Consultation requested with ${l.full_name}. All details and your AI intake brief sent to lawyer.`);
+        toast.success(`Consultation requested with ${l.full_name}. Channel opened with counsel.`);
       } else {
-        toast.success(`Consultation requested with ${l.full_name}. Details sent to lawyer referrals.`);
+        toast.success(`Consultation requested with ${l.full_name}. Details forwarded to counsel.`);
       }
     } catch (err) {
       console.error(err);
@@ -395,8 +467,8 @@ function Lawyers() {
           {list.map((l) => {
             const isLocked = Boolean(
               requested[l.id] ||
-              lockedInfo.ids.has(l.id) ||
-              lockedInfo.names.has(l.full_name.toLowerCase().trim())
+              lockedIds.has(l.id) ||
+              lockedNames.has(l.full_name.toLowerCase().trim())
             );
 
             return (
@@ -426,30 +498,172 @@ function Lawyers() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => request(l)}
-                  disabled={isLocked || loadingLawyerId === l.id}
-                  className={`mt-6 transition-all flex items-center justify-center gap-1.5 ${
-                    isLocked
-                      ? "border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 py-3 px-4 text-xs font-semibold uppercase tracking-wider cursor-not-allowed opacity-90"
-                      : "btn-line disabled:opacity-50"
-                  }`}
-                >
-                  {loadingLawyerId === l.id ? (
-                    "Preparing Brief..."
-                  ) : isLocked ? (
-                    <>
+                {isLocked ? (
+                  <div className="mt-6 flex flex-col gap-2">
+                    <div className="border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 py-2.5 px-3 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 rounded cursor-not-allowed">
                       <Lock className="h-3.5 w-3.5 text-emerald-400" />
                       <span>Consultation Requested</span>
-                    </>
-                  ) : (
-                    "Request Consultation"
-                  )}
-                </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenExistingChat(l)}
+                      className="border border-white/40 hover:border-white bg-[#1A1A1A] hover:bg-[#252525] text-white py-2 px-3 text-xs uppercase tracking-wider font-mono flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Open Consultation Chat</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleInitiateRequest(l)}
+                    disabled={loadingLawyerId === l.id}
+                    className="btn-line mt-6 disabled:opacity-50"
+                  >
+                    {loadingLawyerId === l.id ? "Preparing Brief..." : "Request Consultation"}
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* CITIZEN CONSULTATION MODE SELECTION MODAL */}
+      {isModeModalOpen && consultingLawyer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[#161616] border border-[#333333] p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between border-b border-[#282828] pb-3">
+              <div>
+                <span className="text-[0.65rem] uppercase tracking-widest text-[#888888] font-mono">
+                  CONSULTATION PREFERENCE
+                </span>
+                <h3 className="font-display text-2xl font-medium text-white mt-1">
+                  Choose Consultation Mode
+                </h3>
+                <p className="text-xs text-[#AAAAAA] mt-0.5">
+                  Connecting with {consultingLawyer.full_name}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsModeModalOpen(false);
+                  setConsultingLawyer(null);
+                }}
+                className="p-1 border border-[#333333] text-[#AAAAAA] hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs text-[#888888] uppercase tracking-wider font-mono block">
+                Select your preferred mode of consultation:
+              </label>
+
+              {/* Option 1: Phone Call */}
+              <button
+                type="button"
+                disabled={!consultingLawyer.offers_call}
+                onClick={() => setSelectedMode("call")}
+                className={`w-full p-4 border text-left flex items-start gap-3 transition-colors ${
+                  selectedMode === "call"
+                    ? "border-white bg-[#222222] text-white"
+                    : consultingLawyer.offers_call
+                    ? "border-[#333333] bg-[#111111] text-[#AAAAAA] hover:text-white hover:border-[#555555]"
+                    : "border-[#222222] bg-[#0E0E0E] text-[#555555] cursor-not-allowed opacity-50"
+                }`}
+              >
+                <Phone className={`h-5 w-5 mt-0.5 ${selectedMode === "call" ? "text-sky-400" : "text-[#777777]"}`} />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white">Phone Consultation</span>
+                    {selectedMode === "call" && (
+                      <span className="text-[0.65rem] font-mono bg-sky-950 text-sky-400 px-1.5 py-0.5 border border-sky-800 rounded">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#888888] mt-1">
+                    Direct phone consultation with advocate. Masked privacy relay.
+                  </p>
+                </div>
+              </button>
+
+              {/* Option 2: Secure In-App Chat */}
+              <button
+                type="button"
+                disabled={!consultingLawyer.offers_chat}
+                onClick={() => setSelectedMode("chat")}
+                className={`w-full p-4 border text-left flex items-start gap-3 transition-colors ${
+                  selectedMode === "chat"
+                    ? "border-white bg-[#222222] text-white"
+                    : consultingLawyer.offers_chat
+                    ? "border-[#333333] bg-[#111111] text-[#AAAAAA] hover:text-white hover:border-[#555555]"
+                    : "border-[#222222] bg-[#0E0E0E] text-[#555555] cursor-not-allowed opacity-50"
+                }`}
+              >
+                <MessageSquare className={`h-5 w-5 mt-0.5 ${selectedMode === "chat" ? "text-purple-400" : "text-[#777777]"}`} />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white">Secure In-App Chat</span>
+                    {selectedMode === "chat" && (
+                      <span className="text-[0.65rem] font-mono bg-purple-950 text-purple-400 px-1.5 py-0.5 border border-purple-800 rounded">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#888888] mt-1">
+                    Direct confidential messaging with counsel. No personal contact details disclosed.
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="bg-[#111111] border border-[#222222] p-3 text-[0.7rem] text-[#888888] flex items-center gap-2 font-mono">
+              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>Strict Privacy: Only names and consultation mode are disclosed between parties.</span>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModeModalOpen(false);
+                  setConsultingLawyer(null);
+                }}
+                className="border border-[#333333] px-4 py-2 text-xs uppercase tracking-wider text-[#AAAAAA] hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const l = consultingLawyer;
+                  const mode = selectedMode;
+                  setIsModeModalOpen(false);
+                  setConsultingLawyer(null);
+                  request(l, mode);
+                }}
+                className="bg-white text-black px-5 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors"
+              >
+                Proceed with Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRIVATE MASKED CONSULTATION CHAT MODAL */}
+      {activeChat && (
+        <ConsultationChatModal
+          isOpen={Boolean(activeChat)}
+          onClose={() => setActiveChat(null)}
+          consultationId={activeChat.consultationId}
+          consultationType={activeChat.consultType}
+          currentParty="client"
+          clientName={activeChat.clientName}
+          lawyerName={activeChat.lawyerName}
+        />
       )}
     </div>
   );

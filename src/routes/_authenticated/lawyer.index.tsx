@@ -1,15 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   FileText, Search, Users, ArrowUpRight, CheckCircle2, 
   Clock, Calendar, User, Phone, MessageSquare, Shield,
-  Sparkles, Filter, ChevronRight, X, ExternalLink, Copy
+  Sparkles, Filter, ChevronRight, X, ExternalLink, Copy, XCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLawyerAuth } from "./lawyer";
 import { formatCourtsHeader } from "@/lib/courts-data";
+import { ConsultationChatModal } from "@/components/ConsultationChatModal";
 
 export const Route = createFileRoute("/_authenticated/lawyer/")({
   head: () => ({
@@ -30,7 +31,7 @@ type Referral = {
   matterType: string;
   section: string;
   consultationType: "Call" | "Chat";
-  status: "New Request" | "Confirmed" | "In Progress" | "Completed";
+  status: "New Request" | "Confirmed" | "Denied" | "In Progress" | "Completed";
   summary: string;
   intakeBrief?: string;
   urgent: boolean;
@@ -208,6 +209,16 @@ function LawyerOverview() {
         ? (factsMatch[1].trim().length > 220 ? `${factsMatch[1].trim().slice(0, 220)}...` : factsMatch[1].trim())
         : (briefText.length > 200 ? `${briefText.slice(0, 200)}...` : (briefText || "Client requested consultation with counsel."));
 
+      const stLower = (row.status || "").toLowerCase();
+      const statusLabel =
+        stLower === "completed"
+          ? "Completed"
+          : stLower === "confirmed"
+          ? "Confirmed"
+          : stLower === "denied"
+          ? "Denied"
+          : "New Request";
+
       list.push({
         id: rowId,
         date: row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
@@ -216,7 +227,7 @@ function LawyerOverview() {
         matterType: matter,
         section: sectionStr,
         consultationType: row.consult_type === "chat" ? "Chat" : "Call",
-        status: row.status === "completed" ? "Completed" : "New Request",
+        status: statusLabel,
         summary: summaryText,
         intakeBrief: briefText,
         urgent: true,
@@ -238,14 +249,46 @@ function LawyerOverview() {
   }, [mergedReferrals]);
 
   const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
+  const qc = useQueryClient();
+  const [activeChat, setActiveChat] = useState<{
+    consultationId: string;
+    clientName: string;
+    lawyerName: string;
+    consultType: string;
+  } | null>(null);
 
-  function updateStatus(id: string, newStatus: Referral["status"]) {
+  async function updateStatus(id: string, newStatus: Referral["status"]) {
     setReferrals((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
     );
     if (selectedReferral && selectedReferral.id === id) {
-      setSelectedReferral((prev) => prev ? { ...prev, status: newStatus } : null);
+      setSelectedReferral((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
+
+    const dbId = id.replace(/^REF-/, "");
+    const dbStatus = newStatus.toLowerCase().replace(/\s+/g, "");
+    try {
+      await supabase
+        .from("consultations")
+        .update({ status: dbStatus })
+        .or(`id.eq.${dbId},id.ilike.${dbId}%`);
+    } catch {
+      // ignore
+    }
+
+    try {
+      const local = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+      const updated = local.map((r: any) => (r.id === id ? { ...r, status: newStatus } : r));
+      localStorage.setItem("trana_client_referrals", JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+
+    qc.invalidateQueries({ queryKey: ["lawyer-overview-consultations"] });
+    qc.invalidateQueries({ queryKey: ["lawyer-referrals-consultations"] });
+    qc.invalidateQueries({ queryKey: ["consultations"] });
+    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
+
     toast.success(`Referral status updated to "${newStatus}"`);
   }
 
@@ -526,16 +569,32 @@ function LawyerOverview() {
                         r.status === "New Request"
                           ? "border-amber-400/50 bg-amber-500/10 text-amber-300"
                           : r.status === "Confirmed"
-                          ? "border-sky-400/50 bg-sky-500/10 text-sky-300"
-                          : r.status === "In Progress"
                           ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-300"
+                          : r.status === "Denied"
+                          ? "border-red-500/50 bg-red-500/10 text-red-400"
+                          : r.status === "In Progress"
+                          ? "border-sky-400/50 bg-sky-500/10 text-sky-300"
                           : "border-neutral-700 bg-neutral-900 text-[#777777]"
                       }`}
                     >
                       {r.status}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-right whitespace-nowrap">
+                  <td className="py-4 px-4 text-right whitespace-nowrap space-x-2">
+                    <button
+                      onClick={() =>
+                        setActiveChat({
+                          consultationId: r.id,
+                          clientName: r.client,
+                          lawyerName: lawyer?.full_name || "Advocate Counsel",
+                          consultType: r.consultationType,
+                        })
+                      }
+                      className="border border-white/40 hover:border-white px-2.5 py-1.5 text-xs font-mono uppercase tracking-[0.1em] text-white hover:bg-white hover:text-black transition-colors"
+                      title="Open Masked Chat"
+                    >
+                      Chat
+                    </button>
                     <button
                       onClick={() => setSelectedReferral(r)}
                       className="border border-white/30 px-3 py-1.5 text-xs uppercase tracking-[0.1em] text-white hover:border-white hover:bg-white hover:text-black transition-colors"
@@ -600,13 +659,17 @@ function LawyerOverview() {
               <div className="pt-2">
                 <span className="text-xs uppercase tracking-[0.15em] text-[#888888] block mb-2">Update Status</span>
                 <div className="flex flex-wrap gap-2">
-                  {(["New Request", "Confirmed", "In Progress", "Completed"] as const).map((st) => (
+                  {(["New Request", "Confirmed", "Denied", "In Progress", "Completed"] as const).map((st) => (
                     <button
                       key={st}
                       onClick={() => updateStatus(selectedReferral.id, st)}
                       className={`px-3 py-1.5 text-xs uppercase tracking-[0.1em] border transition-colors ${
                         selectedReferral.status === st
-                          ? "border-white bg-white text-black font-semibold"
+                          ? st === "Confirmed"
+                            ? "border-emerald-500 bg-emerald-500 text-black font-semibold"
+                            : st === "Denied"
+                            ? "border-red-500 bg-red-500 text-white font-semibold"
+                            : "border-white bg-white text-black font-semibold"
                           : "border-[#333333] text-[#AAAAAA] hover:text-white hover:border-white"
                       }`}
                     >
@@ -618,13 +681,32 @@ function LawyerOverview() {
             </div>
 
             <div className="mt-8 pt-6 border-t border-[#2E2E2E] flex flex-wrap justify-between items-center gap-3">
-              <Link
-                to="/lawyer/drafter"
-                className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-white hover:underline"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Draft Pleading for this Matter</span>
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const r = selectedReferral;
+                    setSelectedReferral(null);
+                    setActiveChat({
+                      consultationId: r.id,
+                      clientName: r.client,
+                      lawyerName: lawyer?.full_name || "Advocate Counsel",
+                      consultType: r.consultationType,
+                    });
+                  }}
+                  className="inline-flex items-center gap-1.5 border border-white/50 bg-[#161616] px-3 py-2 text-xs font-mono uppercase tracking-[0.1em] text-white hover:bg-white hover:text-black transition-colors"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Open Consultation Chat</span>
+                </button>
+                <Link
+                  to="/lawyer/drafter"
+                  className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-[#AAAAAA] hover:text-white"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Draft Pleading</span>
+                </Link>
+              </div>
               <div className="flex items-center gap-2">
                 {selectedReferral.intakeBrief && (
                   <button
@@ -649,6 +731,19 @@ function LawyerOverview() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* CONFIDENTIAL CONSULTATION CHAT MODAL (LAWYER VIEW) */}
+      {activeChat && (
+        <ConsultationChatModal
+          isOpen={Boolean(activeChat)}
+          onClose={() => setActiveChat(null)}
+          consultationId={activeChat.consultationId}
+          consultationType={activeChat.consultType}
+          currentParty="lawyer"
+          clientName={activeChat.clientName}
+          lawyerName={activeChat.lawyerName}
+        />
       )}
     </div>
   );

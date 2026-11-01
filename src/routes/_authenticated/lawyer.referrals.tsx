@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Briefcase, Search, Phone, MessageSquare, 
   ChevronRight, Calendar, Filter, Sparkles, CheckCircle2,
-  FileText, Copy, X
+  FileText, Copy, X, XCircle, ShieldAlert
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLawyerAuth } from "./lawyer";
+import { ConsultationChatModal } from "@/components/ConsultationChatModal";
 
 export const Route = createFileRoute("/_authenticated/lawyer/referrals")({
   head: () => ({
@@ -29,7 +30,7 @@ type Referral = {
   matterType: string;
   section: string;
   consultationType: "Call" | "Chat";
-  status: "New Request" | "Confirmed" | "In Progress" | "Completed";
+  status: "New Request" | "Confirmed" | "Denied" | "In Progress" | "Completed";
   summary: string;
   intakeBrief?: string;
   scheduledTime?: string;
@@ -136,9 +137,16 @@ Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% ad
 
 function LawyerReferralsPage() {
   const { data: lawyer } = useLawyerAuth();
+  const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedBrief, setSelectedBrief] = useState<Referral | null>(null);
+  const [activeChat, setActiveChat] = useState<{
+    consultationId: string;
+    clientName: string;
+    lawyerName: string;
+    consultType: string;
+  } | null>(null);
 
   // Fetch live consultations from citizens who connected with this lawyer
   const { data: dbConsults = [] } = useQuery({
@@ -211,6 +219,16 @@ function LawyerReferralsPage() {
         ? (factsMatch[1].trim().length > 220 ? `${factsMatch[1].trim().slice(0, 220)}...` : factsMatch[1].trim())
         : (briefText.length > 200 ? `${briefText.slice(0, 200)}...` : (briefText || "Client requested consultation with counsel."));
 
+      const stLower = (row.status || "").toLowerCase();
+      const statusLabel =
+        stLower === "completed"
+          ? "Completed"
+          : stLower === "confirmed"
+          ? "Confirmed"
+          : stLower === "denied"
+          ? "Denied"
+          : "New Request";
+
       list.push({
         id: rowId,
         date: row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
@@ -219,7 +237,7 @@ function LawyerReferralsPage() {
         matterType: matter,
         section: sectionStr,
         consultationType: row.consult_type === "chat" ? "Chat" : "Call",
-        status: row.status === "completed" ? "Completed" : "New Request",
+        status: statusLabel,
         summary: summaryText,
         intakeBrief: briefText,
         scheduledTime: row.scheduled_for ? new Date(row.scheduled_for).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
@@ -235,6 +253,55 @@ function LawyerReferralsPage() {
 
     return list;
   }, [dbConsults]);
+
+  async function handleConfirmCase(referralId: string, clientName: string) {
+    const dbId = referralId.replace(/^REF-/, "");
+    try {
+      await supabase.from("consultations").update({ status: "confirmed" }).or(`id.eq.${dbId},id.ilike.${dbId}%`);
+    } catch (e) {
+      console.warn("Supabase update error:", e);
+    }
+
+    try {
+      const local = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+      const updated = local.map((r: any) => (r.id === referralId ? { ...r, status: "Confirmed" } : r));
+      localStorage.setItem("trana_client_referrals", JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+
+    qc.invalidateQueries({ queryKey: ["lawyer-referrals-consultations"] });
+    qc.invalidateQueries({ queryKey: ["consultations"] });
+    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
+    toast.success(`Case for ${clientName} confirmed! Consultation session confirmed.`);
+  }
+
+  async function handleDenyCase(referralId: string, clientName: string) {
+    const confirmed = window.confirm(
+      `Are you sure you want to decline/deny the case for ${clientName}? This will unlock the client's consultation option so they may consult in the future.`
+    );
+    if (!confirmed) return;
+
+    const dbId = referralId.replace(/^REF-/, "");
+    try {
+      await supabase.from("consultations").update({ status: "denied" }).or(`id.eq.${dbId},id.ilike.${dbId}%`);
+    } catch (e) {
+      console.warn("Supabase update error:", e);
+    }
+
+    try {
+      const local = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+      const updated = local.map((r: any) => (r.id === referralId ? { ...r, status: "Denied" } : r));
+      localStorage.setItem("trana_client_referrals", JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+
+    qc.invalidateQueries({ queryKey: ["lawyer-referrals-consultations"] });
+    qc.invalidateQueries({ queryKey: ["consultations"] });
+    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
+    toast.error(`Case for ${clientName} declined. Box unlocked for future inquiries.`);
+  }
 
   const filtered = mergedList.filter((r) => {
     if (statusFilter !== "All" && r.status !== statusFilter) return false;
@@ -262,7 +329,7 @@ function LawyerReferralsPage() {
         </div>
 
         <div className="border border-white/20 bg-[#1A1A1A] px-4 py-2 text-xs font-mono text-white">
-          Active Inquiries: {mergedList.filter((r) => r.status !== "Completed").length}
+          Active Inquiries: {mergedList.filter((r) => r.status !== "Completed" && r.status !== "Denied").length}
         </div>
       </div>
 
@@ -279,8 +346,8 @@ function LawyerReferralsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          {(["All", "New Request", "Confirmed", "In Progress", "Completed"] as const).map((st) => (
+        <div className="flex items-center gap-2 flex-wrap">
+          {(["All", "New Request", "Confirmed", "Denied", "In Progress", "Completed"] as const).map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -312,9 +379,11 @@ function LawyerReferralsPage() {
                       r.status === "New Request"
                         ? "border-amber-400/50 bg-amber-500/10 text-amber-300"
                         : r.status === "Confirmed"
-                        ? "border-sky-400/50 bg-sky-500/10 text-sky-300"
-                        : r.status === "In Progress"
                         ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-300"
+                        : r.status === "Denied"
+                        ? "border-red-500/50 bg-red-500/10 text-red-400"
+                        : r.status === "In Progress"
+                        ? "border-sky-400/50 bg-sky-500/10 text-sky-300"
                         : "border-neutral-700 bg-neutral-900 text-[#777777]"
                     }`}
                   >
@@ -369,7 +438,44 @@ function LawyerReferralsPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {r.status === "New Request" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmCase(r.id, r.client)}
+                      className="border border-emerald-500/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-600 hover:text-black px-3 py-1.5 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Confirm Case</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDenyCase(r.id, r.client)}
+                      className="border border-red-500/60 bg-red-950/40 text-red-300 hover:bg-red-600 hover:text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      <span>Deny Case</span>
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveChat({
+                      consultationId: r.id,
+                      clientName: r.client,
+                      lawyerName: lawyer?.full_name || "Advocate Counsel",
+                      consultType: r.consultationType,
+                    })
+                  }
+                  className="border border-white/40 hover:border-white text-white bg-[#1A1A1A] hover:bg-[#252525] px-3 py-1.5 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Open Chat</span>
+                </button>
+
                 <Link
                   to="/lawyer/drafter"
                   className="border border-white/30 px-3 py-1.5 text-xs uppercase tracking-[0.1em] text-white hover:border-white transition-colors flex items-center gap-1.5"
@@ -418,40 +524,21 @@ function LawyerReferralsPage() {
                 {selectedBrief.intakeBrief}
               </div>
             </div>
-
-            <div className="mt-6 pt-4 border-t border-[#2E2E2E] flex flex-wrap justify-between items-center gap-3">
-              <Link
-                to="/lawyer/drafter"
-                className="inline-flex items-center gap-2 px-4 py-2 border border-white/40 text-xs uppercase tracking-[0.1em] text-white hover:bg-white hover:text-black transition-colors"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Open in AI Drafter</span>
-              </Link>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (selectedBrief.intakeBrief) {
-                      navigator.clipboard.writeText(selectedBrief.intakeBrief);
-                      toast.success("Client intake brief copied to clipboard");
-                    }
-                  }}
-                  className="px-4 py-2 border border-[#333333] text-xs uppercase tracking-[0.1em] text-[#AAAAAA] hover:text-white hover:border-white transition-colors flex items-center gap-1.5"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>Copy Brief</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedBrief(null)}
-                  className="bg-white px-5 py-2 text-xs uppercase tracking-[0.1em] text-black font-semibold hover:bg-neutral-200 transition-colors"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
           </div>
         </div>
+      )}
+
+      {/* CONFIDENTIAL CONSULTATION CHAT MODAL (LAWYER VIEW) */}
+      {activeChat && (
+        <ConsultationChatModal
+          isOpen={Boolean(activeChat)}
+          onClose={() => setActiveChat(null)}
+          consultationId={activeChat.consultationId}
+          consultationType={activeChat.consultType}
+          currentParty="lawyer"
+          clientName={activeChat.clientName}
+          lawyerName={activeChat.lawyerName}
+        />
       )}
     </div>
   );
