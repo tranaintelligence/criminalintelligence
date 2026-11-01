@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   Menu, X, Scale, FileText, Search, Users, User, 
   Briefcase, ShieldCheck, ArrowRight, Clock, FolderOpen,
-  LogOut, ExternalLink, Sparkles, BookOpen, AlertCircle, Calendar
+  LogOut, ExternalLink, Sparkles, BookOpen, AlertCircle, Calendar, MessageSquare
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
@@ -42,6 +42,7 @@ const navItems = [
   { to: "/lawyer", label: "Overview", icon: Scale, exact: true },
   { to: "/lawyer/cases", label: "Case Tracker", icon: Calendar },
   { to: "/lawyer/referrals", label: "Client Referrals", icon: Briefcase },
+  { to: "/lawyer/inbox", label: "Case Inbox", icon: MessageSquare },
   { to: "/lawyer/drafter", label: "AI Drafter", icon: Sparkles, badge: "In Development" },
   { to: "/lawyer/citations", label: "Citation Finder", icon: BookOpen, badge: "In Development" },
   { to: "/lawyer/research", label: "Case Research", icon: Search, badge: "Planned" },

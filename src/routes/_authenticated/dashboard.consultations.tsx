@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Phone, MessageSquare, FileText, X, Copy, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Phone, MessageSquare, FileText, X, Copy, CheckCircle2, XCircle, Clock, UserPlus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ConsultationChatModal } from "@/components/ConsultationChatModal";
@@ -29,6 +29,7 @@ const label: Record<string, string> = {
 
 function Consultations() {
   const { user } = Route.useRouteContext();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [selectedBrief, setSelectedBrief] = useState<any | null>(null);
   const [activeChat, setActiveChat] = useState<{
@@ -125,6 +126,60 @@ function Consultations() {
     qc.invalidateQueries({ queryKey: ["consultations"] });
     qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
     toast.success("Consultation cancelled.");
+  }
+
+  async function consultAnotherLawyer(c: any) {
+    const lawyerDisplayName = c.lawyer_name || "the current counsel";
+    const confirmed = window.confirm(
+      `Are you sure you want to consult another lawyer? This will conclude your current session with ${lawyerDisplayName} and reopen the lawyer directory.`
+    );
+    if (!confirmed) return;
+
+    // 1. Update Supabase
+    try {
+      await supabase.from("consultations").update({ status: "cancelled" }).eq("id", c.id);
+    } catch (e) {
+      console.warn("Supabase update error:", e);
+    }
+
+    // 2. Update local referrals
+    try {
+      const local = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+      const updated = local.map((r: any) =>
+        r.id === c.id || r.id === `REF-${c.id}` ? { ...r, status: "Cancelled", clientSatisfied: false } : r
+      );
+      localStorage.setItem("trana_client_referrals", JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+
+    // 3. Unlock directory by removing from user's requested lawyer set
+    try {
+      if (user?.id) {
+        localStorage.removeItem(`trana_requested_lawyers_${user.id}`);
+      }
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith("trana_requested_lawyers_")) {
+          const arr = JSON.parse(localStorage.getItem(k) || "[]");
+          const filtered = arr.filter((item: any) => {
+            const id = typeof item === "string" ? item : item?.id;
+            const name = typeof item === "object" ? item?.name : "";
+            return id !== c.lawyer_id && id !== c.id && (!c.lawyer_name || !name.toLowerCase().includes(c.lawyer_name.toLowerCase()));
+          });
+          localStorage.setItem(k, JSON.stringify(filtered));
+        }
+      });
+    } catch {
+      // ignore
+    }
+
+    // 4. Invalidate queries
+    qc.invalidateQueries({ queryKey: ["consultations"] });
+    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
+    window.dispatchEvent(new Event("trana_consult_chat_update"));
+
+    toast.info("Session concluded. Redirecting to Lawyer Directory to choose another lawyer.");
+    navigate({ to: "/dashboard/lawyers" });
   }
 
   const clientName =
@@ -233,6 +288,19 @@ function Consultations() {
                           <MessageSquare className="h-3 w-3 text-emerald-400" />
                           <span>Open Chat</span>
                         </button>
+
+                        {/* Option for client to consult another lawyer if not satisfied */}
+                        {(isConfirmed || isRequested || normStatus === "upcoming") && (
+                          <button
+                            type="button"
+                            onClick={() => consultAnotherLawyer(c)}
+                            className="border border-amber-500/50 hover:border-amber-400 bg-amber-950/20 hover:bg-amber-900/40 text-amber-300 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors flex items-center gap-1"
+                            title="Not satisfied? Conclude this session and consult another lawyer from the directory"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            <span>Consult Another</span>
+                          </button>
+                        )}
 
                         {/* View Brief details */}
                         {(c.intake_brief || c.note) && (

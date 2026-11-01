@@ -460,6 +460,22 @@ function LawyerReferralsPage() {
                   </>
                 )}
 
+                {r.status === "Confirmed" && (
+                  <>
+                    <span className="border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Case Confirmed</span>
+                    </span>
+                    <Link
+                      to="/lawyer/inbox"
+                      className="border border-emerald-500/40 bg-emerald-950/20 hover:bg-emerald-900/40 text-emerald-300 px-3 py-1.5 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      <span>Case Inbox</span>
+                    </Link>
+                  </>
+                )}
+
                 <button
                   type="button"
                   onClick={() =>
