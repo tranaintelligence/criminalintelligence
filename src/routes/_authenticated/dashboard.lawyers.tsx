@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Phone, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranaCredential } from "@/lib/trana-auth";
+import { buildClientIntakeBrief } from "@/lib/intake-brief";
 
 export const Route = createFileRoute("/_authenticated/dashboard/lawyers")({
   head: () => ({
@@ -18,12 +21,14 @@ export const Route = createFileRoute("/_authenticated/dashboard/lawyers")({
 
 function Lawyers() {
   const { user } = Route.useRouteContext();
+  const { credential } = useTranaCredential();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [area, setArea] = useState("");
   const [city, setCity] = useState("");
   const [type, setType] = useState("");
   const [requested, setRequested] = useState<Record<string, boolean>>({});
+  const [loadingLawyerId, setLoadingLawyerId] = useState<string | null>(null);
   const { data: lawyers = [], isLoading } = useQuery({
     queryKey: ["lawyers"],
     queryFn: async () => (await supabase.from("lawyers").select("*").order("full_name")).data ?? [],
@@ -42,10 +47,46 @@ function Lawyers() {
   });
 
   async function request(l: (typeof lawyers)[number]) {
-    const { error } = await supabase.from("consultations").insert({
-      user_id: user.id, lawyer_id: l.id, lawyer_name: l.full_name, consult_type: l.offers_call ? "call" : "chat",
-    });
-    if (!error) { setRequested((r) => ({ ...r, [l.id]: true })); qc.invalidateQueries({ queryKey: ["consultations"] }); }
+    setLoadingLawyerId(l.id);
+    try {
+      const consultType = l.offers_call ? "call" : "chat";
+      // Generate client intake brief from citizen's AI conversation / analysis
+      const brief = await buildClientIntakeBrief({
+        userId: user.id,
+        userEmail: user.email,
+        userName: (user as any).name || (user as any).user_metadata?.full_name,
+        lawyerName: l.full_name,
+        consultType,
+        credential,
+      });
+
+      const { error } = await supabase.from("consultations").insert({
+        user_id: user.id,
+        lawyer_id: l.id,
+        lawyer_name: l.full_name,
+        consult_type: consultType,
+        status: "requested",
+        note: brief.fullBriefMarkdown,
+        intake_brief: brief.fullBriefMarkdown,
+      });
+
+      if (error) {
+        toast.error("Could not complete consultation request. Please try again.");
+      } else {
+        setRequested((r) => ({ ...r, [l.id]: true }));
+        qc.invalidateQueries({ queryKey: ["consultations"] });
+        if (brief.hasConversation) {
+          toast.success(`Consultation requested with ${l.full_name}. Your AI conversation brief has been shared with counsel.`);
+        } else {
+          toast.success(`Consultation requested with ${l.full_name}.`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to request consultation.");
+    } finally {
+      setLoadingLawyerId(null);
+    }
   }
 
   const sel = "border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none";
@@ -82,8 +123,8 @@ function Lawyers() {
                 {l.offers_call && <span className="flex items-center gap-1.5"><Phone className="h-4 w-4" />Call</span>}
                 {l.offers_chat && <span className="flex items-center gap-1.5"><MessageSquare className="h-4 w-4" />Chat</span>}
               </div>
-              <button onClick={() => request(l)} disabled={requested[l.id]} className="btn-line mt-6 disabled:opacity-50">
-                {requested[l.id] ? "Requested" : "Request Consultation"}
+              <button onClick={() => request(l)} disabled={requested[l.id] || loadingLawyerId === l.id} className="btn-line mt-6 disabled:opacity-50">
+                {loadingLawyerId === l.id ? "Preparing Brief..." : requested[l.id] ? "Requested" : "Request Consultation"}
               </button>
             </div>
           ))}

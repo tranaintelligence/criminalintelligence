@@ -1544,6 +1544,120 @@ def get_chats(user_email: str = Depends(get_current_user_email), db: Session = D
         } for s in sessions]
 
 
+@app.get("/api/citizen/intake-brief", tags=["Chats"])
+def get_citizen_intake_brief(user_email: str = Depends(get_current_user_email), db: Session = Depends(get_db)):
+    """
+    Synthesize the citizen's latest Legal First Aid conversation with TRANA AI
+    into a structured client intake brief for legal counsel.
+    """
+    latest_session = db.query(db_models.ChatSession).filter(
+        db_models.ChatSession.user_email == user_email,
+        (db_models.ChatSession.deleted_by_user == False) | (db_models.ChatSession.deleted_by_user.is_(None))
+    ).order_by(db_models.ChatSession.updated_at.desc()).first()
+
+    if not latest_session:
+        return {
+            "has_conversation": False,
+            "session_id": None,
+            "session_title": "Direct Directory Inquiry",
+            "matter_type": "Legal Consultation",
+            "sections": [],
+            "sections_summary": "General Legal Inquiry",
+            "facts": "Citizen initiated direct consultation request via TRANA Directory.",
+            "analysis": "No preliminary AI First Aid conversation recorded.",
+            "bail_status": "N/A",
+            "rights": [],
+            "next_steps": ["Schedule initial case conference", "Obtain relevant case documents"],
+            "brief_markdown": (
+                "### CLIENT INTAKE BRIEF\n\n"
+                "**Matter**: General Legal Inquiry\n\n"
+                "**Summary**: Direct consultation inquiry initiated via TRANA Legal Directory. No prior AI First Aid conversation recorded."
+            )
+        }
+
+    messages = db.query(db_models.ChatMessage).filter(
+        db_models.ChatMessage.session_id == latest_session.id
+    ).order_by(db_models.ChatMessage.created_at.asc()).all()
+
+    user_queries = []
+    assistant_analyses = []
+    all_laws = []
+    all_rights = []
+    all_steps = []
+    bail_status = "Not specified"
+
+    for m in messages:
+        if m.role == "user" and m.content:
+            user_queries.append(m.content.strip())
+        elif m.role == "assistant":
+            struct = None
+            if m.structured_content:
+                try:
+                    struct = json.loads(m.structured_content)
+                except Exception:
+                    struct = None
+            if isinstance(struct, dict):
+                if struct.get("situation_meaning"):
+                    assistant_analyses.append(struct.get("situation_meaning"))
+                elif struct.get("general_analysis"):
+                    assistant_analyses.append(struct.get("general_analysis"))
+                if struct.get("bail_status"):
+                    bail_status = struct.get("bail_status")
+                if isinstance(struct.get("applicable_laws"), list):
+                    for law in struct.get("applicable_laws"):
+                        if isinstance(law, dict):
+                            label = law.get("section") or law.get("code") or ""
+                            act = law.get("act") or ""
+                            full = f"{label} ({act})".strip() if act else label
+                            if full and full not in all_laws:
+                                all_laws.append(full)
+                if isinstance(struct.get("rights"), list):
+                    for r in struct.get("rights"):
+                        if r and r not in all_rights:
+                            all_rights.append(r)
+                if isinstance(struct.get("next_24_hours"), list):
+                    for s in struct.get("next_24_hours"):
+                        if s and s not in all_steps:
+                            all_steps.append(s)
+            elif m.content and not assistant_analyses:
+                assistant_analyses.append(m.content[:500])
+
+    facts_text = "\n\n".join(user_queries[:5]) if user_queries else "Citizen consultation request."
+    analysis_text = "\n\n".join(assistant_analyses[:3]) if assistant_analyses else "Analysis completed via TRANA AI First Aid."
+    sections_str = ", ".join(all_laws[:6]) if all_laws else "Sections under preliminary evaluation"
+    matter_title = latest_session.title or "Legal Inquiry & First Aid"
+    created_date = latest_session.created_at.strftime('%d %b %Y') if latest_session.created_at else "Recent"
+
+    markdown_brief = (
+        f"### CLIENT INTAKE BRIEF (AI FIRST-AID)\n\n"
+        f"**Matter**: {matter_title}\n"
+        f"**Source Session**: {latest_session.id} ({created_date})\n"
+        f"**Sections Identified**: {sections_str}\n"
+        f"**Bail / Jeopardy Status**: {bail_status}\n\n"
+        f"#### 1. Factual Summary (Citizen Statement to AI)\n{facts_text}\n\n"
+        f"#### 2. AI Statutory Assessment\n{analysis_text}\n\n"
+    )
+    if all_rights:
+        markdown_brief += "#### 3. Key Rights Identified\n" + "\n".join([f"- {r}" for r in all_rights[:5]]) + "\n\n"
+    if all_steps:
+        markdown_brief += "#### 4. Recommended Actions\n" + "\n".join([f"- {s}" for s in all_steps[:5]]) + "\n"
+
+    return {
+        "has_conversation": True,
+        "session_id": latest_session.id,
+        "session_title": matter_title,
+        "matter_type": matter_title,
+        "sections": all_laws,
+        "sections_summary": sections_str,
+        "facts": facts_text,
+        "analysis": analysis_text,
+        "bail_status": bail_status,
+        "rights": all_rights,
+        "next_steps": all_steps,
+        "brief_markdown": markdown_brief
+    }
+
+
 @app.get("/api/chats/{chat_id}", response_model=ChatSessionResponse, tags=["Chats"])
 def get_chat(chat_id: str, user_email: str = Depends(get_current_user_email), db: Session = Depends(get_db)):
     session = db.query(db_models.ChatSession).filter(

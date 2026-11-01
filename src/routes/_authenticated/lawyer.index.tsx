@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { 
   FileText, Search, Users, ArrowUpRight, CheckCircle2, 
   Clock, Calendar, User, Phone, MessageSquare, Shield,
-  Sparkles, Filter, ChevronRight, X, ExternalLink
+  Sparkles, Filter, ChevronRight, X, ExternalLink, Copy
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useLawyerAuth } from "./lawyer";
 import { formatCourtsHeader } from "@/lib/courts-data";
 
@@ -30,6 +32,7 @@ type Referral = {
   consultationType: "Call" | "Chat" | "In-person";
   status: "New Request" | "Confirmed" | "In Progress" | "Completed";
   summary: string;
+  intakeBrief?: string;
   urgent: boolean;
 };
 
@@ -44,6 +47,26 @@ const initialReferrals: Referral[] = [
     consultationType: "Call",
     status: "New Request",
     summary: "Apprehending arrest under Section 318 BNS (Cheating) arising out of commercial invoice dispute. Needs urgent interim protection before Sessions Court.",
+    intakeBrief: `### CLIENT INTAKE BRIEF (TRANA AI FIRST-AID)
+**Matter**: Anticipatory Bail Application — Cheating Allegation
+**Client**: Rahul Verma • Phone: +91 98110 42910 • New Delhi
+**Applicable Statutes**: Section 482 BNSS (Old 438 CrPC) & Section 318 BNS (Old 420 IPC)
+**Bail / Jeopardy Position**: Non-Bailable Cognizable Offence • Police summons threatened under Sec 35 BNSS.
+
+#### 1. Factual Summary (Citizen's Statement to AI)
+Client Rahul Verma is the managing director of a registered logistics firm. A commercial supplier has lodged a criminal complaint with the local police station alleging cheating and criminal breach of trust regarding unpaid invoices totaling ₹18.5 Lakhs. The dispute arose strictly due to damaged consignments and disputed quality reconciliation, with no dishonest inducement at the inception of the contract.
+
+#### 2. AI Statutory Assessment
+• Offence under Section 318 BNS (Cheating) requires fraudulent or dishonest intention from the very beginning; a commercial breach of contract or delay in settlement does not constitute criminal cheating.
+• A reasonable and genuine apprehension of arrest exists, fulfilling jurisdictional criteria for an urgent Anticipatory Bail Application under Section 482 BNSS before the Court of Session.
+
+#### 3. Key Rights Identified
+• Protection against arbitrary arrest: Section 35(3) BNSS mandates formal notice of appearance prior to arrest for offences carrying punishment up to 7 years.
+• Right to legal counsel and immediate copies of written complaints.
+
+#### 4. Recommended Urgent Actions
+• Move urgent Anticipatory Bail Application under Section 482 BNSS before the Principal District & Sessions Judge.
+• Compile commercial invoices, inspection notices, and WhatsApp/Email correspondence showing bona fide commercial dispute.`,
     urgent: true,
   },
   {
@@ -56,6 +79,21 @@ const initialReferrals: Referral[] = [
     consultationType: "Chat",
     status: "Confirmed",
     summary: "Vendor defaulted on service delivery after 70% advance payment. Seeking formal legal demand notice under 15-day cure period.",
+    intakeBrief: `### CLIENT INTAKE BRIEF (TRANA AI FIRST-AID)
+**Matter**: Commercial Contract Breach & Statutory Demand Notice
+**Client**: Priya Sharma • Phone: +91 98201 55320 • Mumbai
+**Applicable Statutes**: Section 73 Indian Contract Act, 1872 & Specific Relief Act
+**Bail / Jeopardy Position**: Civil Recovery & Commercial Action
+
+#### 1. Factual Summary (Citizen's Statement to AI)
+Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% advance). Developer ceased communication after missed project milestones and has failed to deliver source code or respond to informal reminders.
+
+#### 2. AI Statutory Assessment
+• Material breach of contract established under Section 39 of the Contract Act.
+• Client is entitled to damages and specific restitution under Section 73 of the Contract Act, 1872.
+
+#### 3. Recommended Actions
+• Issue formal 15-day statutory demand notice seeking cure or full refund with 18% p.a. commercial interest.`,
     urgent: false,
   },
   {
@@ -98,7 +136,63 @@ const initialReferrals: Referral[] = [
 
 function LawyerOverview() {
   const { data: lawyer } = useLawyerAuth();
-  const [referrals, setReferrals] = useState<Referral[]>(initialReferrals);
+
+  // Query live consultations from citizens
+  const { data: dbConsults = [] } = useQuery({
+    queryKey: ["lawyer-overview-consultations", lawyer?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("consultations")
+        .select("*")
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+  });
+
+  const mergedReferrals = useMemo(() => {
+    const list: Referral[] = [];
+    dbConsults.forEach((row) => {
+      const briefText = row.intake_brief || row.note || "";
+      let matter = "Legal Consultation Request";
+      let sectionStr = "Applicable Statutes";
+      if (briefText) {
+        const matterMatch = briefText.match(/\*\*Matter\*\*:\s*([^\n]+)/);
+        if (matterMatch) matter = matterMatch[1].trim();
+        const sectionMatch = briefText.match(/\*\*Applicable Statutes\*\*:\s*([^\n]+)/) || briefText.match(/\*\*Sections Identified\*\*:\s*([^\n]+)/);
+        if (sectionMatch) sectionStr = sectionMatch[1].trim();
+      }
+
+      const clientName = row.user_id ? `Citizen (${row.user_id.slice(0, 8)})` : "Citizen Client";
+      const summaryText = briefText.length > 200 ? `${briefText.slice(0, 200)}...` : (briefText || "Client requested consultation with counsel.");
+
+      list.push({
+        id: `REF-${row.id.slice(0, 8).toUpperCase()}`,
+        date: row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
+        client: clientName,
+        phone: "+91 (Verified Account)",
+        matterType: matter,
+        section: sectionStr,
+        consultationType: row.consult_type === "chat" ? "Chat" : "Call",
+        status: row.status === "completed" ? "Completed" : "New Request",
+        summary: summaryText,
+        intakeBrief: briefText,
+        urgent: true,
+      });
+    });
+
+    initialReferrals.forEach((r) => {
+      if (!list.some((existing) => existing.id === r.id)) {
+        list.push(r);
+      }
+    });
+    return list;
+  }, [dbConsults]);
+
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  useEffect(() => {
+    setReferrals(mergedReferrals);
+  }, [mergedReferrals]);
+
   const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
 
   function updateStatus(id: string, newStatus: Referral["status"]) {
@@ -438,9 +532,18 @@ function LawyerOverview() {
               </div>
 
               <div>
-                <span className="text-xs uppercase tracking-[0.15em] text-[#888888]">Client Case Brief</span>
-                <div className="mt-1 bg-[#111111] border border-[#2E2E2E] p-4 text-sm text-[#CCCCCC] leading-relaxed">
-                  {selectedReferral.summary}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs uppercase tracking-[0.15em] text-[#888888]">
+                    Client Intake Summary (AI Structured Brief)
+                  </span>
+                  {selectedReferral.intakeBrief && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300">
+                      AI First-Aid
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 bg-[#111111] border border-[#2E2E2E] p-4 text-xs md:text-sm text-[#CCCCCC] leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto font-sans">
+                  {selectedReferral.intakeBrief || selectedReferral.summary}
                 </div>
               </div>
 
@@ -472,12 +575,27 @@ function LawyerOverview() {
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>Draft Pleading for this Matter</span>
               </Link>
-              <button
-                onClick={() => setSelectedReferral(null)}
-                className="bg-white px-5 py-2.5 text-xs uppercase tracking-[0.15em] text-black font-semibold hover:bg-neutral-200"
-              >
-                Close Brief
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedReferral.intakeBrief && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedReferral.intakeBrief!);
+                      toast.success("Intake brief copied to clipboard");
+                    }}
+                    className="border border-[#333333] px-3 py-2 text-xs uppercase tracking-[0.1em] text-[#AAAAAA] hover:text-white hover:border-white transition-colors flex items-center gap-1.5"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>Copy Brief</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedReferral(null)}
+                  className="bg-white px-5 py-2.5 text-xs uppercase tracking-[0.15em] text-black font-semibold hover:bg-neutral-200 transition-colors"
+                >
+                  Close Brief
+                </button>
+              </div>
             </div>
           </div>
         </div>
