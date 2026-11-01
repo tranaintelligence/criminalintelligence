@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
-  Briefcase, Search, Phone, MessageSquare, Users, 
+  Briefcase, Search, Phone, MessageSquare, 
   ChevronRight, Calendar, Filter, Sparkles, CheckCircle2,
   FileText, Copy, X
 } from "lucide-react";
@@ -28,7 +28,7 @@ type Referral = {
   phone: string;
   matterType: string;
   section: string;
-  consultationType: "Call" | "Chat" | "In-person";
+  consultationType: "Call" | "Chat";
   status: "New Request" | "Confirmed" | "In Progress" | "Completed";
   summary: string;
   intakeBrief?: string;
@@ -105,10 +105,10 @@ Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% ad
     phone: "+91 97118 90312",
     matterType: "Cyber Financial Fraud Complaint",
     section: "Section 66D IT Act & Sec 318 BNS",
-    consultationType: "In-person",
+    consultationType: "Call",
     status: "In Progress",
     summary: "Unauthorized debit of ₹8.4 Lakhs via spoofed payment gateway. Seeking formal complaint to Cyber Cell and National Cyber Crime Portal.",
-    scheduledTime: "26 Oct 2026, 2:00 PM at Chambers",
+    scheduledTime: "26 Oct 2026, 2:00 PM",
   },
   {
     id: "REF-2026-071",
@@ -128,7 +128,7 @@ Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% ad
     phone: "+91 98450 12099",
     matterType: "Ancestral Property Partition",
     section: "Hindu Succession Act / Partition Act",
-    consultationType: "In-person",
+    consultationType: "Chat",
     status: "Completed",
     summary: "Preliminary legal opinion provided on share entitlement in Delhi NCR ancestral estate. Next step: filing civil partition suit.",
   },
@@ -296,7 +296,6 @@ function LawyerReferralsPage() {
                 <span className="text-white font-medium flex items-center gap-1.5">
                   {r.consultationType === "Call" && <Phone className="h-3.5 w-3.5 text-sky-400" />}
                   {r.consultationType === "Chat" && <MessageSquare className="h-3.5 w-3.5 text-purple-400" />}
-                  {r.consultationType === "In-person" && <Users className="h-3.5 w-3.5 text-emerald-400" />}
                   {r.consultationType}
                 </span>
                 {r.scheduledTime && (
@@ -308,7 +307,7 @@ function LawyerReferralsPage() {
             </div>
 
             <div>
-              <span className="text-xs font-mono text-amber-300">{r.section}</span>
+              <span className="text-xs text-amber-300 font-medium">{r.section}</span>
               <h3 className="text-sm font-medium text-white mt-0.5">{r.matterType}</h3>
               <p className="mt-2 text-xs text-[#CCCCCC] leading-relaxed bg-[#111111] border border-[#242424] p-3">
                 {r.summary}

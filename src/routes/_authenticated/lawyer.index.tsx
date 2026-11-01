@@ -29,7 +29,7 @@ type Referral = {
   phone: string;
   matterType: string;
   section: string;
-  consultationType: "Call" | "Chat" | "In-person";
+  consultationType: "Call" | "Chat";
   status: "New Request" | "Confirmed" | "In Progress" | "Completed";
   summary: string;
   intakeBrief?: string;
@@ -103,7 +103,7 @@ Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% ad
     phone: "+91 97118 90312",
     matterType: "Cyber Financial Fraud Complaint",
     section: "Section 66D IT Act & Sec 318 BNS",
-    consultationType: "In-person",
+    consultationType: "Call",
     status: "In Progress",
     summary: "Unauthorized debit of ₹8.4 Lakhs via spoofed payment gateway. Seeking formal complaint to Cyber Cell and National Cyber Crime Portal.",
     urgent: true,
@@ -127,7 +127,7 @@ Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% ad
     phone: "+91 98450 12099",
     matterType: "Ancestral Property Partition",
     section: "Hindu Succession Act / Partition Act",
-    consultationType: "In-person",
+    consultationType: "Chat",
     status: "Completed",
     summary: "Preliminary legal opinion provided on share entitlement in Delhi NCR ancestral estate. Next step: filing civil partition suit.",
     urgent: false,
@@ -284,7 +284,7 @@ function LawyerOverview() {
               </span>
             </div>
             <p className="mt-3 text-[0.7rem] text-[#777777]">
-              12 phone calls • 7 in-person chambers
+              12 phone calls • 7 secure chats
             </p>
           </div>
 
@@ -466,7 +466,6 @@ function LawyerOverview() {
                     <div className="inline-flex items-center gap-1.5 text-xs">
                       {r.consultationType === "Call" && <Phone className="h-3 w-3 text-sky-400" />}
                       {r.consultationType === "Chat" && <MessageSquare className="h-3 w-3 text-purple-400" />}
-                      {r.consultationType === "In-person" && <Users className="h-3 w-3 text-emerald-400" />}
                       <span>{r.consultationType}</span>
                     </div>
                   </td>
@@ -528,7 +527,7 @@ function LawyerOverview() {
               <div>
                 <span className="text-xs uppercase tracking-[0.15em] text-[#888888]">Legal Subject</span>
                 <p className="mt-1 text-base text-white font-medium">{selectedReferral.matterType}</p>
-                <p className="text-xs font-mono text-amber-300">{selectedReferral.section}</p>
+                <p className="text-xs text-amber-300 font-medium">{selectedReferral.section}</p>
               </div>
 
               <div>

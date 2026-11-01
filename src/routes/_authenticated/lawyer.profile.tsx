@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { 
   User, ShieldCheck, Check, Clock, Upload, 
-  MapPin, Phone, MessageSquare, Users, Save, AlertCircle, Camera,
+  MapPin, Phone, MessageSquare, Save, AlertCircle, Camera,
   X, Search, Plus, Landmark
 } from "lucide-react";
 import { toast } from "sonner";
@@ -57,7 +57,6 @@ function LawyerProfilePage() {
   const [highCourtSearch, setHighCourtSearch] = useState<string>("");
   const [offersCall, setOffersCall] = useState(true);
   const [offersChat, setOffersChat] = useState(true);
-  const [offersInPerson, setOffersInPerson] = useState(false);
   const [bio, setBio] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,7 +84,6 @@ function LawyerProfilePage() {
       );
       setOffersCall(lawyer.offers_call);
       setOffersChat(lawyer.offers_chat);
-      setOffersInPerson(lawyer.offers_in_person);
 
       // Parse initial specialisations
       if (lawyer.specialisation) {
@@ -167,7 +165,7 @@ function LawyerProfilePage() {
         specialisation: specString,
         offers_call: offersCall,
         offers_chat: offersChat,
-        offers_in_person: offersInPerson,
+        offers_in_person: false,
         approved: isApproved,
       }).catch((err) => console.warn("lawyers upsert:", err));
 
@@ -660,7 +658,7 @@ function LawyerProfilePage() {
             Clients seeking your counsel will be offered these communication channels:
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             {/* Call */}
             <label
               className={`border p-4 flex items-center gap-3 cursor-pointer transition-colors ${
@@ -698,26 +696,6 @@ function LawyerProfilePage() {
                   <MessageSquare className="h-3.5 w-3.5" /> Chat
                 </span>
                 <span className="text-[0.7rem] text-[#888888] block">Text advice & doc review</span>
-              </div>
-            </label>
-
-            {/* In-person */}
-            <label
-              className={`border p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                offersInPerson ? "border-white bg-[#222222]" : "border-[#333333] bg-[#111111]"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={offersInPerson}
-                onChange={(e) => setOffersInPerson(e.target.checked)}
-                className="h-4 w-4 accent-white"
-              />
-              <div>
-                <span className="text-sm font-medium text-white flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5" /> In-person
-                </span>
-                <span className="text-[0.7rem] text-[#888888] block">Chamber / Court meeting</span>
               </div>
             </label>
           </div>

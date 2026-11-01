@@ -129,7 +129,7 @@ function LawyerDocumentsPage() {
               <h3 className="mt-3 font-display text-xl font-medium text-white line-clamp-1">
                 {doc.title}
               </h3>
-              <p className="mt-1 text-xs text-amber-300 font-mono">{doc.section}</p>
+              <p className="mt-1 text-xs text-amber-300 font-medium">{doc.section}</p>
               <p className="mt-3 text-xs text-[#888888] line-clamp-3 leading-relaxed font-mono bg-[#111111] p-2.5">
                 {doc.content}
               </p>

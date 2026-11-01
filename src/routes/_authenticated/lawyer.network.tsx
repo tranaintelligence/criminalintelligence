@@ -287,7 +287,6 @@ function LawyerNetwork() {
                   <span>Available for:</span>
                   {l.offers_call && <span className="text-white">Call</span>}
                   {l.offers_chat && <span className="text-white">Chat</span>}
-                  {l.offers_in_person && <span className="text-white">Chambers</span>}
                 </div>
               </div>
             </div>

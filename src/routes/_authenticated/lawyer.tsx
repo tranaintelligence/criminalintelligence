@@ -157,7 +157,7 @@ function LawyerLayout() {
         specialisation: "Criminal Defence & Constitutional Law",
         offers_call: true,
         offers_chat: true,
-        offers_in_person: true,
+        offers_in_person: false,
         approved: true,
       });
 
