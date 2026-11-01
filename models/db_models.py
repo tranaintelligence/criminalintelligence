@@ -247,3 +247,20 @@ class TrackedCase(Base):
         UniqueConstraint("user_email", "cnr", name="uq_user_cnr"),
         Index("ix_tracked_cases_user_cnr", "user_email", "cnr"),
     )
+
+
+class CourtAPIKey(Base):
+    """External Court Data and eCourts API Provider Credentials."""
+
+    __tablename__ = "court_api_keys"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    provider = Column(String(64), nullable=False, default="surepass", index=True)
+    label = Column(String(120), nullable=False)
+    api_key = Column(Text, nullable=False)
+    masked_key = Column(String(32), nullable=False)
+    base_url = Column(String(255), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_used_at = Column(DateTime, nullable=True)

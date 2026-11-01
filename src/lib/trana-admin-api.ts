@@ -338,3 +338,55 @@ export const getAdminUserDetail = (credential: string, userIdentifier: string): 
 
 export const getAdminUserChats = (credential: string, userIdentifier: string): Promise<AdminUserChatSession[]> =>
   request<AdminUserChatSession[]>(credential, `/api/admin/users/${encodeURIComponent(userIdentifier)}/chats`);
+
+
+// =============================================================================
+// Court Data & eCourts API Management
+// =============================================================================
+
+export interface CourtAPIKey {
+  id: string;
+  provider: string;
+  label: string;
+  masked_key: string;
+  base_url?: string | null;
+  is_active: boolean;
+  created_at: string;
+  last_used_at?: string | null;
+}
+
+export interface CourtAPIStatus {
+  has_active_key: boolean;
+  active_provider: string | null;
+  key_count: number;
+}
+
+export const getCourtKeys = (credential: string): Promise<CourtAPIKey[]> =>
+  request<CourtAPIKey[]>(credential, '/api/admin/court-keys');
+
+export const createCourtKey = (
+  credential: string,
+  data: { provider: string; label: string; api_key: string; base_url?: string; is_active?: boolean }
+): Promise<CourtAPIKey> =>
+  request<CourtAPIKey>(credential, '/api/admin/court-keys', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const updateCourtKey = (
+  credential: string,
+  keyId: string,
+  data: { label?: string; is_active?: boolean; base_url?: string }
+): Promise<CourtAPIKey> =>
+  request<CourtAPIKey>(credential, `/api/admin/court-keys/${encodeURIComponent(keyId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+
+export const deleteCourtKey = (credential: string, keyId: string): Promise<{ ok: boolean }> =>
+  request<{ ok: boolean }>(credential, `/api/admin/court-keys/${encodeURIComponent(keyId)}`, {
+    method: 'DELETE',
+  });
+
+export const getCourtAPIStatus = (credential: string): Promise<CourtAPIStatus> =>
+  request<CourtAPIStatus>(credential, '/api/admin/court-keys/status');

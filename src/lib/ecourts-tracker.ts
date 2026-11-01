@@ -41,6 +41,8 @@ export interface ECourtCaseRecord {
     orderText: string;
   }[];
   source?: string;
+  is_live_sync?: boolean;
+  api_key_required?: boolean;
   // Notification configuration
   smsEnabled: boolean;
   smsNumber: string;
@@ -345,6 +347,8 @@ export async function fetchCnrStatus(
         lastOrderSummary: data.last_order_summary || data.lastOrderSummary || "Notice issued to opposite parties.",
         ordersHistory: data.orders_history || data.ordersHistory || [],
         source: data.source || "National Judicial Data Grid & eCourts Services (Live CIS Sync)",
+        is_live_sync: data.is_live_sync ?? true,
+        api_key_required: data.api_key_required ?? false,
         smsEnabled: true,
         smsNumber: defaults?.phone || "+91 98110 42910",
         emailEnabled: true,

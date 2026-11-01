@@ -59,6 +59,7 @@ from sqlalchemy import func, inspect, text
 from urllib.parse import unquote
 
 print("[Progress] Loading schemas...")
+import models.schemas as schemas
 from models.schemas import (
     AnalysisRequest,
     TemporaryAnalysisRequest,
@@ -2650,6 +2651,140 @@ def remove_document(
         "message": f"Deleted {deleted_count} chunks for '{document_name}'.",
     }
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Court & Legal Data API Key Management
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/admin/court-keys", response_model=list[schemas.CourtAPIKeyResponse], tags=["Admin API"])
+def list_court_keys(
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """List all configured external Court Data / eCourts API keys."""
+    rows = db.query(db_models.CourtAPIKey).order_by(db_models.CourtAPIKey.created_at.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "provider": r.provider,
+            "label": r.label,
+            "masked_key": r.masked_key,
+            "base_url": r.base_url,
+            "is_active": r.is_active,
+            "created_at": r.created_at.isoformat() if r.created_at else "",
+            "last_used_at": r.last_used_at.isoformat() if r.last_used_at else None,
+        }
+        for r in rows
+    ]
+
+
+@app.post("/api/admin/court-keys", response_model=schemas.CourtAPIKeyResponse, status_code=201, tags=["Admin API"])
+def create_court_key(
+    key_in: schemas.CourtAPIKeyCreate,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Add a new Court Data API key (e.g. Surepass, eCourtsIndia, Indian Kanoon)."""
+    raw_key = key_in.api_key.strip()
+    if not raw_key:
+        raise HTTPException(status_code=400, detail="API key cannot be empty.")
+
+    provider_clean = key_in.provider.strip().lower()
+    masked = mask_api_key(raw_key)
+
+    record = db_models.CourtAPIKey(
+        id=str(uuid.uuid4()),
+        provider=provider_clean,
+        label=key_in.label.strip(),
+        api_key=raw_key,
+        masked_key=masked,
+        base_url=key_in.base_url.strip() if key_in.base_url else None,
+        is_active=key_in.is_active,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {
+        "id": record.id,
+        "provider": record.provider,
+        "label": record.label,
+        "masked_key": record.masked_key,
+        "base_url": record.base_url,
+        "is_active": record.is_active,
+        "created_at": record.created_at.isoformat(),
+        "last_used_at": None,
+    }
+
+
+@app.patch("/api/admin/court-keys/{key_id}", response_model=schemas.CourtAPIKeyResponse, tags=["Admin API"])
+def update_court_key(
+    key_id: str,
+    key_in: schemas.CourtAPIKeyUpdate,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Update or toggle a Court API key."""
+    record = db.query(db_models.CourtAPIKey).filter(db_models.CourtAPIKey.id == key_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Court API key not found.")
+
+    if key_in.label is not None:
+        record.label = key_in.label.strip()
+    if key_in.is_active is not None:
+        record.is_active = key_in.is_active
+    if key_in.base_url is not None:
+        record.base_url = key_in.base_url.strip() if key_in.base_url else None
+
+    record.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(record)
+    return {
+        "id": record.id,
+        "provider": record.provider,
+        "label": record.label,
+        "masked_key": record.masked_key,
+        "base_url": record.base_url,
+        "is_active": record.is_active,
+        "created_at": record.created_at.isoformat(),
+        "last_used_at": record.last_used_at.isoformat() if record.last_used_at else None,
+    }
+
+
+@app.delete("/api/admin/court-keys/{key_id}", tags=["Admin API"])
+def delete_court_key(
+    key_id: str,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Delete a Court Data API key."""
+    deleted = db.query(db_models.CourtAPIKey).filter(db_models.CourtAPIKey.id == key_id).delete()
+    db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Court API key not found.")
+    return {"ok": True, "id": key_id}
+
+
+@app.get("/api/admin/court-keys/status", tags=["Admin API"])
+def get_court_keys_status(
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return status of live eCourts API integration."""
+    active_row = db.query(db_models.CourtAPIKey).filter(db_models.CourtAPIKey.is_active == True).first()
+    count = db.query(db_models.CourtAPIKey).count()
+    env_active = bool(os.getenv("SUREPASS_API_KEY") or os.getenv("ECOURTS_API_KEY") or os.getenv("INDIANKANOON_TOKEN"))
+
+    has_active = bool(active_row or env_active)
+    active_provider = active_row.provider if active_row else ("environment" if env_active else None)
+
+    return {
+        "has_active_key": has_active,
+        "active_provider": active_provider,
+        "key_count": count + (1 if env_active else 0),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════

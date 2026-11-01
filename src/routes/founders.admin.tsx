@@ -15,6 +15,10 @@ import {
   Plus,
   Network,
   Download,
+  Scale,
+  Landmark,
+  ExternalLink,
+  Search,
 } from 'lucide-react';
 import { useTranaCredential } from '@/lib/trana-auth';
 import { downloadCSV } from '@/lib/csv-export';
@@ -30,8 +34,13 @@ import {
   getAdminClientIP,
   createAdminIP,
   deleteAdminIP,
+  getCourtKeys,
+  createCourtKey,
+  updateCourtKey,
+  deleteCourtKey,
+  getCourtAPIStatus,
 } from '@/lib/trana-admin-api';
-import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP } from '@/lib/trana-admin-api';
+import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP, CourtAPIKey, CourtAPIStatus } from '@/lib/trana-admin-api';
 
 export const Route = createFileRoute('/founders/admin')({
   head: () => ({
@@ -208,7 +217,21 @@ export function AdminView() {
   const [rotationDrafts, setRotationDrafts] = useState<Record<string, string>>({});
 
   // IP Management State
-  const [adminTab, setAdminTab] = useState<'ips' | 'keys'>('ips');
+  const [adminTab, setAdminTab] = useState<'ips' | 'keys' | 'court'>('court');
+  const [courtKeys, setCourtKeys] = useState<CourtAPIKey[]>([]);
+  const [courtStatus, setCourtStatus] = useState<CourtAPIStatus>({ has_active_key: false, active_provider: null, key_count: 0 });
+  const [courtForm, setCourtForm] = useState({
+    provider: 'surepass',
+    label: '',
+    apiKey: '',
+    baseUrl: '',
+  });
+  const [isAddingCourtKey, setIsAddingCourtKey] = useState(false);
+  const [deletingCourtKeyId, setDeletingCourtKeyId] = useState<string | null>(null);
+  const [courtSuccessMsg, setCourtSuccessMsg] = useState<string | null>(null);
+  const [testCnrInput, setTestCnrInput] = useState('');
+  const [testCnrResult, setTestCnrResult] = useState<any | null>(null);
+  const [isTestingCnr, setIsTestingCnr] = useState(false);
   const [ips, setIps] = useState<AdminIP[]>([]);
   const [clientIp, setClientIp] = useState('');
   const [ipAddressInput, setIpAddressInput] = useState('');
@@ -239,7 +262,7 @@ export function AdminView() {
           return;
         }
 
-        const [nextKeys, nextUsage, nextIps, currentIp] = await Promise.all([
+        const [nextKeys, nextUsage, nextIps, currentIp, nextCourtKeys, nextCourtStatus] = await Promise.all([
           getAdminKeys(credential).catch((err) => {
             console.warn('Failed to load admin keys:', err);
             return [];
@@ -250,12 +273,16 @@ export function AdminView() {
           }),
           getAdminIPs(credential).catch(() => []),
           getAdminClientIP().catch(() => ''),
+          getCourtKeys(credential).catch(() => []),
+          getCourtAPIStatus(credential).catch(() => ({ has_active_key: false, active_provider: null, key_count: 0 })),
         ]);
         setAccessState('authorized');
         setKeys(nextKeys);
         setUsage(nextUsage);
         setIps(nextIps);
         setClientIp(currentIp);
+        setCourtKeys(nextCourtKeys);
+        setCourtStatus(nextCourtStatus);
         setRotationDrafts(
           Object.fromEntries(nextKeys.map((keyRecord) => [keyRecord.id, String(keyRecord.rotationOrder)])),
         );
@@ -416,6 +443,94 @@ export function AdminView() {
     }
   };
 
+
+  const handleAddCourtKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credential) return;
+    if (!courtForm.label.trim() || !courtForm.apiKey.trim()) {
+      setFormError('Please enter both a label and the API key / token.');
+      return;
+    }
+
+    setIsAddingCourtKey(true);
+    setFormError(null);
+    try {
+      const created = await createCourtKey(credential, {
+        provider: courtForm.provider,
+        label: courtForm.label.trim(),
+        api_key: courtForm.apiKey.trim(),
+        base_url: courtForm.baseUrl.trim() || undefined,
+        is_active: true,
+      });
+
+      setCourtKeys((prev) => [created, ...prev]);
+      setCourtStatus((prev) => ({ ...prev, has_active_key: true, active_provider: created.provider, key_count: prev.key_count + 1 }));
+      setCourtForm({ provider: 'surepass', label: '', apiKey: '', baseUrl: '' });
+      setCourtSuccessMsg(`Successfully connected ${created.label} (${created.provider.toUpperCase()})`);
+      setTimeout(() => setCourtSuccessMsg(null), 5000);
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to add Court API key');
+    } finally {
+      setIsAddingCourtKey(false);
+    }
+  };
+
+  const handleToggleCourtKey = async (keyRecord: CourtAPIKey) => {
+    if (!credential) return;
+    try {
+      const updated = await updateCourtKey(credential, keyRecord.id, {
+        is_active: !keyRecord.is_active,
+      });
+      setCourtKeys((prev) => prev.map((k) => (k.id === keyRecord.id ? updated : k)));
+      const refreshedStatus = await getCourtAPIStatus(credential);
+      setCourtStatus(refreshedStatus);
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle court key');
+    }
+  };
+
+  const handleDeleteCourtKey = async (keyRecord: CourtAPIKey) => {
+    if (!credential) return;
+    if (!confirm(`Are you sure you want to remove ${keyRecord.label}?`)) return;
+
+    setDeletingCourtKeyId(keyRecord.id);
+    try {
+      await deleteCourtKey(credential, keyRecord.id);
+      setCourtKeys((prev) => prev.filter((k) => k.id !== keyRecord.id));
+      const refreshedStatus = await getCourtAPIStatus(credential);
+      setCourtStatus(refreshedStatus);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete court key');
+    } finally {
+      setDeletingCourtKeyId(null);
+    }
+  };
+
+  const handleTestCnrLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = testCnrInput.trim().toUpperCase();
+    if (!clean) return;
+
+    setIsTestingCnr(true);
+    setTestCnrResult(null);
+    try {
+      const res = await fetch('/api/cases/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
+        },
+        body: JSON.stringify({ cnr: clean }),
+      });
+      const data = await res.json();
+      setTestCnrResult(data);
+    } catch (err: any) {
+      setTestCnrResult({ error: err.message || 'Failed to query live court API' });
+    } finally {
+      setIsTestingCnr(false);
+    }
+  };
+
   const exportAdminCSV = () => {
     if (adminTab === 'keys') {
       const headers = [
@@ -547,7 +662,24 @@ export function AdminView() {
       </header>
 
       {/* Admin Tab Switcher */}
-      <div className="flex items-center gap-3 border-b border-[#222222] pb-4">
+      <div className="flex flex-wrap items-center gap-3 border-b border-[#222222] pb-4">
+        <button
+          type="button"
+          onClick={() => setAdminTab('court')}
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+            adminTab === 'court'
+              ? 'bg-amber-400/10 border border-amber-400/50 text-amber-300 font-semibold shadow-sm'
+              : 'bg-[#141414] border border-[#222222] text-neutral-400 hover:text-neutral-200'
+          }`}
+        >
+          <Scale size={14} />
+          <span>eCourts & NJDG API</span>
+          <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono ${
+            courtStatus.has_active_key ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-[#222222] text-neutral-400'
+          }`}>
+            {courtKeys.length}
+          </span>
+        </button>
         <button
           type="button"
           onClick={() => setAdminTab('ips')}
@@ -730,7 +862,267 @@ export function AdminView() {
         </div>
       )}
 
-      {adminTab === 'keys' && (
+
+      {/* Court API Management Tab */}
+      {adminTab === 'court' && (
+        <div className="space-y-8 font-sans">
+          {/* Status & Architecture Banner */}
+          <div className="p-6 rounded-2xl bg-[#121212] border border-[#242424] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                  courtStatus.has_active_key 
+                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800' 
+                    : 'bg-amber-950/50 text-amber-300 border-amber-700/60'
+                }`}>
+                  <Scale size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-[#1c1c1c] text-neutral-300 border border-[#2c2c2c]">
+                      National Judicial Data Grid (NJDG)
+                    </span>
+                    {courtStatus.has_active_key ? (
+                      <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-600/40 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Live Gateway Active ({courtStatus.active_provider?.toUpperCase()})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-600/40">
+                        Awaiting Live API Key (Decoder Mode)
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-serif text-white mt-1">
+                    eCourts & Court Records Gateway
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{courtKeys.length} {courtKeys.length === 1 ? 'Key' : 'Keys'} Registered</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-400 leading-relaxed font-sans">
+              The official Government of India eCourts portal (<code className="text-neutral-200">services.ecourts.gov.in</code>) requires image CAPTCHAs to prevent unauthenticated scraping. Connect an authenticated Court Data API provider (such as <strong>Surepass</strong>, <strong>eCourtsIndia</strong>, or <strong>Indian Kanoon</strong>) to automatically fetch real litigant names, exact judicial officers, courtroom numbers, and certified order copies for any 16-character CNR number across Indian High Courts and District Courts.
+            </p>
+          </div>
+
+          {courtSuccessMsg && (
+            <div className="flex items-center gap-2.5 p-4 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-xs text-emerald-300">
+              <Check size={16} />
+              {courtSuccessMsg}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Form Column */}
+            <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-5">
+              <div>
+                <p className="text-[11px] font-mono uppercase tracking-wider text-amber-300">Court Registry Credentials</p>
+                <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Connect Court API</h3>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Add credentials for your eCourts provider. Keys are stored encrypted in the backend.
+                </p>
+              </div>
+
+              <form onSubmit={handleAddCourtKey} className="space-y-4">
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                    API Provider
+                  </label>
+                  <select
+                    value={courtForm.provider}
+                    onChange={(e) => setCourtForm({ ...courtForm, provider: e.target.value })}
+                    className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
+                  >
+                    <option value="surepass">Surepass Court Case Search (Recommended)</option>
+                    <option value="ecourtsindia">eCourtsIndia Enterprise REST API</option>
+                    <option value="indiankanoon">Indian Kanoon Search API</option>
+                    <option value="claw">Claw Legaltech / Vakeel360 API</option>
+                    <option value="custom">Custom eCourts Gateway (Webhook / Proxy)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                    Key Label
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Primary Surepass Production Key"
+                    value={courtForm.label}
+                    onChange={(e) => setCourtForm({ ...courtForm, label: e.target.value })}
+                    className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                    API Key / Secret Token
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter raw secret key or bearer token"
+                    value={courtForm.apiKey}
+                    onChange={(e) => setCourtForm({ ...courtForm, apiKey: e.target.value })}
+                    className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                    Custom Base URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="e.g. https://kyc-api.surepass.io or leave blank"
+                    value={courtForm.baseUrl}
+                    onChange={(e) => setCourtForm({ ...courtForm, baseUrl: e.target.value })}
+                    className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isAddingCourtKey || !courtForm.label.trim() || !courtForm.apiKey.trim()}
+                  className="btn-solid w-full text-xs py-2.5 flex items-center justify-center gap-2 rounded-xl bg-white text-black font-semibold hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                >
+                  <Plus size={14} />
+                  <span>{isAddingCourtKey ? 'Connecting Key...' : 'Save Court API Key'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Configured Keys & Live Test Column */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Keys List */}
+              <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Registry Gateway</p>
+                    <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Configured Court Providers</h3>
+                  </div>
+                  <span className="text-xs font-mono text-neutral-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#262626]">
+                    {courtKeys.length} {courtKeys.length === 1 ? 'credential' : 'credentials'}
+                  </span>
+                </div>
+
+                {courtKeys.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-[#262626] rounded-xl text-neutral-500 text-xs space-y-2">
+                    <p>No external eCourts API keys configured yet.</p>
+                    <p className="text-[11px] text-neutral-600">
+                      Add a key for Surepass, eCourtsIndia, or Indian Kanoon to enable real-time case data queries for any CNR number.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {courtKeys.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#141414] border border-[#242424] hover:border-[#303030] transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-[#1c1c1c] border border-[#2a2a2a] flex items-center justify-center text-amber-300">
+                            <Scale size={17} />
+                          </div>
+                          <div>
+                            <div className="font-sans text-sm font-semibold text-neutral-100 flex items-center gap-2">
+                              <span>{item.label}</span>
+                              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-[#202020] text-amber-300 border border-[#333333]">
+                                {item.provider}
+                              </span>
+                            </div>
+                            <div className="font-mono text-xs text-neutral-400 mt-0.5">
+                              Key: {item.masked_key} {item.base_url ? `• ${item.base_url}` : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => void handleToggleCourtKey(item)}
+                            className={`px-3 py-1 rounded-full text-xs font-mono border transition-colors ${
+                              item.is_active
+                                ? 'bg-emerald-950/60 text-emerald-400 border-emerald-700/60'
+                                : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                            }`}
+                          >
+                            {item.is_active ? 'Active' : 'Disabled'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteCourtKey(item)}
+                            disabled={deletingCourtKeyId === item.id}
+                            className="p-2 rounded-lg bg-[#1a1a1a] border border-[#2e2e2e] text-rose-400 hover:bg-rose-950/40 hover:border-rose-900 transition-colors"
+                            title="Remove key"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Live CNR Verification & Diagnostics */}
+              <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-4">
+                <div>
+                  <p className="text-[11px] font-mono uppercase tracking-wider text-amber-300">Court Registry Diagnostics</p>
+                  <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Test Live CNR Resolution</h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Verify how any Indian court CNR number resolves through your configured API gateway.
+                  </p>
+                </div>
+
+                <form onSubmit={handleTestCnrLookup} className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={testCnrInput}
+                    onChange={(e) => setTestCnrInput(e.target.value)}
+                    placeholder="e.g. DLCT010036742023 or MHAU019999992015"
+                    className="flex-1 bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 font-mono uppercase focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isTestingCnr || !testCnrInput.trim()}
+                    className="px-5 py-2.5 bg-amber-400 text-black text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-amber-300 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Search size={14} />
+                    <span>{isTestingCnr ? 'Querying Court...' : 'Test Resolution'}</span>
+                  </button>
+                </form>
+
+                {testCnrResult && (
+                  <div className="mt-3 p-4 bg-[#141414] border border-[#282828] rounded-xl font-mono text-xs space-y-2 overflow-x-auto">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#222222]">
+                      <span className="text-neutral-400">Gateway Resolution Result:</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] ${
+                        testCnrResult.is_live_sync !== false ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-300'
+                      }`}>
+                        {testCnrResult.is_live_sync !== false ? 'LIVE SYNC' : 'DECODER MODE'}
+                      </span>
+                    </div>
+                    <pre className="text-[11px] text-neutral-300 overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(testCnrResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+            {adminTab === 'keys' && (
       <div className="admin-page__content space-y-8">
         <section className="admin-panel admin-panel--intro flex items-start gap-4 p-5 rounded-2xl bg-[#121212] border border-[#222222]">
           <div className="admin-panel__icon p-2.5 rounded-xl bg-[#1a1a1a] border border-[#2c2c2c] text-amber-200/90 shrink-0">

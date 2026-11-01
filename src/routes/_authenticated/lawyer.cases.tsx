@@ -349,8 +349,23 @@ function LawyerCaseTrackerPage() {
             {/* Source Telemetry Banner */}
             <div className="bg-[#121212] border border-[#262626] px-4 py-2.5 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs">
               <div className="flex items-center gap-2 text-neutral-300">
-                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Source: <strong className="text-white">{activeCase.source || "National Judicial Data Grid & eCourts Services (Live CIS Sync)"}</strong></span>
+                {activeCase.is_live_sync !== false ? (
+                  <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                )}
+                <span>
+                  Source: <strong className="text-white">{activeCase.source || "National Judicial Data Grid & eCourts Services (Live CIS Sync)"}</strong>
+                </span>
+                {activeCase.is_live_sync !== false ? (
+                  <span className="text-[10px] bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 px-1.5 py-0.5 rounded ml-1">
+                    VERIFIED
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-amber-950/80 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded ml-1">
+                    DECODER MODE
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -362,6 +377,24 @@ function LawyerCaseTrackerPage() {
                 <span>{isRefreshing ? "Syncing..." : "Sync Fresh Status"}</span>
               </button>
             </div>
+
+            {/* Live API Notice Banner if API Key is not configured */}
+            {(activeCase.api_key_required || activeCase.is_live_sync === false) && (
+              <div className="bg-amber-950/30 border border-amber-500/40 p-4 rounded text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200 font-sans">
+                <div className="flex items-center gap-2.5">
+                  <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span>
+                    <strong>Decoder Mode:</strong> Live court docket data for un-benchmarked cases requires an eCourts API key (Surepass, eCourtsIndia, or Indian Kanoon). Configure in Founders Console to fetch live dates & orders directly from court servers.
+                  </span>
+                </div>
+                <Link
+                  to="/founders/admin"
+                  className="shrink-0 inline-flex items-center gap-1 font-mono text-[11px] text-amber-300 hover:text-white underline whitespace-nowrap"
+                >
+                  <span>Configure Court API Key →</span>
+                </Link>
+              </div>
+            )}
 
             {/* Header info */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-[#2E2E2E] pb-6">

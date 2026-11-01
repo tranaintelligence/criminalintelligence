@@ -428,3 +428,28 @@ class CaseReminderRequest(BaseModel):
     cnr: str
     sms_phone: str
     email_alert: str
+
+
+class CourtAPIKeyCreate(BaseModel):
+    provider: str = Field(default="surepass", description="Court API Provider: surepass, ecourtsindia, indiankanoon, claw, custom")
+    label: str = Field(..., description="Friendly name, e.g. Surepass Production Key")
+    api_key: str = Field(..., description="Raw secret API key or token")
+    base_url: Optional[str] = Field(default=None, description="Optional custom endpoint URL")
+    is_active: bool = Field(default=True)
+
+
+class CourtAPIKeyUpdate(BaseModel):
+    label: Optional[str] = None
+    is_active: Optional[bool] = None
+    base_url: Optional[str] = None
+
+
+class CourtAPIKeyResponse(BaseModel):
+    id: str
+    provider: str
+    label: str
+    masked_key: str
+    base_url: Optional[str] = None
+    is_active: bool
+    created_at: str
+    last_used_at: Optional[str] = None
