@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Scale, Check, X, Star, FileText, Eye, ShieldAlert, 
-  ExternalLink, Search, RefreshCw, MessageSquare, AlertCircle 
+  ExternalLink, Search, RefreshCw, MessageSquare, AlertCircle,
+  Plus, Trash2, Phone, Mail 
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ type LawyerRecord = {
   id: string;
   name: string;
   barNo: string;
+  email: string;
+  phone: string;
   specialisation: string;
   city: string;
   clientsReferred: number;
@@ -39,6 +42,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "law-01",
     name: "Adv. Rajeshwaran Iyer",
     barNo: "D/882/2012",
+    email: "rajeshwaran.iyer@delhibar.org",
+    phone: "+91 98110 42910",
     specialisation: "Criminal Defence & Anticipatory Bail",
     city: "New Delhi",
     clientsReferred: 18,
@@ -53,6 +58,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "law-02",
     name: "Adv. Meenakshi Sundaram",
     barNo: "MAH/1540/2015",
+    email: "meenakshi.sundaram@mumbaibar.in",
+    phone: "+91 98201 55320",
     specialisation: "Corporate Crimes & White Collar Offences",
     city: "Mumbai",
     clientsReferred: 24,
@@ -67,6 +74,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "law-03",
     name: "Adv. Harpreet Singh Sodhi",
     barNo: "PH/3421/2010",
+    email: "harpreet.sodhi@chandigarhcounsel.in",
+    phone: "+91 98720 18491",
     specialisation: "Constitutional Writs & Service Law",
     city: "Chandigarh",
     clientsReferred: 9,
@@ -81,6 +90,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "law-04",
     name: "Adv. Kavita Deshmukh",
     barNo: "MAH/4021/2018",
+    email: "kavita.deshmukh@punelaw.org",
+    phone: "+91 99230 48102",
     specialisation: "Commercial Arbitration & Cheque Dishonour",
     city: "Pune",
     clientsReferred: 14,
@@ -95,6 +106,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "law-05",
     name: "Adv. Vikramjit Banerjee",
     barNo: "WB/2190/2019",
+    email: "vikramjit.banerjee@calcuttahighcourt.in",
+    phone: "+91 98300 91823",
     specialisation: "BNS Criminal Procedure",
     city: "Kolkata",
     clientsReferred: 4,
@@ -110,6 +123,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "pend-01",
     name: "Adv. Tarun K. Sachdeva",
     barNo: "D/3119/2021",
+    email: "tarun.sachdeva@patialahouse.org",
+    phone: "+91 98101 22894",
     specialisation: "Narcotics (NDPS) & Criminal Trial",
     city: "New Delhi",
     clientsReferred: 0,
@@ -124,6 +139,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "pend-02",
     name: "Adv. Sumedha Sen",
     barNo: "KAR/5812/2020",
+    email: "sumedha.sen@bengalurucounsel.com",
+    phone: "+91 99800 76192",
     specialisation: "Cyber Crime & Technology Contracts",
     city: "Bengaluru",
     clientsReferred: 0,
@@ -138,6 +155,8 @@ const initialLawyersData: LawyerRecord[] = [
     id: "pend-03",
     name: "Adv. Alok N. Tiwari",
     barNo: "UP/7724/2017",
+    email: "alok.tiwari@allahabadbar.org",
+    phone: "+91 94150 33491",
     specialisation: "Bail & Revision Applications",
     city: "Prayagraj",
     clientsReferred: 0,
@@ -156,23 +175,88 @@ function FoundersLawyersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLawyer, setSelectedLawyer] = useState<LawyerRecord | null>(null);
 
-  // Load local ratings / notes if stored
+  // Add Lawyer modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addBarNo, setAddBarNo] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addSpecialisation, setAddSpecialisation] = useState("Criminal Defence & Anticipatory Bail");
+  const [addCity, setAddCity] = useState("New Delhi");
+  const [addStatus, setAddStatus] = useState<"Active" | "Pending">("Active");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch real lawyers from Supabase
+  const { data: dbLawyers = [] } = useQuery({
+    queryKey: ["founders-supabase-lawyers"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("lawyers")
+        .select("*")
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+  });
+
+  // Reconcile and load lawyers list + local ratings / notes / added / removed
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("trana_lawyers_internal");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setLawyers((prev) =>
-          prev.map((l) => {
-            const found = parsed.find((p: any) => p.id === l.id);
-            return found ? { ...l, ...found } : l;
-          })
-        );
+      const removedIds: string[] = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
+      const addedLawyers: LawyerRecord[] = JSON.parse(localStorage.getItem("trana_founders_added_lawyers") || "[]");
+
+      let storedNotes: Record<string, Partial<LawyerRecord>> = {};
+      const rawNotes = localStorage.getItem("trana_lawyers_internal");
+      if (rawNotes) {
+        const parsed = JSON.parse(rawNotes);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((p: any) => {
+            if (p.id) storedNotes[p.id] = p;
+          });
+        } else if (typeof parsed === "object") {
+          storedNotes = parsed;
+        }
       }
-    } catch {
-      // ignore
+
+      const dbRecords: LawyerRecord[] = dbLawyers.map((row) => ({
+        id: row.id,
+        name: row.full_name,
+        barNo: "BAR/VERIFIED/2026",
+        email: "verified.advocate@trana.in",
+        phone: "+91 (Verified Account)",
+        specialisation: row.specialisation || "General Legal Practice",
+        city: row.city || "New Delhi",
+        clientsReferred: 0,
+        consultations: 0,
+        dateOnboarded: row.created_at
+          ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : "Recent",
+        status: row.approved ? "Active" : "Pending",
+        documents: ["Sanad_Verified.pdf"],
+        internalRating: 4,
+        internalNotes: "Registered advocate on TRANA platform.",
+      }));
+
+      const combined: LawyerRecord[] = [];
+      const seenIds = new Set<string>();
+      const seenNames = new Set<string>();
+
+      [...addedLawyers, ...dbRecords, ...initialLawyersData].forEach((item) => {
+        const idKey = item.id.toLowerCase();
+        const nameKey = item.name.toLowerCase().trim();
+        if (removedIds.includes(item.id)) return;
+        if (!seenIds.has(idKey) && !seenNames.has(nameKey)) {
+          seenIds.add(idKey);
+          seenNames.add(nameKey);
+          const overrides = storedNotes[item.id] || {};
+          combined.push({ ...item, ...overrides });
+        }
+      });
+
+      setLawyers(combined);
+    } catch (e) {
+      console.warn("Hydration error:", e);
     }
-  }, []);
+  }, [dbLawyers]);
 
   function saveInternalData(id: string, updates: Partial<LawyerRecord>) {
     setLawyers((prev) => {
@@ -214,12 +298,158 @@ function FoundersLawyersPage() {
     toast.warning(`Advocate ${name} has been suspended from receiving referrals.`);
   }
 
-  const activeLawyers = lawyers.filter(
-    (l) => l.status === "Active" && (searchTerm ? l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.city.toLowerCase().includes(searchTerm.toLowerCase()) : true)
-  );
+  async function handleRemove(id: string, name: string) {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently remove Advocate ${name} from the platform? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    // 1. Immediately remove from state
+    setLawyers((prev) => prev.filter((l) => l.id !== id));
+    if (selectedLawyer?.id === id) {
+      setSelectedLawyer(null);
+    }
+
+    // 2. Persist removed ID to localStorage
+    try {
+      const removed: string[] = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
+      if (!removed.includes(id)) {
+        removed.push(id);
+        localStorage.setItem("trana_founders_removed_lawyers", JSON.stringify(removed));
+      }
+      // Also remove from added list if present
+      const added: LawyerRecord[] = JSON.parse(localStorage.getItem("trana_founders_added_lawyers") || "[]");
+      const updatedAdded = added.filter((l) => l.id !== id);
+      localStorage.setItem("trana_founders_added_lawyers", JSON.stringify(updatedAdded));
+    } catch (e) {
+      console.warn("Remove error:", e);
+    }
+
+    // 3. Delete from Supabase lawyers table if present
+    try {
+      await supabase.from("lawyers").delete().eq("id", id);
+    } catch (e) {
+      console.warn("Supabase delete lawyer error:", e);
+    }
+
+    toast.success(`Advocate ${name} has been removed.`);
+  }
+
+  async function handleAddLawyer(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedName = addName.trim();
+    const trimmedBar = addBarNo.trim();
+    const trimmedEmail = addEmail.trim();
+    const trimmedPhone = addPhone.trim();
+    const trimmedCity = addCity.trim() || "New Delhi";
+
+    if (!trimmedName) {
+      toast.error("Please enter lawyer's full name");
+      return;
+    }
+    if (!trimmedBar) {
+      toast.error("Please enter Bar Enrolment Number");
+      return;
+    }
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (!trimmedPhone) {
+      toast.error("Please enter contact mobile number");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const newId = `law-manual-${Date.now().toString(36)}`;
+      const formattedName = trimmedName.startsWith("Adv.") ? trimmedName : `Adv. ${trimmedName}`;
+
+      const newRecord: LawyerRecord = {
+        id: newId,
+        name: formattedName,
+        barNo: trimmedBar,
+        email: trimmedEmail,
+        phone: trimmedPhone,
+        specialisation: addSpecialisation.trim() || "Criminal Defence & Anticipatory Bail",
+        city: trimmedCity,
+        clientsReferred: 0,
+        consultations: 0,
+        dateOnboarded: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        status: addStatus,
+        documents: [`Bar_Sanad_${trimmedBar.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`],
+        internalRating: 5,
+        internalNotes: `Manually added by platform founders on ${new Date().toLocaleDateString("en-IN")}. Contact: ${trimmedPhone} • ${trimmedEmail}`,
+      };
+
+      // 1. Insert into Supabase lawyers table so citizen directory reflects it
+      try {
+        const { data: inserted } = await supabase
+          .from("lawyers")
+          .insert({
+            full_name: newRecord.name,
+            specialisation: newRecord.specialisation,
+            city: newRecord.city,
+            approved: newRecord.status === "Active",
+            offers_call: true,
+            offers_chat: true,
+            offers_in_person: false,
+          })
+          .select()
+          .single();
+        if (inserted?.id) {
+          newRecord.id = inserted.id;
+        }
+      } catch (err) {
+        console.warn("Supabase insert note:", err);
+      }
+
+      // 2. Persist to localStorage added list
+      try {
+        const added: LawyerRecord[] = JSON.parse(localStorage.getItem("trana_founders_added_lawyers") || "[]");
+        added.unshift(newRecord);
+        localStorage.setItem("trana_founders_added_lawyers", JSON.stringify(added));
+      } catch (e) {
+        console.warn("localStorage save error:", e);
+      }
+
+      // 3. Update state
+      setLawyers((prev) => [newRecord, ...prev]);
+
+      // Reset form & close
+      setAddName("");
+      setAddBarNo("");
+      setAddEmail("");
+      setAddPhone("");
+      setAddCity("New Delhi");
+      setAddSpecialisation("Criminal Defence & Anticipatory Bail");
+      setAddStatus("Active");
+      setIsAddModalOpen(false);
+
+      toast.success(`${newRecord.name} successfully added to directory!`);
+    } catch (error) {
+      toast.error("Failed to add lawyer");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const matchesSearch = (l: LawyerRecord) => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    return (
+      l.name.toLowerCase().includes(q) ||
+      l.city.toLowerCase().includes(q) ||
+      l.barNo.toLowerCase().includes(q) ||
+      l.specialisation.toLowerCase().includes(q) ||
+      (l.email && l.email.toLowerCase().includes(q))
+    );
+  };
+
+  const activeLawyers = lawyers.filter((l) => l.status === "Active" && matchesSearch(l));
 
   const pendingLawyers = lawyers.filter(
-    (l) => (l.status === "Pending" || l.status === "Suspended") && (searchTerm ? l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.city.toLowerCase().includes(searchTerm.toLowerCase()) : true)
+    (l) => (l.status === "Pending" || l.status === "Suspended") && matchesSearch(l)
   );
 
   return (
@@ -235,13 +465,21 @@ function FoundersLawyersPage() {
           </h1>
         </div>
 
-        {/* Tabs: Active Lawyers | Pending Applications */}
-        <div className="flex items-center gap-2">
+        {/* Action Button & Tabs */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="px-3.5 py-2 text-xs uppercase tracking-wider border border-white bg-white text-black font-semibold hover:bg-neutral-200 transition-colors flex items-center gap-1.5 shadow"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add Lawyer</span>
+          </button>
           <button
             onClick={() => setActiveTab("active")}
             className={`px-4 py-2 text-xs uppercase tracking-wider border transition-colors ${
               activeTab === "active"
-                ? "border-white bg-white text-black font-semibold"
+                ? "border-white bg-[#222222] text-white font-semibold"
                 : "border-[#333333] bg-[#111111] text-[#AAAAAA] hover:text-white"
             }`}
           >
@@ -251,7 +489,7 @@ function FoundersLawyersPage() {
             onClick={() => setActiveTab("pending")}
             className={`px-4 py-2 text-xs uppercase tracking-wider border transition-colors relative ${
               activeTab === "pending"
-                ? "border-white bg-white text-black font-semibold"
+                ? "border-white bg-[#222222] text-white font-semibold"
                 : "border-[#333333] bg-[#111111] text-[#AAAAAA] hover:text-white"
             }`}
           >
@@ -321,19 +559,29 @@ function FoundersLawyersPage() {
                       ))}
                     </div>
                   </td>
-                  {/* Actions (View | Suspend) */}
+                  {/* Actions (View | Suspend | Remove) */}
                   <td className="py-2.5 px-3 text-right space-x-2">
                     <button
+                      type="button"
                       onClick={() => setSelectedLawyer(l)}
-                      className="border border-white/30 px-2 py-1 text-[0.65rem] uppercase text-white hover:border-white hover:bg-white hover:text-black"
+                      className="border border-white/30 px-2 py-1 text-[0.65rem] uppercase text-white hover:border-white hover:bg-white hover:text-black transition-colors"
                     >
                       View
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleSuspend(l.id, l.name)}
-                      className="border border-red-500/40 px-2 py-1 text-[0.65rem] uppercase text-red-400 hover:bg-red-950/40"
+                      className="border border-amber-500/40 px-2 py-1 text-[0.65rem] uppercase text-amber-400 hover:bg-amber-950/40 transition-colors"
                     >
                       Suspend
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(l.id, l.name)}
+                      className="border border-red-500/50 bg-red-950/30 px-2 py-1 text-[0.65rem] uppercase text-red-300 hover:bg-red-600 hover:text-white transition-colors"
+                      title="Permanently remove advocate"
+                    >
+                      Remove
                     </button>
                   </td>
                 </tr>
@@ -383,25 +631,36 @@ function FoundersLawyersPage() {
                   <td className="py-2.5 px-3 max-w-[200px] truncate text-[#999999]">
                     <span title={l.internalNotes}>{l.internalNotes || "No notes"}</span>
                   </td>
-                  {/* Actions: Approve ✓ | Reject ✗ | View Profile */}
+                  {/* Actions: Approve ✓ | Reject ✗ | View Profile | Remove */}
                   <td className="py-2.5 px-3 text-right space-x-1.5">
                     <button
+                      type="button"
                       onClick={() => handleApprove(l.id, l.name)}
-                      className="border border-emerald-500/50 bg-emerald-950/20 px-2 py-1 text-[0.65rem] uppercase text-emerald-400 hover:bg-emerald-500 hover:text-black font-semibold"
+                      className="border border-emerald-500/50 bg-emerald-950/20 px-2 py-1 text-[0.65rem] uppercase text-emerald-400 hover:bg-emerald-500 hover:text-black font-semibold transition-colors"
                     >
                       Approve ✓
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleReject(l.id, l.name)}
-                      className="border border-red-500/50 bg-red-950/20 px-2 py-1 text-[0.65rem] uppercase text-red-400 hover:bg-red-500 hover:text-black"
+                      className="border border-red-500/50 bg-red-950/20 px-2 py-1 text-[0.65rem] uppercase text-red-400 hover:bg-red-500 hover:text-black transition-colors"
                     >
                       Reject ✗
                     </button>
                     <button
+                      type="button"
                       onClick={() => setSelectedLawyer(l)}
-                      className="border border-white/30 px-2 py-1 text-[0.65rem] uppercase text-white hover:border-white"
+                      className="border border-white/30 px-2 py-1 text-[0.65rem] uppercase text-white hover:border-white transition-colors"
                     >
                       View Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(l.id, l.name)}
+                      className="border border-red-500/50 bg-red-950/30 px-2 py-1 text-[0.65rem] uppercase text-red-300 hover:bg-red-600 hover:text-white transition-colors"
+                      title="Permanently remove advocate"
+                    >
+                      Remove
                     </button>
                   </td>
                 </tr>
@@ -426,6 +685,20 @@ function FoundersLawyersPage() {
                 <p className="text-xs text-amber-300 font-mono mt-0.5">
                   Bar Enrolment: {selectedLawyer.barNo} • {selectedLawyer.city}
                 </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[0.7rem] text-[#888888] font-mono">
+                  {selectedLawyer.email && (
+                    <span className="flex items-center gap-1 text-white/90">
+                      <Mail className="h-3 w-3 text-sky-400" />
+                      {selectedLawyer.email}
+                    </span>
+                  )}
+                  {selectedLawyer.phone && (
+                    <span className="flex items-center gap-1 text-white/90">
+                      <Phone className="h-3 w-3 text-emerald-400" />
+                      {selectedLawyer.phone}
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => setSelectedLawyer(null)}
@@ -495,14 +768,180 @@ function FoundersLawyersPage() {
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-[#262626] flex justify-end gap-2">
+            <div className="mt-6 pt-4 border-t border-[#262626] flex items-center justify-between gap-2">
               <button
+                type="button"
+                onClick={() => handleRemove(selectedLawyer.id, selectedLawyer.name)}
+                className="border border-red-500/50 bg-red-950/40 text-red-300 hover:bg-red-600 hover:text-white px-3.5 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Remove Lawyer</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setSelectedLawyer(null)}
-                className="bg-white text-black px-4 py-2 text-xs font-semibold uppercase tracking-wider"
+                className="bg-white text-black px-4 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors"
               >
                 Close Record
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD LAWYER MODAL */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-[#161616] border border-white/30 p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-[#282828] pb-4">
+              <div>
+                <span className="text-[0.65rem] uppercase tracking-widest text-[#888888] block">
+                  MANUAL ONBOARDING
+                </span>
+                <h3 className="font-display text-2xl font-medium text-white mt-1">
+                  Add Legal Professional
+                </h3>
+                <p className="text-xs text-[#888888] mt-0.5">
+                  Enter credentials, Bar registration, and contact information.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1 border border-[#333333] text-white hover:bg-[#252525]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddLawyer} className="mt-5 space-y-4">
+              <div>
+                <label className="text-[0.65rem] uppercase tracking-wider text-[#888888] block mb-1">
+                  Full Name (with Advocate Prefix) <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  placeholder="e.g. Adv. Amit Saxena"
+                  className="w-full border border-[#333333] bg-[#0A0A0A] p-2.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-[#888888] block mb-1">
+                    Bar Enrolment Number <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addBarNo}
+                    onChange={(e) => setAddBarNo(e.target.value)}
+                    placeholder="e.g. D/1842/2020"
+                    className="w-full border border-[#333333] bg-[#0A0A0A] p-2.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-[#888888] block mb-1">
+                    City / Jurisdiction <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addCity}
+                    onChange={(e) => setAddCity(e.target.value)}
+                    placeholder="e.g. New Delhi"
+                    className="w-full border border-[#333333] bg-[#0A0A0A] p-2.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-[#888888] block mb-1">
+                    Email Address <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={addEmail}
+                    onChange={(e) => setAddEmail(e.target.value)}
+                    placeholder="e.g. advocate@delhibar.org"
+                    className="w-full border border-[#333333] bg-[#0A0A0A] p-2.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-[#888888] block mb-1">
+                    Mobile Number <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={addPhone}
+                    onChange={(e) => setAddPhone(e.target.value)}
+                    placeholder="e.g. +91 98110 42910"
+                    className="w-full border border-[#333333] bg-[#0A0A0A] p-2.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-[#888888] block mb-1">
+                    Primary Specialisation
+                  </label>
+                  <select
+                    value={addSpecialisation}
+                    onChange={(e) => setAddSpecialisation(e.target.value)}
+                    className="w-full border border-[#333333] bg-[#0A0A0A] p-2.5 text-xs text-white focus:border-white focus:outline-none"
+                  >
+                    <option value="Criminal Defence & Anticipatory Bail">Criminal Defence & Anticipatory Bail</option>
+                    <option value="Corporate Crimes & White Collar Offences">Corporate Crimes & White Collar Offences</option>
+                    <option value="Constitutional Writs & Service Law">Constitutional Writs & Service Law</option>
+                    <option value="Commercial Arbitration & Cheque Dishonour">Commercial Arbitration & Cheque Dishonour</option>
+                    <option value="Cyber Crime & Technology Law">Cyber Crime & Technology Law</option>
+                    <option value="BNS / BNSS Criminal Procedure">BNS / BNSS Criminal Procedure</option>
+                    <option value="Family & Matrimonial Disputes">Family & Matrimonial Disputes</option>
+                    <option value="Civil Litigation & Property Disputes">Civil Litigation & Property Disputes</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[0.65rem] uppercase tracking-wider text-[#888888] block mb-1">
+                    Initial Status
+                  </label>
+                  <select
+                    value={addStatus}
+                    onChange={(e) => setAddStatus(e.target.value as "Active" | "Pending")}
+                    className="w-full border border-[#333333] bg-[#0A0A0A] p-2.5 text-xs text-white focus:border-white focus:outline-none"
+                  >
+                    <option value="Active">Active (Approved)</option>
+                    <option value="Pending">Pending Verification</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-[#262626] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="border border-[#333333] text-[#AAAAAA] hover:text-white px-4 py-2 text-xs uppercase tracking-wider transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-white text-black px-5 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? "Adding..." : "Add Lawyer"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
