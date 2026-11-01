@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLawyerAuth } from "./lawyer";
+import { CaseSummaryModal } from "@/components/CaseSummaryViewer";
 
 export const Route = createFileRoute("/_authenticated/lawyer/referrals")({
   head: () => ({
@@ -46,28 +47,38 @@ const initialList: Referral[] = [
     consultationType: "Call",
     status: "New Request",
     summary: "Apprehending arrest under Section 318 BNS (Cheating) arising out of commercial invoice dispute. Needs urgent interim protection before Sessions Court.",
-    intakeBrief: `### CLIENT INTAKE BRIEF (TRANA AI FIRST-AID)
-**Matter**: Anticipatory Bail Application — Cheating Allegation
-**Client**: Rahul Verma • New Delhi
-**Target Counsel**: Senior Advocate • Mode: Telephonic Consultation
-**Applicable Statutes**: Section 482 BNSS (Old 438 CrPC) & Section 318 BNS (Old 420 IPC)
-**Bail / Jeopardy Position**: Non-Bailable Cognizable Offence • Police summons threatened under Sec 35 BNSS.
+    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
+Matter: Anticipatory Bail Application — Pre-Arrest Protection
+Client: Rahul Verma • Verified Account (Managing Director, Logistics Enterprise)
+Target Counsel: Advocate Counsel
+Date: 24 Oct 2026
+Mode: Telephonic Consultation Relay
+Applicable Statutes: Section 482 Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) & Section 318 Bharatiya Nyaya Sanhita, 2023 (BNS)
+Bail / Custody Outlook: Non-Bailable Cognizable Allegation; Urgent pre-arrest protective orders required prior to police custody.
 
-#### 1. Factual Summary (Citizen's Statement to AI)
-Client Rahul Verma is the managing director of a registered logistics firm. A commercial supplier has lodged a criminal complaint with the local police station alleging cheating and criminal breach of trust regarding unpaid invoices totaling ₹18.5 Lakhs. The dispute arose strictly due to damaged consignments and disputed quality reconciliation, with no dishonest inducement at the inception of the contract. Investigating officer has issued an informal verbal threat of arrest.
+1. Factual Matrix & Procedural Background
+Client Rahul Verma is the Managing Director of a registered logistics corporation operating in the National Capital Region. A commercial trade supplier has filed a criminal complaint at the local police station alleging cheating and criminal breach of trust regarding invoices totaling ₹18.5 Lakhs. The dispute strictly concerns damaged transit consignments and ongoing contractual quality reconciliation. There was zero fraudulent inducement at the inception of the commercial contract. The Investigating Officer has issued verbal summons and threatened imminent arrest without issuing statutory Section 35(3) BNSS notice.
 
-#### 2. AI Statutory Assessment
-• Offence under Section 318 BNS (Cheating) requires fraudulent or dishonest intention from the very beginning; a commercial breach of contract or delay in settlement does not constitute criminal cheating per Supreme Court ratio in Hridaya Ranjan Pd. Verma v. State of Bihar and Dalip Kaur v. Jagnar Singh.
-• A reasonable and genuine apprehension of arrest exists, fulfilling jurisdictional criteria for an urgent Anticipatory Bail Application under Section 482 BNSS before the Court of Session.
+2. Statutory Provisions & Offence Breakdown
+• Section 318 BNS (Cheating): The sine qua non of cheating requires dishonest intention existing at the very inception of the transaction. The Supreme Court of India in landmark precedents (Hridaya Ranjan Prasad Verma v. State of Bihar and Dalip Kaur v. Jagnar Singh) has definitively ruled that a mere failure to keep a promise, breach of contract, or delay in settlement does not constitute criminal cheating.
+• Section 316 BNS (Criminal Breach of Trust): Commercial credit disputes do not satisfy entrustment of dominion over property in a fiduciary capacity.
+• Apprehension of Arrest: The informal threats by the IO satisfy the jurisdictional threshold of reasonable belief of imminent arrest required under Section 482 BNSS.
 
-#### 3. Key Rights Identified
-• Protection against arbitrary arrest: Section 35(3) BNSS mandates formal notice of appearance prior to arrest for offences carrying punishment up to 7 years.
-• Right to legal counsel and immediate copies of written complaints.
+3. Custodial Assessment & Bail Jurisprudence
+• Custodial interrogation is legally uncalled for as the transaction is thoroughly documented through GST invoices, bilties, e-way bills, and bank transfers.
+• Landmark Supreme Court guidelines in Satender Kumar Antil v. CBI and Arnesh Kumar v. State of Bihar mandate that police officers must not routinely effect arrests in disputes of a commercial nature or offences punishable with imprisonment of seven years or less.
+• Client has clean antecedent records, deep roots in society, and zero flight risk.
 
-#### 4. Recommended Urgent Actions
-• Move urgent Anticipatory Bail Application under Section 482 BNSS before the Principal District & Sessions Judge.
-• Compile commercial invoices, inspection notices, and WhatsApp/Email correspondence showing bona fide commercial dispute.
-• Seek interim protection against coercive custodial measures pending regular notice.`,
+4. Constitutional & Procedural Safeguards
+• Section 35(3) BNSS mandates issuance of formal notice of appearance in all cases where arrest is not immediately necessary.
+• Article 20(3) and 21 of the Constitution protect the client against coerced confessions and deprivation of personal liberty without procedure established by law.
+• Section 41D / Section 37 BNSS guarantees right of accused to consult counsel during interrogation.
+
+5. Strategic Legal Action Plan
+• File urgent Anticipatory Bail Application under Section 482 BNSS before the Principal District & Sessions Judge.
+• Annex all purchase orders, inspection rejection notes, and WhatsApp/Email reconciliation exchanges demonstrating bona fide civil dispute.
+• Seek ad-interim protection against coercive police action pending formal notice to the Public Prosecutor.
+• Submit formal representation to the Deputy Commissioner of Police highlighting civil nature of the transaction.`,
     scheduledTime: "Today at 4:30 PM",
   },
   {
@@ -80,22 +91,27 @@ Client Rahul Verma is the managing director of a registered logistics firm. A co
     consultationType: "Chat",
     status: "Confirmed",
     summary: "Vendor defaulted on service delivery after 70% advance payment. Seeking formal legal demand notice under 15-day cure period.",
-    intakeBrief: `### CLIENT INTAKE BRIEF (TRANA AI FIRST-AID)
-**Matter**: Commercial Contract Breach & Statutory Demand Notice
-**Client**: Priya Sharma • Mumbai
-**Applicable Statutes**: Section 73 Indian Contract Act, 1872 & Specific Relief Act
-**Bail / Jeopardy Position**: Civil Recovery & Commercial Action
+    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
+Matter: Commercial Software Breach & Statutory Restitution Notice
+Client: Priya Sharma • Mumbai (Enterprise Commercial Principal)
+Target Counsel: Advocate Counsel
+Date: 23 Oct 2026
+Mode: Secure In-App Chat
+Applicable Statutes: Sections 39, 73 & 74 Indian Contract Act, 1872; Section 12A Commercial Courts Act, 2015
+Bail / Custody Outlook: Civil Commercial Proceeding; Zero custodial risk.
 
-#### 1. Factual Summary (Citizen's Statement to AI)
-Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% advance). Developer ceased communication after missed project milestones and has failed to deliver source code or respond to informal reminders.
+1. Factual Matrix & Background
+Client contracted a commercial software enterprise developer under a Master Services Agreement (MSA) for proprietary logistics management software, paying ₹7.2 Lakhs as an advance deposit (70% of total contract value). The vendor missed multiple milestone deadlines, failed to deploy beta builds, refused access to the source code repository, and abruptly ceased communication after receipt of informal default notices.
 
-#### 2. AI Statutory Assessment
-• Material breach of contract established under Section 39 of the Contract Act.
-• Client is entitled to damages and specific restitution under Section 73 of the Contract Act, 1872.
+2. Statutory Assessment & Legal Framework
+• Section 39 Contract Act: Vendor's refusal or disabling of performance constitutes repudiatory breach, entitling client to terminate and claim restitution.
+• Section 73 Contract Act: Entitlement to compensation for direct loss naturally arising in the usual course of things from the breach.
+• Section 74 Contract Act: Enforcement of pre-estimated liquidated damages stipulated under Clause 14 of the executed MSA.
 
-#### 3. Recommended Actions
-• Issue formal 15-day statutory demand notice seeking cure or full refund with 18% p.a. commercial interest.
-• Initiate pre-institution mediation under Commercial Courts Act if unresolved.`,
+3. Strategic Legal Action Plan
+• Issue formal 15-day statutory legal notice demanding immediate refund of ₹7.2 Lakhs along with 18% p.a. commercial interest and compensation for business disruption.
+• Initiate pre-institution mediation proceedings under Section 12A of the Commercial Courts Act, 2015 before the District Legal Services Authority (DLSA).
+• Preserve all timestamped git commits, Slack communications, and bank transfer receipts for commercial suit filing upon non-compliance.`,
     scheduledTime: "Tomorrow at 11:00 AM",
   },
   {
@@ -108,6 +124,27 @@ Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% ad
     consultationType: "Call",
     status: "In Progress",
     summary: "Unauthorized debit of ₹8.4 Lakhs via spoofed payment gateway. Seeking formal complaint to Cyber Cell and National Cyber Crime Portal.",
+    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
+Matter: Cyber Financial Fraud & Unauthorized Payment Gateway Interception
+Client: Vikram Mehta • New Delhi
+Target Counsel: Advocate Counsel
+Date: 21 Oct 2026
+Mode: Telephonic Consultation Relay
+Applicable Statutes: Section 66D Information Technology Act, 2000; Section 318 & 319 Bharatiya Nyaya Sanhita, 2023
+Bail / Custody Outlook: Complainant Victim Representation; Criminal prosecution against cyber fraudsters.
+
+1. Factual Matrix & Background
+Client suffered an unauthorized debit of ₹8.4 Lakhs through a fraudulent payment gateway spoofing an official merchant terminal. The fraudulent diversion occurred via multi-hop UPI transfers to intermediary mule accounts within a 15-minute window.
+
+2. Statutory Assessment & Offence Breakdown
+• Section 66D IT Act: Cheating by personation by using computer resource (punishable up to 3 years imprisonment).
+• Section 318(4) BNS: Cheating and dishonestly inducing delivery of property.
+• Reserve Bank of India Master Circular on Customer Protection: Limits customer liability to zero when fraud is reported within 3 days of occurrence in third-party breaches.
+
+3. Strategic Legal Action Plan
+• File formal complaint on the National Cyber Crime Reporting Portal (1930) to freeze recipient beneficiary mule accounts.
+• Submit statutory representation to the nodal grievance officer of the beneficiary bank and nodal cyber cell.
+• Move application under Section 497 BNSS before the jurisdictional Magistrate for defreezing and restitution of seized funds.`,
     scheduledTime: "26 Oct 2026, 2:00 PM",
   },
   {
@@ -120,6 +157,27 @@ Client contracted an enterprise software developer and paid ₹7.2 Lakhs (70% ad
     consultationType: "Call",
     status: "Completed",
     summary: "Cheque dishonoured with endorsement 'Funds Insufficient'. Statutory 30-day demand notice drafted and dispatched via registered post.",
+    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
+Matter: Cheque Dishonour Statutory Notice & Criminal Complaint
+Client: Ananya Roy • Mumbai
+Target Counsel: Advocate Counsel
+Date: 19 Oct 2026
+Mode: Telephonic Consultation Relay
+Applicable Statutes: Section 138, 141 & 142 Negotiable Instruments Act, 1881; Section 223 BNSS
+Bail / Custody Outlook: Complainant Representation; Bailable statutory offence.
+
+1. Factual Matrix & Background
+Client received a cheque bearing No. 491028 for ₹12.5 Lakhs drawn on HDFC Bank against repayment of friendly loan/commercial supply. Cheque returned dishonoured with bank return memo stating "Funds Insufficient". Return memo received on 15 Oct 2026.
+
+2. Statutory Assessment & Legal Ingredients
+• Cheque drawn for discharge, in whole or in part, of a legally enforceable debt or other liability.
+• Presentation within statutory validity period (3 months).
+• Receipt of bank dishonour memo triggers 30-day statutory window to issue demand notice under Section 138(b) NI Act.
+
+3. Strategic Legal Action Plan
+• Issue statutory demand notice under Section 138 NI Act within 30 days of receiving the return memo via speed post and email.
+• Give drawee 15 days from notice receipt to pay the amount.
+• If payment not made within 15 days, file formal criminal complaint under Section 142 NI Act before the Judicial Magistrate within 30 days thereafter.`,
   },
   {
     id: "REF-2026-065",
@@ -426,7 +484,7 @@ function LawyerReferralsPage() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 font-mono transition-colors"
                   >
                     <FileText className="h-3.5 w-3.5" />
-                    <span>View Client Intake Brief (AI First-Aid)</span>
+                    <span>View Case Summary</span>
                   </button>
                 )}
               </div>
@@ -482,43 +540,16 @@ function LawyerReferralsPage() {
         ))}
       </div>
 
-      {/* Client Intake Brief Modal */}
+      {/* Case Summary Modal */}
       {selectedBrief && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-[#1A1A1A] border border-emerald-500/40 p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
-            <div className="flex items-start justify-between border-b border-[#2E2E2E] pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-[0.2em] text-emerald-400 font-mono">
-                    Client Intake Brief
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono">
-                    AI First-Aid
-                  </span>
-                </div>
-                <h3 className="mt-1 font-display text-2xl md:text-3xl font-medium text-white">
-                  {selectedBrief.client}
-                </h3>
-                <p className="text-xs text-[#AAAAAA] mt-1 font-mono">
-                  {selectedBrief.id} • Registered: {selectedBrief.date} • Mode: {selectedBrief.consultationType}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedBrief(null)}
-                className="p-1.5 border border-[#333333] text-white hover:bg-[#252525] rounded transition-colors"
-                title="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1 text-sm text-[#CCCCCC]">
-              <div className="bg-[#111111] border border-[#2E2E2E] p-4 rounded whitespace-pre-wrap font-sans leading-relaxed text-xs md:text-sm">
-                {selectedBrief.intakeBrief}
-              </div>
-            </div>
-          </div>
-        </div>
+        <CaseSummaryModal
+          isOpen={Boolean(selectedBrief)}
+          onClose={() => setSelectedBrief(null)}
+          clientName={selectedBrief.client}
+          matterType={selectedBrief.matterType}
+          consultationType={selectedBrief.consultationType}
+          content={selectedBrief.intakeBrief || selectedBrief.summary}
+        />
       )}
     </div>
   );

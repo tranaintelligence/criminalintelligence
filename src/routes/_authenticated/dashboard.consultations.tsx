@@ -5,6 +5,7 @@ import { Phone, MessageSquare, FileText, X, Copy, CheckCircle2, XCircle, Clock, 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ConsultationChatModal } from "@/components/ConsultationChatModal";
+import { CaseSummaryModal } from "@/components/CaseSummaryViewer";
 
 export const Route = createFileRoute("/_authenticated/dashboard/consultations")({
   head: () => ({
@@ -308,9 +309,10 @@ function Consultations() {
                             type="button"
                             onClick={() => setSelectedBrief(c)}
                             className="border border-border hover:border-foreground/50 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                            title="View Case Summary"
                           >
                             <FileText className="h-3 w-3" />
-                            <span>Details</span>
+                            <span>Case Summary</span>
                           </button>
                         )}
 
@@ -352,46 +354,17 @@ function Consultations() {
         />
       )}
 
-      {/* MATTER BRIEF & DETAILS MODAL */}
+      {/* CASE SUMMARY MODAL */}
       {selectedBrief && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-[#141414] border border-[#333333] p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
-            <div className="flex items-start justify-between border-b border-[#282828] pb-4">
-              <div>
-                <span className="text-xs uppercase tracking-[0.2em] text-emerald-400 font-mono">
-                  Consultation Brief
-                </span>
-                <h3 className="mt-1 font-display text-2xl font-medium text-white">
-                  Counsel: {selectedBrief.lawyer_name}
-                </h3>
-                <p className="text-xs text-[#888888] font-mono mt-0.5">
-                  Matter: {selectedBrief.matter_type} • Mode: {selectedBrief.consult_type}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedBrief(null)}
-                className="p-1 border border-[#333333] text-[#AAAAAA] hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1 text-sm text-[#CCCCCC]">
-              <div className="bg-[#0E0E0E] border border-[#222222] p-4 whitespace-pre-wrap font-sans leading-relaxed text-xs md:text-sm">
-                {selectedBrief.intake_brief || selectedBrief.note}
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-[#262626] flex justify-end">
-              <button
-                onClick={() => setSelectedBrief(null)}
-                className="bg-white text-black px-5 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors"
-              >
-                Close Details
-              </button>
-            </div>
-          </div>
-        </div>
+        <CaseSummaryModal
+          isOpen={Boolean(selectedBrief)}
+          onClose={() => setSelectedBrief(null)}
+          title="Case Summary"
+          clientName={clientName}
+          matterType={selectedBrief.matter_type}
+          consultationType={selectedBrief.consult_type}
+          content={selectedBrief.intake_brief || selectedBrief.note}
+        />
       )}
     </div>
   );

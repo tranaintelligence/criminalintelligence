@@ -94,20 +94,22 @@ export async function buildClientIntakeBrief(options: {
 
     const summary = facts.length > 180 ? `${facts.slice(0, 180)}...` : facts;
 
-    const fullBriefMarkdown = `### CLIENT INTAKE BRIEF (TRANA AI FIRST-AID)
-**Matter**: ${matterType}
-**Client**: ${clientName} (${userEmail || "Anonymous"}) • Phone: ${clientPhone} • City: ${clientCity}
-**Target Counsel**: ${lawyerName} • Date: ${dateStr} • Mode: ${channelStr}
-**Applicable Statutes**: ${sectionsSummary}
-**Bail / Jeopardy Position**: ${bailStatus}
+    const fullBriefMarkdown = `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
+Matter: ${matterType}
+Client: ${clientName} (${userEmail || "Anonymous"}) • Phone: ${clientPhone} • City: ${clientCity}
+Target Counsel: ${lawyerName}
+Date: ${dateStr}
+Mode: ${channelStr}
+Applicable Statutes: ${sectionsSummary}
+Bail / Custody Outlook: ${bailStatus}
 
-#### 1. Factual Summary (Citizen's Statement to AI)
+1. Factual Matrix & Background
 ${facts}
 
-#### 2. AI Statutory Assessment
+2. Statutory Assessment & Offence Breakdown
 ${analysis}
 
-${rights.length > 0 ? `#### 3. Key Rights Identified\n${rights.map((r: string) => `• ${r}`).join("\n")}\n\n` : ""}${nextSteps.length > 0 ? `#### 4. Recommended Urgent Actions\n${nextSteps.map((s: string) => `• ${s}`).join("\n")}\n\n` : ""}*Prepared automatically via TRANA Legal Intelligence Platform for advocate review.*`;
+${rights.length > 0 ? `3. Constitutional & Statutory Safeguards\n${rights.map((r: string) => `• ${r}`).join("\n")}\n\n` : ""}${nextSteps.length > 0 ? `4. Strategic Legal Action Plan\n${nextSteps.map((s: string) => `• ${s}`).join("\n")}\n\n` : ""}Privileged advocate-client case record prepared via TRANA Legal Intelligence Platform.`;
 
     return {
       hasConversation: true,
@@ -143,20 +145,22 @@ ${rights.length > 0 ? `#### 3. Key Rights Identified\n${rights.map((r: string) =
 
     const summary = facts.length > 180 ? `${facts.slice(0, 180)}...` : facts;
 
-    const fullBriefMarkdown = `### CLIENT INTAKE BRIEF (FIR ANALYSER)
-**Matter**: ${matterType}
-**Client**: ${clientName} (${userEmail || "Anonymous"}) • Phone: ${clientPhone} • City: ${clientCity}
-**Target Counsel**: ${lawyerName} • Date: ${dateStr} • Mode: ${channelStr}
-**Applicable Statutes**: ${sectionsSummary}
-**Bail / Jeopardy Position**: ${bailStatus}
+    const fullBriefMarkdown = `CASE SUMMARY (TRANA FIR ANALYSER)
+Matter: ${matterType}
+Client: ${clientName} (${userEmail || "Anonymous"}) • Phone: ${clientPhone} • City: ${clientCity}
+Target Counsel: ${lawyerName}
+Date: ${dateStr}
+Mode: ${channelStr}
+Applicable Statutes: ${sectionsSummary}
+Bail / Custody Outlook: ${bailStatus}
 
-#### 1. Factual Summary (Citizen's Situation)
+1. Factual Matrix & Citizen Statement
 ${facts}
 
-#### 2. Statutory Assessment & Meaning
+2. Statutory Assessment & Offence Breakdown
 ${analysis}
 
-${rights.length > 0 ? `#### 3. Key Rights Identified\n${rights.map((r: string) => `• ${r}`).join("\n")}\n\n` : ""}${nextSteps.length > 0 ? `#### 4. Recommended Actions\n${nextSteps.map((s: string) => `• ${s}`).join("\n")}\n\n` : ""}*Prepared automatically via TRANA Legal Intelligence Platform for advocate review.*`;
+${rights.length > 0 ? `3. Constitutional & Statutory Safeguards\n${rights.map((r: string) => `• ${r}`).join("\n")}\n\n` : ""}${nextSteps.length > 0 ? `4. Strategic Legal Action Plan\n${nextSteps.map((s: string) => `• ${s}`).join("\n")}\n\n` : ""}Privileged advocate-client case record prepared via TRANA Legal Intelligence Platform.`;
 
     return {
       hasConversation: true,
@@ -178,22 +182,39 @@ ${rights.length > 0 ? `#### 3. Key Rights Identified\n${rights.map((r: string) =
   }
 
   // Fallback if no prior AI conversation or analysis exists
-  const matterType = "General Legal Consultation";
-  const sectionsSummary = "Direct Directory Inquiry";
-  const facts = `Citizen ${clientName} initiated a direct consultation inquiry via the TRANA Lawyer Directory seeking legal consultation with Advocate ${lawyerName}.`;
+  const matterType = "Comprehensive Legal Representation & Advisory";
+  const sectionsSummary = "Applicable Procedural & Substantive Laws (BNS / BNSS / Civil Code)";
+  const facts = `Citizen ${clientName} has formally initiated a verified legal consultation channel through TRANA with Advocate ${lawyerName}. The client seeks substantive legal counsel regarding applicable rights, dispute merits, evidentiary review, and prospective litigation strategy.`;
   const summary = facts;
-  const fullBriefMarkdown = `### CLIENT INTAKE BRIEF
-**Matter**: ${matterType}
-**Client**: ${clientName} (${userEmail || "Anonymous"}) • City: ${clientCity}
-**Target Counsel**: ${lawyerName} • Date: ${dateStr} • Mode: ${channelStr}
+  const fullBriefMarkdown = `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
+Matter: ${matterType}
+Client: ${clientName} (${userEmail || "Verified User"}) • City: ${clientCity}
+Target Counsel: ${lawyerName}
+Date: ${dateStr}
+Mode: ${channelStr}
+Applicable Statutes: ${sectionsSummary}
+Bail / Custody Outlook: To be ascertained upon examination of summons/FIR or civil process.
 
-#### Matter Overview
-Direct consultation inquiry initiated via TRANA Legal Directory. No prior AI First Aid conversation recorded for this inquiry.
+1. Factual Matrix & Matter Background
+Citizen ${clientName} has engaged counsel via TRANA for preliminary case assessment and legal strategy. The client requires guidance on statutory remedies, jurisdictional considerations, and dispute resolution options.
 
-#### Recommended Preliminary Steps
-• Schedule introductory consultation (${channelStr})
-• Request relevant case documents, court notices, or police records
-• Ascertain specific legal relief sought`;
+2. Statutory Assessment & Legal Framework
+• Counsel to evaluate cause of action, relevant statutory limitation periods, and whether the dispute falls under criminal jurisdiction (BNSS / BNS) or civil / commercial jurisdiction.
+• In civil matters, review applicability of mandatory pre-institution mediation under Section 12A of the Commercial Courts Act or Section 89 CPC.
+• In criminal matters, scrutinize allegations against statutory ingredient requirements to distinguish civil defaults from cognizable offences under BNS.
+
+3. Procedural Safeguards & Protective Measures
+• Right to consult advocate of choice under Article 22(1) of the Constitution of India and Section 41D / Section 37 BNSS.
+• Verification of whether formal notice under Section 35(3) BNSS or civil summons has been served.
+• Maintenance of evidentiary chain of custody regarding correspondence, financial transactions, and agreements.
+
+4. Strategic Legal Action Plan
+• Conduct primary conference via ${channelStr} to record detailed chronological statement.
+• Reconcile relevant documentation including contracts, notices, bank records, and official communications.
+• Formulate appropriate defensive or originating proceedings (anticipatory bail petition, legal demand notice, reply to show cause, or writ/suit).
+• Prepare Vakalatnama and draft affidavit in support of prospective filings.
+
+Privileged advocate-client case record prepared via TRANA Legal Intelligence Platform.`;
 
   return {
     hasConversation: false,
