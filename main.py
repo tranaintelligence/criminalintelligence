@@ -1544,6 +1544,167 @@ def get_chats(user_email: str = Depends(get_current_user_email), db: Session = D
         } for s in sessions]
 
 
+@app.get("/api/citizen/activity", tags=["Chats"])
+@app.get("/api/activity", tags=["Chats"])
+def get_citizen_activity(
+    user_email: str = Depends(get_current_user_email),
+    db: Session = Depends(get_db),
+):
+    """
+    Return unified chronological activity feed for the current user,
+    including Legal Chat sessions, statutory inquiries, uploaded documents,
+    FIR analyses, and consultations.
+    """
+    activities = []
+
+    # 1. User's Chat Sessions
+    sessions = (
+        db.query(db_models.ChatSession)
+        .filter(
+            db_models.ChatSession.user_email == user_email,
+            (db_models.ChatSession.deleted_by_user == False)
+            | (db_models.ChatSession.deleted_by_user.is_(None)),
+        )
+        .order_by(db_models.ChatSession.updated_at.desc())
+        .limit(15)
+        .all()
+    )
+
+    for s in sessions:
+        messages = (
+            db.query(db_models.ChatMessage)
+            .filter(db_models.ChatMessage.session_id == s.id)
+            .order_by(db_models.ChatMessage.created_at.asc())
+            .all()
+        )
+        msg_count = len(messages)
+        first_user_msg = next((m for m in messages if m.role == "user"), None)
+        last_msg = messages[-1] if messages else None
+
+        snippet = ""
+        structured_info = None
+        if first_user_msg and first_user_msg.content:
+            snippet = first_user_msg.content.strip()
+            if len(snippet) > 160:
+                snippet = snippet[:157] + "..."
+        elif last_msg and last_msg.content:
+            snippet = last_msg.content.strip()
+            if len(snippet) > 160:
+                snippet = snippet[:157] + "..."
+
+        for m in reversed(messages):
+            if m.structured_content:
+                try:
+                    sc = json.loads(m.structured_content) if isinstance(m.structured_content, str) else m.structured_content
+                    if isinstance(sc, dict):
+                        structured_info = {
+                            "summary": sc.get("summary") or sc.get("plain_english_summary"),
+                            "bail_status": sc.get("bail_status"),
+                            "offense": sc.get("offense") or sc.get("matter_type"),
+                        }
+                        break
+                except Exception:
+                    pass
+
+        # Build clean title
+        title = s.title.strip() if s.title and s.title.strip() and s.title != "New Consultation" else (snippet[:50] if snippet else "Legal Inquiry")
+
+        activities.append({
+            "id": f"chat-{s.id}",
+            "kind": "Legal First Aid Chat",
+            "category": "chat",
+            "title": title,
+            "text": snippet or title,
+            "at": (s.updated_at or s.created_at or datetime.utcnow()).isoformat(),
+            "link": f"/dashboard/chat/{s.id}",
+            "session_id": s.id,
+            "message_count": msg_count,
+            "structured_info": structured_info,
+        })
+
+    # 2. Uploaded Attachments
+    session_ids = [s.id for s in sessions]
+    if session_ids:
+        attachments = (
+            db.query(db_models.ChatAttachment)
+            .filter(db_models.ChatAttachment.chat_id.in_(session_ids))
+            .order_by(db_models.ChatAttachment.created_at.desc())
+            .limit(10)
+            .all()
+        )
+        for att in attachments:
+            activities.append({
+                "id": f"att-{att.id}",
+                "kind": "Legal Document Uploaded",
+                "category": "document",
+                "title": att.filename,
+                "text": f"Document attached for statutory review ({round(att.size / 1024, 1)} KB)",
+                "at": att.created_at.isoformat(),
+                "link": f"/dashboard/chat/{att.chat_id}",
+                "session_id": att.chat_id,
+                "message_count": 0,
+            })
+
+    # 3. Auxiliary Analyses & Consultations from DB (using UUID)
+    try:
+        user_row = db.query(db_models.User).filter(db_models.User.email == user_email).first()
+        valid_uuid = None
+        if user_row and user_row.id:
+            try:
+                valid_uuid = str(uuid.UUID(str(user_row.id)))
+            except (ValueError, TypeError):
+                pass
+
+        if valid_uuid:
+            analyses_res = db.execute(
+                text(
+                    "SELECT id, situation, created_at FROM analyses "
+                    "WHERE user_id = :uid "
+                    "ORDER BY created_at DESC LIMIT 5"
+                ),
+                {"uid": valid_uuid},
+            ).fetchall()
+            for a in analyses_res:
+                activities.append({
+                    "id": f"analysis-{a[0]}",
+                    "kind": "FIR & Situation Analysis",
+                    "category": "analysis",
+                    "title": "FIR Situation Analysis",
+                    "text": (a[1][:140] + "...") if a[1] and len(a[1]) > 140 else (a[1] or "Document & Situation Analysis"),
+                    "at": a[2].isoformat() if hasattr(a[2], "isoformat") else str(a[2]),
+                    "link": "/dashboard/analyse",
+                    "session_id": None,
+                    "message_count": 0,
+                })
+
+            consult_res = db.execute(
+                text(
+                    "SELECT id, lawyer_name, consult_type, status, created_at FROM consultations "
+                    "WHERE user_id = :uid "
+                    "ORDER BY created_at DESC LIMIT 5"
+                ),
+                {"uid": valid_uuid},
+            ).fetchall()
+            for c in consult_res:
+                activities.append({
+                    "id": f"consult-{c[0]}",
+                    "kind": "Lawyer Consultation",
+                    "category": "consultation",
+                    "title": f"Consultation with {c[1] or 'Advocate'}",
+                    "text": f"Status: {c[3]} · Mode: {c[2] or 'Chat'}",
+                    "at": c[4].isoformat() if hasattr(c[4], "isoformat") else str(c[4]),
+                    "link": "/dashboard/consultations",
+                    "session_id": None,
+                    "message_count": 0,
+                })
+    except Exception as e:
+        logger.warning(f"Could not load auxiliary user activities: {e}")
+
+    # Sort descending by timestamp
+    activities.sort(key=lambda x: str(x.get("at", "")), reverse=True)
+    return {"activities": activities[:15]}
+
+
 @app.get("/api/citizen/intake-brief", tags=["Chats"])
 def get_citizen_intake_brief(user_email: str = Depends(get_current_user_email), db: Session = Depends(get_db)):
     """
