@@ -155,8 +155,39 @@ function LawyerReferralsPage() {
   const mergedList: Referral[] = useMemo(() => {
     const list: Referral[] = [];
 
-    // Add live citizen inquiries from consultations table
+    // 1. Add live citizen inquiries from localStorage (instant sync from citizen request)
+    let localReferrals: any[] = [];
+    try {
+      if (typeof window !== "undefined") {
+        localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+      }
+    } catch {
+      // ignore
+    }
+
+    (localReferrals || []).forEach((r) => {
+      if (r && r.id && !list.some((existing) => existing.id === r.id)) {
+        list.push({
+          id: r.id,
+          date: r.date || "Today",
+          client: r.client || "Citizen Client",
+          phone: "+91 (Verified Account)",
+          matterType: r.matterType || "Legal Consultation Request",
+          section: r.section || "Applicable Statutes",
+          consultationType: r.consultationType === "Chat" ? "Chat" : "Call",
+          status: r.status || "New Request",
+          summary: r.summary || "Client requested consultation with counsel.",
+          intakeBrief: r.intakeBrief,
+          scheduledTime: r.scheduledTime,
+        });
+      }
+    });
+
+    // 2. Add live citizen inquiries from consultations table
     dbConsults.forEach((row, idx) => {
+      const rowId = `REF-${row.id.slice(0, 8).toUpperCase()}`;
+      if (list.some((existing) => existing.id === rowId)) return;
+
       const briefText = row.intake_brief || row.note || "";
       let matter = "Legal Consultation Request";
       let sectionStr = "Applicable Statutes";
@@ -167,11 +198,21 @@ function LawyerReferralsPage() {
         if (sectionMatch) sectionStr = sectionMatch[1].trim();
       }
 
-      const clientName = row.user_id ? `Citizen (${row.user_id.slice(0, 8)})` : "Citizen Client";
-      const summaryText = briefText.length > 200 ? `${briefText.slice(0, 200)}...` : (briefText || "Client requested consultation with counsel.");
+      let clientName = "Citizen Client";
+      const clientMatch = briefText.match(/\*\*Client\*\*:\s*([^(•\n]+)/);
+      if (clientMatch && clientMatch[1].trim() && clientMatch[1].trim() !== "Citizen Client") {
+        clientName = clientMatch[1].trim();
+      } else if (row.user_id) {
+        clientName = `Citizen (${row.user_id.slice(0, 8)})`;
+      }
+
+      const factsMatch = briefText.match(/#### 1\. Factual Summary[^\n]*\n([\s\S]*?)(?=#### 2|$)/);
+      const summaryText = factsMatch && factsMatch[1].trim()
+        ? (factsMatch[1].trim().length > 220 ? `${factsMatch[1].trim().slice(0, 220)}...` : factsMatch[1].trim())
+        : (briefText.length > 200 ? `${briefText.slice(0, 200)}...` : (briefText || "Client requested consultation with counsel."));
 
       list.push({
-        id: `REF-${row.id.slice(0, 8).toUpperCase()}`,
+        id: rowId,
         date: row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
         client: clientName,
         phone: "+91 (Verified Account)",
@@ -185,7 +226,7 @@ function LawyerReferralsPage() {
       });
     });
 
-    // Append benchmark matters
+    // 3. Append benchmark matters
     initialList.forEach((r) => {
       if (!list.some((existing) => existing.id === r.id)) {
         list.push(r);
