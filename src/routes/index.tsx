@@ -48,15 +48,15 @@ function Index() {
           <div className="hidden gap-8 text-sm text-muted-foreground md:flex">
             <a href="#who" className="hover:text-foreground">Who we help</a>
             <a href="#features" className="hover:text-foreground">Features</a>
-            <Link to="/dashboard/chat" className="hover:text-foreground">Legal First Aid</Link>
+            <Link to="/dashboard" className="hover:text-foreground">For Citizens</Link>
             <Link to="/lawyer" className="hover:text-foreground">For Lawyers</Link>
             <a href="#how" className="hover:text-foreground">How it works</a>
           </div>
-          <Link to="/dashboard/chat" className="btn-solid !px-3 !py-2 !text-[0.65rem] md:!px-4 md:!py-2.5 md:!text-[0.7rem]">Legal First Aid</Link>
+          <Link to="/dashboard" className="btn-solid !px-3 !py-2 !text-[0.65rem] md:!px-4 md:!py-2.5 md:!text-[0.7rem]">For Citizens</Link>
         </div>
       </nav>
 
-{/* Hero */}
+      {/* Hero */}
       <section id="top" className="mx-auto flex min-h-[70vh] md:min-h-[88vh] max-w-7xl flex-col justify-center px-4 md:px-6 py-8 md:py-24">
         <p className="reveal mb-4 md:mb-8 font-display text-base md:text-xl italic text-muted-foreground">त्राणा — Protection.</p>
         <h1 className="reveal font-display text-[38px] leading-[0.95] font-medium md:text-6xl lg:text-[8.5rem]">
@@ -66,8 +66,8 @@ function Index() {
           TRANA makes legal information easier to understand and connects you with the right lawyer when it matters most.
         </p>
         <div className="reveal mt-6 md:mt-10 flex flex-col gap-3 md:flex-row md:gap-4">
-          <a href="#cta" onClick={(e)=>{e.preventDefault(); setModalOpen(true);}} className="btn-solid">Get Legal Guidance</a>
-          <a href="#cta" className="btn-solid">Talk to a Lawyer</a>
+          <Link to="/dashboard/chat" className="btn-solid text-center">Get Legal Guidance</Link>
+          <Link to="/dashboard/lawyers" className="btn-solid text-center">Talk to a Lawyer</Link>
         </div>
         <p className="reveal mt-5 md:mt-8 max-w-md text-xs text-muted-foreground">{Disclaimer}</p>
       </section>
@@ -78,15 +78,20 @@ function Index() {
           <div className="reveal"><Eyebrow light>01 Who we help</Eyebrow><H2 light>Built for Everyone<br />Who Needs the Law</H2></div>
           <div className="mt-8 md:mt-16 grid grid-cols-1 gap-px bg-paper-border md:grid-cols-3">
             {[
-              ["🧑‍💼", "Citizens", "Facing a Legal Problem?", "Understand your rights, decode legal documents, and get connected to a qualified lawyer quickly and clearly."],
-              ["⚖️", "Lawyers", "For Legal Professionals", "Research cases, find citations from High Courts and lower courts, draft documents, and connect with other lawyers in our professional network."],
-              ["📚", "Students", "For Law Students", "Access legal research with case citations, judgment timelines, and practical legal tools to support your studies."],
-            ].map(([i, k, t, b]) => (
-              <div key={t} className="reveal bg-paper p-5 md:p-10">
-                <div className="text-2xl grayscale">{i}</div>
-                <p className="mt-4 md:mt-8 text-xs uppercase tracking-[0.25em] text-ink-muted">{k}</p>
-                <h3 className="mt-2 md:mt-3 font-display text-2xl md:text-3xl font-medium">{t}</h3>
-                <p className="mt-3 md:mt-4 font-light leading-relaxed text-ink-muted">{b}</p>
+              ["🧑‍💼", "Citizens", "Facing a Legal Problem?", "Understand your rights, decode legal documents, and get connected to a qualified lawyer quickly and clearly.", "/dashboard", "Explore Citizen Portal →"],
+              ["⚖️", "Lawyers", "For Legal Professionals", "Research cases, find citations from High Courts and lower courts, draft documents, and connect with other lawyers in our professional network.", "/lawyer", "Lawyer Workspace →"],
+              ["📚", "Students", "For Law Students", "Access legal research with case citations, judgment timelines, and practical legal tools to support your studies.", "/dashboard/research", "Access Legal Research →"],
+            ].map(([i, k, t, b, linkTo, linkText]) => (
+              <div key={t} className="reveal bg-paper p-5 md:p-10 flex flex-col justify-between">
+                <div>
+                  <div className="text-2xl grayscale">{i}</div>
+                  <p className="mt-4 md:mt-8 text-xs uppercase tracking-[0.25em] text-ink-muted">{k}</p>
+                  <h3 className="mt-2 md:mt-3 font-display text-2xl md:text-3xl font-medium">{t}</h3>
+                  <p className="mt-3 md:mt-4 font-light leading-relaxed text-ink-muted">{b}</p>
+                </div>
+                <Link to={linkTo} className="mt-6 inline-flex items-center text-xs font-semibold uppercase tracking-wider text-ink underline underline-offset-4 hover:opacity-75">
+                  {linkText}
+                </Link>
               </div>
             ))}
           </div>
@@ -119,15 +124,20 @@ function Index() {
           <div className="reveal"><Eyebrow>02 What you can do</Eyebrow><H2>Your Legal First Aid<br />All in One Place</H2></div>
           <div className="mt-8 md:mt-16 grid gap-6 md:gap-10 grid-cols-2 md:grid-cols-4">
             {[
-              ["Understand Legal Documents", "Upload or describe any legal situation and get a plain-language explanation of what it means and what to do next."],
-              ["Find the Right Lawyer", "TRANA connects you to verified legal professionals. Arrange a consultation by call or chat directly through the platform."],
-              ["Legal Research & Citations", "Find relevant case law with citations, timelines, and judgments from the Supreme Court, High Courts, and lower courts."],
-              ["Connect With Experts", "Beyond lawyers, connect with legal professionals and experts across different areas of law."],
-            ].map(([t, b], n) => (
-              <div key={t} className="reveal border-t border-primary pt-4 md:pt-6">
-                <span className="text-xs tracking-[0.25em] text-muted-foreground">0{n + 1}</span>
-                <h3 className="mt-3 md:mt-4 font-display text-xl md:text-2xl">{t}</h3>
-                <p className="mt-2 md:mt-3 text-sm font-light leading-relaxed text-muted-foreground">{b}</p>
+              ["Understand Legal Documents", "Upload or describe any legal situation and get a plain-language explanation of what it means and what to do next.", "/dashboard/analyse", "Analyse Situation →"],
+              ["Find the Right Lawyer", "TRANA connects you to verified legal professionals. Arrange a consultation by call or chat directly through the platform.", "/dashboard/lawyers", "Find Lawyers →"],
+              ["Legal Research & Citations", "Find relevant case law with citations, timelines, and judgments from the Supreme Court, High Courts, and lower courts.", "/dashboard/research", "Start Research →"],
+              ["Connect With Experts", "Beyond lawyers, connect with legal professionals and experts across different areas of law.", "/dashboard/consultations", "Consultations →"],
+            ].map(([t, b, linkTo, linkText], n) => (
+              <div key={t} className="reveal border-t border-primary pt-4 md:pt-6 flex flex-col justify-between">
+                <div>
+                  <span className="text-xs tracking-[0.25em] text-muted-foreground">0{n + 1}</span>
+                  <h3 className="mt-3 md:mt-4 font-display text-xl md:text-2xl">{t}</h3>
+                  <p className="mt-2 md:mt-3 text-sm font-light leading-relaxed text-muted-foreground">{b}</p>
+                </div>
+                <Link to={linkTo} className="mt-4 inline-flex items-center text-xs font-medium text-amber-200/90 hover:text-white transition-colors">
+                  {linkText}
+                </Link>
               </div>
             ))}
           </div>
@@ -138,16 +148,23 @@ function Index() {
       <section className="bg-paper py-10 md:py-28 text-ink">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
           <div className="reveal max-w-2xl"><Eyebrow light>03 AI tools</Eyebrow><H2 light>AI-Assisted Legal Tools</H2>
-            <p className="mt-4 md:mt-6 text-base md:text-lg font-light text-ink-muted">Powerful features being built to make legal help faster and smarter.</p></div>
+            <p className="mt-4 md:mt-6 text-base md:text-lg font-light text-ink-muted">Powerful features available now to make legal help faster and smarter.</p></div>
           <div className="mt-8 md:mt-16 grid gap-4 md:gap-6 md:grid-cols-2">
             {[
-              ["In Development", "FIR Analyser", "Describe or upload an FIR. Our AI will identify the sections invoked, explain what they mean, check bail eligibility, and suggest next steps in plain language."],
-              ["Planned", "Legal Information Assistant", "A chat assistant that answers your legal questions using verified Indian law and always guides you toward a qualified lawyer when needed."],
-            ].map(([badge, t, b]) => (
-              <div key={t} className="reveal border border-paper-border bg-paper p-5 md:p-10">
-                <span className="inline-block border border-ink px-3 py-1 text-[0.65rem] uppercase tracking-[0.25em] text-ink">{badge}</span>
-                <h3 className="mt-5 md:mt-8 font-display text-3xl md:text-4xl">{t}</h3>
-                <p className="mt-3 md:mt-4 font-light leading-relaxed text-ink-muted">{b}</p>
+              ["Active Tool", "FIR Analyser", "Describe or upload an FIR. Our AI will identify the sections invoked, explain what they mean, check bail eligibility, and suggest next steps in plain language.", "/dashboard/analyse", "Launch FIR Analyser →"],
+              ["Active Tool", "Legal Information Assistant", "A chat assistant that answers your legal questions using verified Indian law and always guides you toward a qualified lawyer when needed.", "/dashboard/chat", "Start Legal Chat →"],
+            ].map(([badge, t, b, linkTo, linkText]) => (
+              <div key={t} className="reveal border border-paper-border bg-paper p-5 md:p-10 flex flex-col justify-between">
+                <div>
+                  <span className="inline-block border border-ink px-3 py-1 text-[0.65rem] uppercase tracking-[0.25em] text-ink font-semibold">{badge}</span>
+                  <h3 className="mt-5 md:mt-8 font-display text-3xl md:text-4xl">{t}</h3>
+                  <p className="mt-3 md:mt-4 font-light leading-relaxed text-ink-muted">{b}</p>
+                </div>
+                <div className="mt-6 pt-4 border-t border-paper-border">
+                  <Link to={linkTo} className="btn-ink inline-block">
+                    {linkText}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -213,26 +230,26 @@ function Index() {
           <h2 className="font-display text-4xl md:text-6xl lg:text-8xl font-medium">Don't face it alone.</h2>
           <p className="mt-4 md:mt-6 text-base md:text-lg font-light text-muted-foreground md:text-ink-muted">Get legal guidance or connect with a lawyer today.</p>
           <div className="mt-6 md:mt-10 flex flex-col sm:flex-row flex-wrap justify-center gap-3 md:gap-4">
-            <a href="#cta" onClick={(e)=>{e.preventDefault(); setModalOpen(true);}} className="btn-solid md:btn-ink">Get Legal Guidance</a>
-            <a href="#cta" onClick={(e)=>{e.preventDefault(); setModalOpen(true);}} className="btn-solid md:btn-ink sm:w-auto w-full">Talk to a Lawyer</a>
+            <Link to="/dashboard/chat" className="btn-solid md:btn-ink">Get Legal Guidance</Link>
+            <Link to="/dashboard/lawyers" className="btn-solid md:btn-ink sm:w-auto w-full">Talk to a Lawyer</Link>
           </div>
           <p className="mt-6 md:mt-8 font-display text-lg md:text-xl leading-tight text-muted-foreground md:hidden">
             TRANA is your legal guide <em>not your lawyer.</em><br />We exist to make sure you always reach one.
           </p>
         </div>
-{/* Modal */}
-{modalOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 px-4">
-    <div className="bg-[#0A0A0A] p-6 md:p-8 rounded-lg relative w-full max-w-sm md:w-96">
-      <button onClick={() => setModalOpen(false)} className="absolute top-2 right-2 text-white text-xl font-bold">✕</button>
-      <h2 className="text-white text-xl mb-4">We're Launching Soon</h2>
-      <p className="text-gray-400 mb-4">TRANA is almost ready. Leave your email and we will notify you the moment we go live.</p>
-      <p className="text-gray-400 mb-4">Our team of verfied lawyers are coming soon.</p>
-      <input type="email" placeholder="Your email" className="w-full p-2 mb-4 bg-white text-black border border-black" />
-      <button className="w-full bg-white text-black py-2">Notify Me</button>
-    </div>
-  </div>
-)}
+        {/* Modal */}
+        {modalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 px-4">
+            <div className="bg-[#0A0A0A] p-6 md:p-8 rounded-lg relative w-full max-w-sm md:w-96">
+              <button onClick={() => setModalOpen(false)} className="absolute top-2 right-2 text-white text-xl font-bold">✕</button>
+              <h2 className="text-white text-xl mb-4">We're Launching Soon</h2>
+              <p className="text-gray-400 mb-4">TRANA is almost ready. Leave your email and we will notify you the moment we go live.</p>
+              <p className="text-gray-400 mb-4">Our team of verified lawyers are ready to assist you.</p>
+              <input type="email" placeholder="Your email" className="w-full p-2 mb-4 bg-white text-black border border-black" />
+              <button className="w-full bg-white text-black py-2">Notify Me</button>
+            </div>
+          </div>
+        )}
       </section>
 
       <footer className="bg-secondary py-8 md:py-16">
@@ -243,15 +260,19 @@ function Index() {
               <p className="mt-1 md:mt-2 font-display italic text-muted-foreground">त्राणा — Protection.</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground md:text-sm">
-              {["About", "For Lawyers", "Legal Research", "Privacy Policy", "Contact", "Team Login"].map((l) => {
-                if (l === "For Lawyers") {
+              {["For Citizens", "For Lawyers", "Legal Research", "About", "Privacy Policy", "Contact", "Team Login"].map((l) => {
+                if (l === "For Citizens") {
+                  return <Link key={l} to="/dashboard" className="hover:text-foreground">{l}</Link>;
+                } else if (l === "For Lawyers") {
                   return <Link key={l} to="/lawyer" className="hover:text-foreground">{l}</Link>;
+                } else if (l === "Legal Research") {
+                  return <Link key={l} to="/dashboard/research" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "About") {
                   return <Link key={l} to="/about" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Privacy Policy") {
                   return <Link key={l} to="/privacy-policy" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Contact") {
-                  return <Link key={l} to="/contact" className="hover:text-foreground">{l}</Link>;
+                  return <Link key={l} to="/dashboard/help" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Team Login") {
                   return <Link key={l} to="/founders" className="hover:text-foreground border-l border-border pl-4">{l}</Link>;
                 } else {
@@ -269,4 +290,3 @@ function Index() {
     </div>
   );
 }
-
