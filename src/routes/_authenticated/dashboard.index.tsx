@@ -15,6 +15,7 @@ function greeting() {
 const cards = [
   { title: "FIR Analyser", body: "Describe what happened or upload a legal document. Get a plain-language explanation of your rights and next steps.", cta: "Get Started", to: "/dashboard/analyse" },
   { title: "Find a Legal Professional", body: "Connect with verified lawyers and legal experts. Arrange a consultation by call or chat.", cta: "Find a Lawyer", to: "/dashboard/lawyers" },
+  { title: "Case Tracker", body: "Enter your 16-character CNR number to track eCourts status and schedule automated SMS and Email hearing reminders.", cta: "Track My Case", to: "/dashboard/cases" },
 ] as const;
 
 function Home() {
@@ -42,7 +43,7 @@ function Home() {
         Remember TRANA provides legal information and first aid. For legal advice, always speak to a qualified lawyer.
       </p>
 
-      <div className="mt-12 grid gap-5 sm:grid-cols-2">
+      <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
           <div key={c.title} className="flex flex-col border border-foreground/80 bg-card p-7">
             <h2 className="font-display text-2xl">{c.title}</h2>

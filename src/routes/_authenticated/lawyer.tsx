@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   Menu, X, Scale, FileText, Search, Users, User, 
   Briefcase, ShieldCheck, ArrowRight, Clock, FolderOpen,
-  LogOut, ExternalLink, Sparkles, BookOpen, AlertCircle
+  LogOut, ExternalLink, Sparkles, BookOpen, AlertCircle, Calendar
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
@@ -40,6 +40,7 @@ export type LawyerProfile = {
 
 const navItems = [
   { to: "/lawyer", label: "Overview", icon: Scale, exact: true },
+  { to: "/lawyer/cases", label: "Case Tracker", icon: Calendar },
   { to: "/lawyer/referrals", label: "Client Referrals", icon: Briefcase },
   { to: "/lawyer/drafter", label: "AI Drafter", icon: Sparkles, badge: "In Development" },
   { to: "/lawyer/citations", label: "Citation Finder", icon: BookOpen, badge: "In Development" },

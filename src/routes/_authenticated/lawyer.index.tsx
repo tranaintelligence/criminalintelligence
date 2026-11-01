@@ -235,7 +235,14 @@ function LawyerOverview() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/lawyer/cases"
+            className="border border-emerald-500/40 bg-emerald-950/30 px-4 py-2.5 text-xs uppercase tracking-[0.15em] text-emerald-300 hover:bg-emerald-900/40 transition-colors flex items-center gap-2 font-mono"
+          >
+            <Calendar className="h-3.5 w-3.5" />
+            <span>Case Tracker</span>
+          </Link>
           <Link
             to="/lawyer/drafter"
             className="bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center gap-2"
