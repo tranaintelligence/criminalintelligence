@@ -6,7 +6,7 @@ produce self-documenting OpenAPI specs.
 """
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -367,3 +367,64 @@ class HealthResponse(BaseModel):
     source_registry_ready: bool = False
     documents_indexed: int = 0
     vector_store_ready: bool = False
+
+
+# =============================================================================
+# eCourts & Case Tracker Schemas
+# =============================================================================
+
+class OrderHistoryEntry(BaseModel):
+    date: str
+    order_text: str = Field(alias="orderText", default="")
+
+    class Config:
+        populate_by_name = True
+
+
+class CaseLookupRequest(BaseModel):
+    cnr: str = Field(..., description="16-character alphanumeric eCourts CNR Number")
+    lawyer_name: Optional[str] = Field(default=None, description="Advocate on record name")
+    email: Optional[str] = Field(default=None, description="Counsel or citizen notification email")
+    phone: Optional[str] = Field(default=None, description="Notification mobile phone number")
+
+
+class CaseRecordData(BaseModel):
+    cnr: str
+    formatted_cnr: str = Field(alias="formattedCnr")
+    case_type: str = Field(alias="caseType")
+    case_number: str = Field(alias="caseNumber")
+    filing_number: Optional[str] = Field(default=None, alias="filingNumber")
+    filing_date: Optional[str] = Field(default=None, alias="filingDate")
+    registration_number: Optional[str] = Field(default=None, alias="registrationNumber")
+    registration_date: Optional[str] = Field(default=None, alias="registrationDate")
+    petitioner: str
+    respondent: str
+    petitioner_advocate: Optional[str] = Field(default=None, alias="petitionerAdvocate")
+    respondent_advocate: Optional[str] = Field(default=None, alias="respondentAdvocate")
+    court_name: str = Field(alias="courtName")
+    court_room: Optional[str] = Field(default=None, alias="courtRoom")
+    judge: Optional[str] = Field(default=None)
+    current_stage: Optional[str] = Field(default=None, alias="currentStage")
+    next_hearing_date: Optional[str] = Field(default=None, alias="nextHearingDate")
+    hearing_purpose: Optional[str] = Field(default=None, alias="hearingPurpose")
+    case_status: str = Field(default="Pending", alias="caseStatus")
+    last_order_date: Optional[str] = Field(default=None, alias="lastOrderDate")
+    last_order_summary: Optional[str] = Field(default=None, alias="lastOrderSummary")
+    orders_history: list[dict[str, Any]] = Field(default_factory=list, alias="ordersHistory")
+    source: Optional[str] = Field(default="eCourts Services / NJDG", description="Origin of court record data")
+
+    class Config:
+        populate_by_name = True
+
+
+class TrackCaseRequest(BaseModel):
+    cnr: str
+    case_data: Optional[dict[str, Any]] = Field(default=None)
+    sms_phone: Optional[str] = Field(default=None)
+    email_alert: Optional[str] = Field(default=None)
+
+
+class CaseReminderRequest(BaseModel):
+    cnr: str
+    sms_phone: str
+    email_alert: str

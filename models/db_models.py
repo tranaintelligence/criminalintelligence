@@ -208,3 +208,42 @@ class AdvocateDisclaimer(Base):
     notice_text = Column(Text, nullable=True)
     accepted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
+class TrackedCase(Base):
+    """Litigation matters tracked by advocates and citizens with eCourts sync."""
+
+    __tablename__ = "tracked_cases"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, index=True, nullable=False)
+    user_email = Column(String, index=True, nullable=False)
+    cnr = Column(String(20), index=True, nullable=False)
+    formatted_cnr = Column(String(30), nullable=False)
+    case_type = Column(String(100), nullable=False)
+    case_number = Column(String(50), nullable=False)
+    court_name = Column(String(255), nullable=False)
+    court_room = Column(String(100), nullable=True)
+    judge = Column(String(255), nullable=True)
+    petitioner = Column(String(255), nullable=False)
+    respondent = Column(String(255), nullable=False)
+    petitioner_advocate = Column(String(255), nullable=True)
+    respondent_advocate = Column(String(255), nullable=True)
+    current_stage = Column(String(255), nullable=True)
+    next_hearing_date = Column(String(50), nullable=True)
+    hearing_purpose = Column(String(255), nullable=True)
+    case_status = Column(String(50), nullable=False, default="Pending")
+    last_order_date = Column(String(50), nullable=True)
+    last_order_summary = Column(Text, nullable=True)
+    orders_history = Column(Text, nullable=True)
+    raw_data = Column(Text, nullable=True)
+    sms_phone = Column(String(50), nullable=True)
+    email_alert = Column(String(120), nullable=True)
+    reminder_status = Column(String(20), nullable=False, default="Active")
+    source = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_email", "cnr", name="uq_user_cnr"),
+        Index("ix_tracked_cases_user_cnr", "user_email", "cnr"),
+    )
