@@ -48,7 +48,7 @@ const initialList: Referral[] = [
     summary: "Apprehending arrest under Section 318 BNS (Cheating) arising out of commercial invoice dispute. Needs urgent interim protection before Sessions Court.",
     intakeBrief: `### CLIENT INTAKE BRIEF (TRANA AI FIRST-AID)
 **Matter**: Anticipatory Bail Application — Cheating Allegation
-**Client**: Rahul Verma • Phone: +91 98110 42910 • New Delhi
+**Client**: Rahul Verma • New Delhi
 **Target Counsel**: Senior Advocate • Mode: Telephonic Consultation
 **Applicable Statutes**: Section 482 BNSS (Old 438 CrPC) & Section 318 BNS (Old 420 IPC)
 **Bail / Jeopardy Position**: Non-Bailable Cognizable Offence • Police summons threatened under Sec 35 BNSS.
@@ -82,7 +82,7 @@ Client Rahul Verma is the managing director of a registered logistics firm. A co
     summary: "Vendor defaulted on service delivery after 70% advance payment. Seeking formal legal demand notice under 15-day cure period.",
     intakeBrief: `### CLIENT INTAKE BRIEF (TRANA AI FIRST-AID)
 **Matter**: Commercial Contract Breach & Statutory Demand Notice
-**Client**: Priya Sharma • Phone: +91 98201 55320 • Mumbai
+**Client**: Priya Sharma • Mumbai
 **Applicable Statutes**: Section 73 Indian Contract Act, 1872 & Specific Relief Act
 **Bail / Jeopardy Position**: Civil Recovery & Commercial Action
 
@@ -287,7 +287,7 @@ function LawyerReferralsPage() {
                   )}
                 </div>
                 <div className="mt-1 text-xs text-[#888888] font-mono">
-                  {r.id} • Registered: {r.date} • Contact: {r.phone}
+                  {r.id} • Registered: {r.date}
                 </div>
               </div>
 

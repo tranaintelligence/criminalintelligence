@@ -184,7 +184,7 @@ ${rights.length > 0 ? `#### 3. Key Rights Identified\n${rights.map((r: string) =
   const summary = facts;
   const fullBriefMarkdown = `### CLIENT INTAKE BRIEF
 **Matter**: ${matterType}
-**Client**: ${clientName} (${userEmail || "Anonymous"}) • Phone: ${clientPhone} • City: ${clientCity}
+**Client**: ${clientName} (${userEmail || "Anonymous"}) • City: ${clientCity}
 **Target Counsel**: ${lawyerName} • Date: ${dateStr} • Mode: ${channelStr}
 
 #### Matter Overview
