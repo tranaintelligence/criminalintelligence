@@ -823,55 +823,7 @@ export function AdminView() {
     }
   };
 
-  if (accessState === 'unauthenticated') {
-    return (
-      <AdminState
-        icon={<LockKeyhole size={22} />}
-        title="Sign in to continue"
-        message="The admin console requires an authenticated account with administrator access."
-        actionLabel="Go to Login"
-        onAction={() => navigate({ to: '/auth' })}
-      />
-    );
-  }
-
-  if (accessState === 'checking') {
-    return (
-      <AdminState
-        icon={<RefreshCw size={22} className="admin-spin animate-spin" />}
-        title="Checking admin access"
-        message="Verifying your account permissions before opening the private console."
-        actionLabel="Back to Overview"
-        onAction={() => navigate({ to: '/founders' })}
-      />
-    );
-  }
-
-  if (accessState === 'forbidden') {
-    return (
-      <AdminState
-        icon={<ShieldCheck size={22} />}
-        title="Admin access required"
-        message={`The account ${user?.email || 'currently signed in'} is not on the administrator allowlist.`}
-        actionLabel="Back to Overview"
-        onAction={() => navigate({ to: '/founders' })}
-        tone="warning"
-      />
-    );
-  }
-
-  if (accessState === 'error' && !keys.length) {
-    return (
-      <AdminState
-        icon={<AlertTriangle size={22} />}
-        title="Admin console unavailable"
-        message={error || 'The admin console could not be loaded.'}
-        actionLabel="Try again"
-        onAction={() => void loadDashboard(true)}
-        tone="warning"
-      />
-    );
-  }
+  // Direct dashboard render (authorized at /founders parent route)
 
   return (
     <div className="admin-page p-6 md:p-10 space-y-8 bg-[#0a0a0a] text-[#f0f0f0] min-h-screen">

@@ -337,7 +337,47 @@ def _migrate_db_schema():
                     conn.execute(text(f"ALTER TABLE lawyers ADD COLUMN IF NOT EXISTS {col} {col_type};"))
                 except Exception:
                     pass
+
+            # Ensure encrypted founder_emails table exists
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS founder_emails (
+                    id VARCHAR PRIMARY KEY,
+                    encrypted_email TEXT NOT NULL,
+                    email_hash VARCHAR(64) UNIQUE NOT NULL,
+                    label VARCHAR(120) DEFAULT 'Founder',
+                    added_by VARCHAR(120),
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_founder_emails_email_hash ON founder_emails(email_hash);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_founder_emails_is_active ON founder_emails(is_active);"))
             conn.commit()
+
+        # Seed initial primary founder ckhraiushh1@gmail.com if table is empty
+        try:
+            from database import SessionLocal
+            with SessionLocal() as db_session:
+                count = db_session.query(db_models.FounderEmail).count()
+                if count == 0:
+                    from key_manager import encrypt_api_key
+                    primary_email = "ckhraiushh1@gmail.com"
+                    enc = encrypt_api_key(primary_email)
+                    h = hashlib.sha256(primary_email.encode("utf-8")).hexdigest()
+                    founder_row = db_models.FounderEmail(
+                        encrypted_email=enc,
+                        email_hash=h,
+                        label="Primary Founder",
+                        added_by="System Genesis",
+                        is_active=True,
+                    )
+                    db_session.add(founder_row)
+                    db_session.commit()
+                    logger.info("Auto-seeded founder_emails table with primary founder: %s", primary_email)
+        except Exception as seed_exc:
+            logger.warning("Founder email seed notice: %s", seed_exc)
+
     except Exception as exc:
         logger.info("Database schema migration notice: %s", exc)
 
@@ -752,25 +792,75 @@ def logout(authorization: str | None = Header(default=None), db: Session = Depen
 # Admin API: encrypted provider keys and provider usage
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _admin_email_set() -> set[str]:
-    raw = (getattr(settings, "admin_emails", "") or "").replace(";", ",")
-    emails = {v.strip().lower() for v in raw.split(",") if v.strip()}
-    emails.add("swastik2007mishra@gmail.com")
-    emails.add("tranaintelliegence@gmail.com")
-    emails.add("ckhraiushh1@gmail.com")
-    emails.add("founder@trana.in")
-    emails.add("tranaintelligence@gmail.com")
-    emails.add("admin@trana.in")
-    return emails
+def _email_hash(email: str) -> str:
+    return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
 
 
-def get_admin_email(user_email: str = Depends(get_current_user_email)) -> str:
-    """Return the authenticated user email for admin endpoints.
-    
-    Access check is enforced at the dashboard gateway before granting access
-    to the Founder Dashboard.
-    """
-    return user_email
+def is_authorized_founder(email: str, db: Session) -> bool:
+    """Check whether an email is an authorized founder in the encrypted founder_emails table."""
+    if not email:
+        return False
+    norm = email.strip().lower()
+    h = _email_hash(norm)
+    try:
+        match = db.query(db_models.FounderEmail).filter(
+            db_models.FounderEmail.email_hash == h,
+            db_models.FounderEmail.is_active == True,
+        ).first()
+        if match:
+            return True
+        count = db.query(db_models.FounderEmail).count()
+        if count == 0 and norm == "ckhraiushh1@gmail.com":
+            return True
+        return False
+    except Exception as exc:
+        logger.warning("Error checking founder authorization: %s", exc)
+        return norm == "ckhraiushh1@gmail.com"
+
+
+def _admin_email_set(db: Session = None) -> set[str]:
+    """Retrieve all authorized founder emails by decrypting from the encrypted founder_emails table."""
+    from database import SessionLocal
+    from key_manager import decrypt_api_key
+
+    def _extract_from_db(session: Session) -> set[str]:
+        rows = session.query(db_models.FounderEmail).filter(db_models.FounderEmail.is_active == True).all()
+        decrypted_set = set()
+        for r in rows:
+            try:
+                decrypted = decrypt_api_key(r.encrypted_email).strip().lower()
+                decrypted_set.add(decrypted)
+            except Exception:
+                pass
+        return decrypted_set
+
+    try:
+        if db is not None:
+            res = _extract_from_db(db)
+        else:
+            with SessionLocal() as session:
+                res = _extract_from_db(session)
+        if not res:
+            return {"ckhraiushh1@gmail.com"}
+        return res
+    except Exception as exc:
+        logger.warning("Error reading founder_emails table: %s", exc)
+        return {"ckhraiushh1@gmail.com"}
+
+
+def get_admin_email(
+    user_email: str = Depends(get_current_user_email),
+    db: Session = Depends(get_db),
+) -> str:
+    """Return the authenticated user email if authorized in the encrypted founder_emails table."""
+    norm = user_email.strip().lower()
+    if not is_authorized_founder(norm, db):
+        logger.warning("Unauthorized access to admin API attempted by %s", norm)
+        raise HTTPException(
+            status_code=403,
+            detail="Access forbidden: You are not authorized as a TRANA platform founder.",
+        )
+    return norm
 
 
 def _require_encrypted_key_store() -> None:
@@ -811,12 +901,116 @@ def _admin_key_response(row: object, *, legacy: bool = False) -> dict:
 
 
 @app.get("/api/admin/access", response_model=AdminAccessResponse, tags=["Admin"])
-def admin_access(user_email: str = Depends(get_current_user_email)) -> dict:
-    """Return whether the verified Google account has admin access."""
+def admin_access(
+    user_email: str = Depends(get_current_user_email),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Return whether the verified user account has authorized founder access."""
+    norm = user_email.strip().lower()
     return {
-        "email": user_email,
-        "is_admin": True,
+        "email": norm,
+        "is_admin": is_authorized_founder(norm, db),
     }
+
+
+@app.get("/api/admin/founders", response_model=list[schemas.FounderEmailResponse], tags=["Admin Founders"])
+def list_founders_admin(
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """List all authorized founders by decrypting from encrypted storage."""
+    from key_manager import decrypt_api_key
+    rows = db.query(db_models.FounderEmail).order_by(db_models.FounderEmail.created_at.asc()).all()
+    results = []
+    for r in rows:
+        try:
+            plain_email = decrypt_api_key(r.encrypted_email)
+        except Exception:
+            plain_email = "[Encrypted / Key Mismatch]"
+        results.append({
+            "id": r.id,
+            "email": plain_email,
+            "label": r.label,
+            "added_by": r.added_by,
+            "is_active": r.is_active,
+            "created_at": r.created_at,
+            "updated_at": r.updated_at,
+        })
+    return results
+
+
+@app.post("/api/admin/founders", response_model=schemas.FounderEmailResponse, status_code=201, tags=["Admin Founders"])
+def add_founder_admin(
+    req: schemas.FounderEmailCreateRequest,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Add a new founder email with instant Fernet encryption and hash indexing."""
+    from key_manager import encrypt_api_key
+    norm = req.email.strip().lower()
+    h = _email_hash(norm)
+
+    existing = db.query(db_models.FounderEmail).filter(db_models.FounderEmail.email_hash == h).first()
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            existing.label = req.label or existing.label
+            existing.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return {
+                "id": existing.id,
+                "email": norm,
+                "label": existing.label,
+                "added_by": existing.added_by,
+                "is_active": existing.is_active,
+                "created_at": existing.created_at,
+                "updated_at": existing.updated_at,
+            }
+        raise HTTPException(status_code=400, detail="This email is already an authorized founder.")
+
+    enc = encrypt_api_key(norm)
+    row = db_models.FounderEmail(
+        encrypted_email=enc,
+        email_hash=h,
+        label=req.label or "Founder",
+        added_by=admin_email,
+        is_active=True,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    logger.info("Admin %s added new authorized founder %s (%s)", admin_email, norm, row.id)
+    return {
+        "id": row.id,
+        "email": norm,
+        "label": row.label,
+        "added_by": row.added_by,
+        "is_active": row.is_active,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+
+@app.delete("/api/admin/founders/{founder_id}", tags=["Admin Founders"])
+def delete_founder_admin(
+    founder_id: str,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Remove or revoke a founder email from the authorized registry."""
+    row = db.query(db_models.FounderEmail).filter(db_models.FounderEmail.id == founder_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Founder record not found.")
+
+    active_count = db.query(db_models.FounderEmail).filter(db_models.FounderEmail.is_active == True).count()
+    if active_count <= 1 and row.is_active:
+        raise HTTPException(status_code=400, detail="Cannot delete the sole remaining platform founder.")
+
+    db.delete(row)
+    db.commit()
+    logger.info("Admin %s deleted founder %s", admin_email, founder_id)
+    return {"ok": True, "message": "Founder authorization revoked."}
 
 
 
@@ -3342,8 +3536,7 @@ async def register_lawyer(
         except Exception:
             pass
 
-    admin_emails = _admin_email_set()
-    is_admin = req.email.strip().lower() in admin_emails
+    is_admin = is_authorized_founder(req.email, db)
 
     # Run automated verification engine across online gateways, eCourts records & statutory rules
     from services.lawyer_verification_service import execute_automated_advocate_verification

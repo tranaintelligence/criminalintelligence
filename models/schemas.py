@@ -586,3 +586,21 @@ class LawyersListSummaryResponse(BaseModel):
     pending: int
     suspended: int
     lawyers: list[LawyerResponse]
+
+
+class FounderEmailCreateRequest(BaseModel):
+    email: str = Field(..., description="Email address of the founder/admin to authorize")
+    label: Optional[str] = Field(default="Founder", max_length=120, description="Role label (e.g. Founder, Legal Lead)")
+
+
+class FounderEmailResponse(BaseModel):
+    id: str
+    email: str
+    label: Optional[str] = None
+    added_by: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

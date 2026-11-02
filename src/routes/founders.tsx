@@ -8,21 +8,32 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const DEFAULT_ADMIN_EMAILS = [
   "ckhraiushh1@gmail.com",
-  "founder@trana.in",
-  "tranaintelligence@gmail.com",
-  "admin@trana.in",
-  "team@trana.in",
 ];
 
 export function checkIsAdmin(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.trim().toLowerCase();
+  // Primary founder instant check
+  if (normalized === "ckhraiushh1@gmail.com") return true;
+
+  // Check cached authorized founders from encrypted backend table
+  try {
+    const cached = localStorage.getItem("trana_authorized_founders");
+    if (cached) {
+      const list = JSON.parse(cached);
+      if (Array.isArray(list) && list.map((e: string) => e.toLowerCase()).includes(normalized)) {
+        return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   const envAdmins = (typeof import.meta !== "undefined" && import.meta.env?.VITE_ADMIN_EMAILS ? String(import.meta.env.VITE_ADMIN_EMAILS) : "")
     .split(/[,;]/)
     .map((e: string) => e.trim().toLowerCase())
     .filter(Boolean);
-  const allowlist = new Set([...DEFAULT_ADMIN_EMAILS.map((e) => e.toLowerCase()), ...envAdmins]);
-  return allowlist.has(normalized);
+  return envAdmins.includes(normalized);
 }
 
 export async function getAuthenticatedUser(): Promise<{ id: string; email: string; name?: string } | null> {

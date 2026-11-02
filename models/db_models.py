@@ -320,3 +320,18 @@ class Lawyer(Base):
     consultations_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class FounderEmail(Base):
+    """Encrypted Founder / Admin emails authorized for platform administration."""
+
+    __tablename__ = "founder_emails"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    encrypted_email = Column(Text, nullable=False)
+    email_hash = Column(String(64), unique=True, index=True, nullable=False)
+    label = Column(String(120), nullable=True, default="Founder")
+    added_by = Column(String(120), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

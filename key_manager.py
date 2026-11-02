@@ -164,6 +164,10 @@ def _decrypt_api_key(encrypted_key: str) -> str:
         raise RuntimeError("A stored Gemini API key could not be decrypted.") from exc
 
 
+# Public alias
+decrypt_api_key = _decrypt_api_key
+
+
 def initialize_key_store() -> int:
     """Create DB rows for legacy env keys without duplicating existing keys."""
     if not encryption_is_configured():

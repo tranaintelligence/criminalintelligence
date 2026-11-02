@@ -41,7 +41,8 @@ class Settings(BaseSettings):
     gemini_api_key_4: str = ""
     # Comma-separated verified Google email addresses allowed to use the
     # backend administration API.
-    admin_emails: str = "swastik2007mishra@gmail.com;tranaintelliegence@gmail.com;tranaintelligence@gmail.com;ckhraiushh1@gmail.com;founder@trana.in;admin@trana.in"
+    # Optional comma-separated bootstrap emails; primary founders are loaded from encrypted database table.
+    admin_emails: str = ""
     # Fernet key used to encrypt Gemini API keys persisted in the database.
     # Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     api_key_encryption_key: str = "36A1a-JTCCj0zWPYk53vnMa1KVJqZ--z7oqRoDuQi5E="

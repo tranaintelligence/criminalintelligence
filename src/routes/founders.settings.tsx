@@ -3,8 +3,15 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Settings, Users, Megaphone, Flag, Download, 
-  Trash2, Plus, Save, Check, AlertTriangle, ShieldCheck 
+  Trash2, Plus, Save, Check, AlertTriangle, ShieldCheck, LockKeyhole 
 } from "lucide-react";
+import { useTranaCredential } from "@/lib/trana-auth";
+import { 
+  getFounderEmails, 
+  addFounderEmail as apiAddFounderEmail, 
+  deleteFounderEmail, 
+  FounderRecord 
+} from "@/lib/trana-admin-api";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { downloadCSV } from "@/lib/csv-export";
@@ -44,13 +51,52 @@ const initialWaitlist: WaitlistEntry[] = [
 ];
 
 function FoundersSettingsPage() {
-  // 1. Founder access management
-  const [founderEmails, setFounderEmails] = useState<string[]>([
-    "founder@trana.in",
-    "admin@trana.in",
-    "team@trana.in",
-  ]);
+  const { credential } = useTranaCredential();
   const [newFounderEmail, setNewFounderEmail] = useState("");
+  const [newFounderLabel, setNewFounderLabel] = useState("Co-Founder");
+  const [isAddingFounder, setIsAddingFounder] = useState(false);
+
+  // Load authorized founders from encrypted backend table
+  const {
+    data: dbFounders = [],
+    isLoading: foundersLoading,
+    refetch: refetchFounders,
+  } = useQuery<FounderRecord[]>({
+    queryKey: ["founders-settings-authorized-list", credential],
+    queryFn: async () => {
+      if (!credential) {
+        return [{
+          id: "primary-01",
+          email: "ckhraiushh1@gmail.com",
+          label: "Primary Founder",
+          added_by: "System Genesis",
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }];
+      }
+      try {
+        const res = await getFounderEmails(credential);
+        if (Array.isArray(res) && res.length > 0) {
+          try {
+            localStorage.setItem("trana_authorized_founders", JSON.stringify(res.map((r) => r.email)));
+          } catch {}
+          return res;
+        }
+      } catch (err) {
+        console.warn("Could not fetch founders from encrypted store:", err);
+      }
+      return [{
+        id: "primary-01",
+        email: "ckhraiushh1@gmail.com",
+        label: "Primary Founder",
+        added_by: "System Genesis",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }];
+    },
+  });
 
   // 2. Platform announcement banner
   const [bannerEnabled, setBannerEnabled] = useState(false);
@@ -82,9 +128,7 @@ function FoundersSettingsPage() {
   // Load saved settings from localStorage
   useEffect(() => {
     try {
-      // Founders
-      const storedFounders = localStorage.getItem("trana_authorized_founders");
-      if (storedFounders) setFounderEmails(JSON.parse(storedFounders));
+      // Founders loaded from encrypted API table
 
       // Announcement banner
       const storedBanner = localStorage.getItem("trana_announcement_banner");
@@ -189,54 +233,99 @@ function FoundersSettingsPage() {
 
       {/* SECTION 1: FOUNDER ACCESS MANAGEMENT */}
       <div className="bg-[#111111] border border-[#222222] p-6 shadow-md space-y-4">
-        <div className="flex items-center justify-between border-b border-[#222222] pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#222222] pb-3 gap-2">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-white" />
+            <Users className="h-4 w-4 text-amber-300" />
             <h2 className="text-xs font-semibold uppercase tracking-wider text-white">
-              Founder Access Management
+              Encrypted Founder Access Management
             </h2>
           </div>
-          <span className="text-[0.65rem] text-[#888888]">
-            {founderEmails.length} Authorized Founders
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-600/40 flex items-center gap-1">
+              <LockKeyhole size={11} />
+              Fernet AES Encrypted
+            </span>
+            <span className="text-[0.65rem] text-[#888888] font-mono">
+              {dbFounders.length} {dbFounders.length === 1 ? "Authorized Founder" : "Authorized Founders"}
+            </span>
+          </div>
         </div>
 
         <p className="text-[#999999] text-[0.7rem] leading-relaxed">
-          Emails authorized to bypass citizen gates and access the confidential /founders terminal.
+          Authorized executive Google accounts permitted to access the confidential /founders executive terminal. Founder emails are stored encrypted in the backend database.
         </p>
 
         {/* Existing Founders List */}
         <div className="divide-y divide-[#1F1F1F] border border-[#222222] bg-[#0A0A0A]">
-          {founderEmails.map((email) => (
-            <div key={email} className="p-2.5 flex items-center justify-between">
-              <span className="text-white font-mono">{email}</span>
-              <button
-                onClick={() => removeFounderEmail(email)}
-                className="text-red-400 hover:text-red-300 p-1 border border-red-500/20 hover:border-red-500/50"
-                title="Revoke founder access"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+          {foundersLoading ? (
+            <div className="p-4 text-center text-[#777777]">Loading authorized founders...</div>
+          ) : dbFounders.length === 0 ? (
+            <div className="p-4 text-center text-[#777777]">No founders found.</div>
+          ) : (
+            dbFounders.map((founder) => {
+              const isPrimary = founder.email.toLowerCase() === "ckhraiushh1@gmail.com";
+              return (
+                <div key={founder.id || founder.email} className="p-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded bg-[#161616] border border-[#262626] flex items-center justify-center text-amber-300 shrink-0">
+                      <ShieldCheck size={14} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-mono text-xs">{founder.email}</span>
+                        {isPrimary && (
+                          <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-600/40">
+                            Primary Founder
+                          </span>
+                        )}
+                        <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-[#181818] text-neutral-400 border border-[#2a2a2a]">
+                          {founder.label || "Founder"}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
+                        Status: Active {founder.added_by ? `• added by ${founder.added_by}` : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleRemoveFounder(founder)}
+                    disabled={isPrimary && dbFounders.length <= 1}
+                    className="text-red-400 hover:text-red-300 p-1.5 border border-red-500/20 hover:border-red-500/50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                    title={isPrimary && dbFounders.length <= 1 ? "Cannot delete sole primary founder" : "Revoke founder access"}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Add Founder Email Form */}
-        <form onSubmit={addFounderEmail} className="flex gap-2 pt-1">
+        <form onSubmit={handleAddFounder} className="flex flex-col sm:flex-row gap-2 pt-1 font-mono">
           <input
             type="email"
             required
             value={newFounderEmail}
             onChange={(e) => setNewFounderEmail(e.target.value)}
-            placeholder="Add new partner: partner@trana.in"
+            placeholder="Add partner email: cofounder@gmail.com"
             className="flex-1 border border-[#333333] bg-[#0A0A0A] px-3 py-2 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
+          />
+          <input
+            type="text"
+            value={newFounderLabel}
+            onChange={(e) => setNewFounderLabel(e.target.value)}
+            placeholder="Role (e.g. Co-Founder)"
+            className="w-full sm:w-44 border border-[#333333] bg-[#0A0A0A] px-3 py-2 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
           />
           <button
             type="submit"
-            className="border border-white/40 bg-white text-black px-4 py-2 text-xs uppercase tracking-wider font-semibold hover:bg-neutral-200 transition-colors flex items-center gap-1.5"
+            disabled={isAddingFounder || !newFounderEmail.trim()}
+            className="border border-white/40 bg-white text-black px-4 py-2 text-xs uppercase tracking-wider font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Add Founder</span>
+            <span>{isAddingFounder ? "Encrypting..." : "Add Founder"}</span>
           </button>
         </form>
       </div>

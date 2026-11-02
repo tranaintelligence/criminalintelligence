@@ -616,3 +616,33 @@ export const autoVerifyLawyerAdmin = (
   request<LawyerRecord>(credential, `/api/admin/lawyers/${encodeURIComponent(id)}/auto-verify`, {
     method: 'POST',
   });
+
+export interface FounderRecord {
+  id: string;
+  email: string;
+  label: string | null;
+  added_by: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getFounderEmails = (credential: string): Promise<FounderRecord[]> =>
+  request<FounderRecord[]>(credential, '/api/admin/founders');
+
+export const addFounderEmail = (
+  credential: string,
+  payload: { email: string; label?: string }
+): Promise<FounderRecord> =>
+  request<FounderRecord>(credential, '/api/admin/founders', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const deleteFounderEmail = (
+  credential: string,
+  id: string
+): Promise<{ ok: boolean; message: string }> =>
+  request<{ ok: boolean; message: string }>(credential, `/api/admin/founders/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
