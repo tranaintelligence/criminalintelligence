@@ -399,3 +399,59 @@ export const testCourtCnrLookup = (
     method: 'POST',
     body: JSON.stringify({ cnr }),
   });
+
+
+// =============================================================================
+// Notification Providers Gateway (Email & SMS)
+// =============================================================================
+
+export interface NotificationProvider {
+  id: string;
+  channel: 'email' | 'sms';
+  provider: 'resend' | 'smtp' | 'twilio' | 'fast2sms' | string;
+  label: string;
+  masked_key: string;
+  is_active: boolean;
+  created_at: string;
+  last_used_at?: string | null;
+}
+
+export interface NotificationStatus {
+  has_active_email: boolean;
+  active_email_provider: string | null;
+  has_active_sms: boolean;
+  active_sms_provider: string | null;
+}
+
+export const getNotificationProviders = (credential: string): Promise<NotificationProvider[]> =>
+  request<NotificationProvider[]>(credential, '/api/admin/notification-providers');
+
+export const createNotificationProvider = (
+  credential: string,
+  data: { channel: string; provider: string; label: string; config: Record<string, any> }
+): Promise<NotificationProvider> =>
+  request<NotificationProvider>(credential, '/api/admin/notification-providers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const updateNotificationProvider = (
+  credential: string,
+  providerId: string,
+  data: { label?: string; is_active?: boolean; config?: Record<string, any> }
+): Promise<NotificationProvider> =>
+  request<NotificationProvider>(credential, `/api/admin/notification-providers/${encodeURIComponent(providerId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+
+export const deleteNotificationProvider = (
+  credential: string,
+  providerId: string
+): Promise<{ ok: boolean }> =>
+  request<{ ok: boolean }>(credential, `/api/admin/notification-providers/${encodeURIComponent(providerId)}`, {
+    method: 'DELETE',
+  });
+
+export const getNotificationStatus = (credential: string): Promise<NotificationStatus> =>
+  request<NotificationStatus>(credential, '/api/admin/notification-providers/status');

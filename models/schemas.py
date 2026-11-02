@@ -428,6 +428,7 @@ class CaseReminderRequest(BaseModel):
     cnr: str
     sms_phone: str
     email_alert: str
+    case_data: Optional[dict[str, Any]] = None
 
 
 class CourtAPIKeyCreate(BaseModel):
@@ -453,3 +454,34 @@ class CourtAPIKeyResponse(BaseModel):
     is_active: bool
     created_at: str
     last_used_at: Optional[str] = None
+
+
+class NotificationProviderCreate(BaseModel):
+    channel: str = Field(..., description="Channel: email or sms")
+    provider: str = Field(..., description="Provider: resend, smtp, twilio, fast2sms")
+    label: str = Field(..., description="Friendly label, e.g. Primary Resend API")
+    config: dict[str, Any] = Field(..., description="Provider specific configuration dictionary")
+
+class NotificationProviderUpdate(BaseModel):
+    label: Optional[str] = None
+    is_active: Optional[bool] = None
+    config: Optional[dict[str, Any]] = None
+
+class NotificationProviderResponse(BaseModel):
+    id: str
+    channel: str
+    provider: str
+    label: str
+    masked_key: str
+    is_active: bool
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class NotificationStatusResponse(BaseModel):
+    has_active_email: bool
+    active_email_provider: Optional[str] = None
+    has_active_sms: bool
+    active_sms_provider: Optional[str] = None

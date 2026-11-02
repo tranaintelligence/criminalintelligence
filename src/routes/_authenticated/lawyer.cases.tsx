@@ -180,7 +180,20 @@ function LawyerCaseTrackerPage() {
       setTrackedCases(updatedList);
       setActiveCase(updatedCase);
 
-      toast.success(`Hearing reminder SMS scheduled for ${smsPhone} & advisory emailed to ${emailAlert}`);
+      const emailLog = newLogs.find((l) => l.channel === "Email");
+      const smsLog = newLogs.find((l) => l.channel === "SMS");
+
+      if (emailLog?.status === "Delivered" && smsLog?.status === "Delivered") {
+        toast.success(`Official advisory delivered to ${emailAlert} and SMS sent to ${smsPhone}`);
+      } else if (emailLog?.status === "Delivered") {
+        toast.success(`Official advisory emailed to ${emailAlert} with .ics Calendar invite`);
+      } else if (smsLog?.status === "Delivered") {
+        toast.success(`Cellular SMS alert dispatched to ${smsPhone}`);
+      } else if (emailLog?.status?.includes("Pending") || smsLog?.status?.includes("Pending")) {
+        toast.info(`Reminder preferences saved. Connect Resend or Twilio in Founders Admin to send live inbox & SMS alerts.`);
+      } else {
+        toast.success(`Hearing reminder preferences updated for ${smsPhone} & ${emailAlert}`);
+      }
     } catch {
       toast.error("Failed to dispatch reminders");
     } finally {
@@ -615,6 +628,15 @@ function LawyerCaseTrackerPage() {
                             }`}
                           >
                             {log.channel}
+                          </span>
+                          <span className={`px-1.5 py-0.5 text-[0.6rem] uppercase rounded font-mono ${
+                            log.status === "Delivered"
+                              ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                              : log.status?.includes("Pending")
+                              ? "bg-amber-950 text-amber-300 border border-amber-800"
+                              : "bg-neutral-800 text-neutral-300 border border-neutral-700"
+                          }`}>
+                            {log.status}
                           </span>
                           <span className="text-[#888888] text-[0.7rem]">To: {log.recipient}</span>
                         </div>

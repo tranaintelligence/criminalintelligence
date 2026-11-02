@@ -264,3 +264,20 @@ class CourtAPIKey(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     last_used_at = Column(DateTime, nullable=True)
+
+class NotificationProvider(Base):
+    """External SMS & Email Notification Credentials (Resend, SMTP, Twilio, Fast2SMS)."""
+
+    __tablename__ = "notification_providers"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    channel = Column(String(32), nullable=False, index=True)  # "email" or "sms"
+    provider = Column(String(64), nullable=False, index=True)  # "resend", "smtp", "twilio", "fast2sms"
+    label = Column(String(120), nullable=False)
+    config_json = Column(Text, nullable=False)  # JSON encoded credentials
+    masked_key = Column(String(64), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_used_at = Column(DateTime, nullable=True)
+

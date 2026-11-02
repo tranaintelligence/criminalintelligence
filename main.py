@@ -2791,6 +2791,171 @@ def get_court_keys_status(
 # eCourts & Case Tracker Endpoints
 # ═══════════════════════════════════════════════════════════════════════════
 
+# =============================================================================
+# Notification Providers Gateway (Email & SMS)
+# =============================================================================
+
+@app.get("/api/admin/notification-providers", response_model=list[schemas.NotificationProviderResponse], tags=["Admin API"])
+def list_notification_providers(
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """List all registered email and SMS notification providers."""
+    rows = db.query(db_models.NotificationProvider).order_by(db_models.NotificationProvider.created_at.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "channel": r.channel,
+            "provider": r.provider,
+            "label": r.label,
+            "masked_key": r.masked_key,
+            "is_active": r.is_active,
+            "created_at": r.created_at,
+            "last_used_at": r.last_used_at,
+        }
+        for r in rows
+    ]
+
+
+@app.post("/api/admin/notification-providers", response_model=schemas.NotificationProviderResponse, status_code=201, tags=["Admin API"])
+def create_notification_provider(
+    item_in: schemas.NotificationProviderCreate,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Register a new SMS or Email provider credential (Resend, SMTP, Twilio, Fast2SMS)."""
+    import json
+    channel = item_in.channel.strip().lower()
+    provider = item_in.provider.strip().lower()
+    config = item_in.config
+
+    # Generate masked key representation
+    secret_part = (
+        config.get("api_key")
+        or config.get("auth_token")
+        or config.get("password")
+        or config.get("host")
+        or "configured"
+    )
+    masked = mask_api_key(str(secret_part))
+
+    record = db_models.NotificationProvider(
+        id=str(uuid.uuid4()),
+        channel=channel,
+        provider=provider,
+        label=item_in.label.strip(),
+        config_json=json.dumps(config),
+        masked_key=masked,
+        is_active=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "id": record.id,
+        "channel": record.channel,
+        "provider": record.provider,
+        "label": record.label,
+        "masked_key": record.masked_key,
+        "is_active": record.is_active,
+        "created_at": record.created_at,
+        "last_used_at": record.last_used_at,
+    }
+
+
+@app.patch("/api/admin/notification-providers/{provider_id}", response_model=schemas.NotificationProviderResponse, tags=["Admin API"])
+def update_notification_provider(
+    provider_id: str,
+    item_in: schemas.NotificationProviderUpdate,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Toggle active status or update label of a notification provider."""
+    import json
+    record = db.query(db_models.NotificationProvider).filter(db_models.NotificationProvider.id == provider_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Notification provider not found.")
+
+    if item_in.label is not None:
+        record.label = item_in.label.strip()
+    if item_in.is_active is not None:
+        record.is_active = item_in.is_active
+    if item_in.config is not None:
+        record.config_json = json.dumps(item_in.config)
+        secret_part = (
+            item_in.config.get("api_key")
+            or item_in.config.get("auth_token")
+            or item_in.config.get("password")
+            or "configured"
+        )
+        record.masked_key = mask_api_key(str(secret_part))
+
+    record.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "id": record.id,
+        "channel": record.channel,
+        "provider": record.provider,
+        "label": record.label,
+        "masked_key": record.masked_key,
+        "is_active": record.is_active,
+        "created_at": record.created_at,
+        "last_used_at": record.last_used_at,
+    }
+
+
+@app.delete("/api/admin/notification-providers/{provider_id}", tags=["Admin API"])
+def delete_notification_provider(
+    provider_id: str,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Delete a notification provider credential."""
+    deleted = db.query(db_models.NotificationProvider).filter(db_models.NotificationProvider.id == provider_id).delete()
+    db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Notification provider not found.")
+    return {"ok": True, "id": provider_id}
+
+
+@app.get("/api/admin/notification-providers/status", response_model=schemas.NotificationStatusResponse, tags=["Admin API"])
+def get_notification_status(
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return active status for both Email and SMS delivery channels."""
+    active_email = db.query(db_models.NotificationProvider).filter(
+        db_models.NotificationProvider.channel == "email",
+        db_models.NotificationProvider.is_active == True,
+    ).first()
+
+    active_sms = db.query(db_models.NotificationProvider).filter(
+        db_models.NotificationProvider.channel == "sms",
+        db_models.NotificationProvider.is_active == True,
+    ).first()
+
+    env_email = bool(os.getenv("RESEND_API_KEY") or os.getenv("SMTP_HOST"))
+    env_sms = bool(os.getenv("TWILIO_ACCOUNT_SID") or os.getenv("FAST2SMS_API_KEY"))
+
+    has_email = bool(active_email or env_email)
+    has_sms = bool(active_sms or env_sms)
+
+    email_provider = active_email.provider if active_email else ("env/smtp" if env_email else None)
+    sms_provider = active_sms.provider if active_sms else ("env/sms" if env_sms else None)
+
+    return {
+        "has_active_email": has_email,
+        "active_email_provider": email_provider,
+        "has_active_sms": has_sms,
+        "active_sms_provider": sms_provider,
+    }
+
+
 @app.post("/api/cases/lookup", tags=["Cases"])
 async def lookup_case(
     req: schemas.CaseLookupRequest,
@@ -2996,12 +3161,15 @@ def untrack_case(
 
 
 @app.post("/api/cases/reminder", tags=["Cases"])
-def schedule_reminder(
+async def schedule_reminder(
     req: schemas.CaseReminderRequest,
     user_email: str = Depends(get_current_user_email),
     db: Session = Depends(get_db),
 ):
-    """Configure automated SMS and Email reminders for an active case."""
+    """Dispatch authentic hearing reminders and update notification preferences."""
+    from services.notification_service import dispatch_hearing_reminders
+    from services.ecourts_service import fetch_case_by_cnr
+
     clean_cnr = re.sub(r"[^A-Za-z0-9]", "", req.cnr).upper()
     user_email_norm = user_email.lower().strip()
 
@@ -3017,26 +3185,39 @@ def schedule_reminder(
         case_row.updated_at = datetime.utcnow()
         db.commit()
 
-    now_str = datetime.now().strftime("%I:%M %p")
+    # Build case info for authentic notice generation
+    case_info = req.case_data or {}
+    if not case_info and case_row:
+        case_info = {
+            "cnr": case_row.cnr,
+            "formatted_cnr": case_row.formatted_cnr,
+            "case_type": case_row.case_type,
+            "case_number": case_row.case_number,
+            "court_name": case_row.court_name,
+            "court_room": case_row.court_room,
+            "judge": case_row.judge,
+            "petitioner": case_row.petitioner,
+            "respondent": case_row.respondent,
+            "petitioner_advocate": case_row.petitioner_advocate,
+            "respondent_advocate": case_row.respondent_advocate,
+            "current_stage": case_row.current_stage,
+            "next_hearing_date": case_row.next_hearing_date,
+            "hearing_purpose": case_row.hearing_purpose,
+            "last_order_summary": case_row.last_order_summary,
+            "source": case_row.source,
+        }
+    elif not case_info:
+        try:
+            case_info = await fetch_case_by_cnr(clean_cnr)
+        except Exception:
+            case_info = {"cnr": clean_cnr, "formatted_cnr": clean_cnr}
+
+    logs = await dispatch_hearing_reminders(case_info, req.sms_phone, req.email_alert, db)
+
     return {
         "ok": True,
         "cnr": clean_cnr,
-        "logs": [
-            {
-                "timestamp": now_str,
-                "channel": "SMS",
-                "recipient": req.sms_phone,
-                "message": f"[TRANA eCourts Alert] Reminder scheduled for CNR {clean_cnr}. Alerts dispatched 24h prior to next listing date.",
-                "status": "Delivered",
-            },
-            {
-                "timestamp": now_str,
-                "channel": "Email",
-                "recipient": req.email_alert,
-                "message": f"[TRANA eCourts Notice] Hearing advisory and cause list alerts synchronized for {req.email_alert}.",
-                "status": "Delivered",
-            }
-        ]
+        "logs": logs,
     }
 
 

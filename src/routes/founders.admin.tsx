@@ -19,6 +19,10 @@ import {
   Landmark,
   ExternalLink,
   Search,
+  Bell,
+  Mail,
+  Smartphone,
+  Send,
 } from 'lucide-react';
 import { useTranaCredential } from '@/lib/trana-auth';
 import { downloadCSV } from '@/lib/csv-export';
@@ -40,8 +44,14 @@ import {
   deleteCourtKey,
   getCourtAPIStatus,
   testCourtCnrLookup,
+  getNotificationProviders,
+  createNotificationProvider,
+  updateNotificationProvider,
+  deleteNotificationProvider,
+  getNotificationStatus,
 } from '@/lib/trana-admin-api';
-import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP, CourtAPIKey, CourtAPIStatus } from '@/lib/trana-admin-api';
+import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP, CourtAPIKey, CourtAPIStatus, NotificationProvider, NotificationStatus } from '@/lib/trana-admin-api';
+import { API_URL } from '@/lib/trana-backend';
 
 export const Route = createFileRoute('/founders/admin')({
   head: () => ({
@@ -218,7 +228,42 @@ export function AdminView() {
   const [rotationDrafts, setRotationDrafts] = useState<Record<string, string>>({});
 
   // IP Management State
-  const [adminTab, setAdminTab] = useState<'ips' | 'keys' | 'court'>('court');
+  const [adminTab, setAdminTab] = useState<'ips' | 'keys' | 'court' | 'notifications'>('court');
+  const [notifProviders, setNotifProviders] = useState<NotificationProvider[]>([]);
+  const [notifStatus, setNotifStatus] = useState<NotificationStatus>({
+    has_active_email: false,
+    active_email_provider: null,
+    has_active_sms: false,
+    active_sms_provider: null,
+  });
+
+  const [notifForm, setNotifForm] = useState({
+    channel: 'email' as 'email' | 'sms',
+    emailProvider: 'resend' as 'resend' | 'smtp',
+    smsProvider: 'fast2sms' as 'fast2sms' | 'twilio',
+    label: '',
+    resendApiKey: '',
+    resendFrom: 'TRANA eCourts <onboarding@resend.dev>',
+    smtpHost: 'smtp.gmail.com',
+    smtpPort: '587',
+    smtpUsername: '',
+    smtpPassword: '',
+    smtpFrom: '',
+    fast2smsApiKey: '',
+    twilioSid: '',
+    twilioToken: '',
+    twilioFrom: '',
+  });
+
+  const [isAddingNotif, setIsAddingNotif] = useState(false);
+  const [deletingNotifId, setDeletingNotifId] = useState<string | null>(null);
+  const [notifSuccessMsg, setNotifSuccessMsg] = useState<string | null>(null);
+
+  // Test notification dispatch state
+  const [testNotifEmail, setTestNotifEmail] = useState('');
+  const [testNotifPhone, setTestNotifPhone] = useState('');
+  const [isTestingNotif, setIsTestingNotif] = useState(false);
+  const [testNotifResult, setTestNotifResult] = useState<any | null>(null);
   const [courtKeys, setCourtKeys] = useState<CourtAPIKey[]>([]);
   const [courtStatus, setCourtStatus] = useState<CourtAPIStatus>({ has_active_key: false, active_provider: null, key_count: 0 });
   const [courtForm, setCourtForm] = useState({
@@ -263,7 +308,7 @@ export function AdminView() {
           return;
         }
 
-        const [nextKeys, nextUsage, nextIps, currentIp, nextCourtKeys, nextCourtStatus] = await Promise.all([
+        const [nextKeys, nextUsage, nextIps, currentIp, nextCourtKeys, nextCourtStatus, nextNotifs, nextNotifStatus] = await Promise.all([
           getAdminKeys(credential).catch((err) => {
             console.warn('Failed to load admin keys:', err);
             return [];
@@ -276,6 +321,8 @@ export function AdminView() {
           getAdminClientIP().catch(() => ''),
           getCourtKeys(credential).catch(() => []),
           getCourtAPIStatus(credential).catch(() => ({ has_active_key: false, active_provider: null, key_count: 0 })),
+          getNotificationProviders(credential).catch(() => []),
+          getNotificationStatus(credential).catch(() => ({ has_active_email: false, active_email_provider: null, has_active_sms: false, active_sms_provider: null })),
         ]);
         setAccessState('authorized');
         setKeys(nextKeys);
@@ -284,6 +331,8 @@ export function AdminView() {
         setClientIp(currentIp);
         setCourtKeys(nextCourtKeys);
         setCourtStatus(nextCourtStatus);
+        setNotifProviders(nextNotifs);
+        setNotifStatus(nextNotifStatus);
         setRotationDrafts(
           Object.fromEntries(nextKeys.map((keyRecord) => [keyRecord.id, String(keyRecord.rotationOrder)])),
         );
@@ -527,6 +576,170 @@ export function AdminView() {
     }
   };
 
+
+  const handleAddNotifProvider = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credential) return;
+
+    let config: Record<string, any> = {};
+    if (notifForm.channel === 'email') {
+      if (notifForm.emailProvider === 'resend') {
+        if (!notifForm.resendApiKey.trim()) {
+          setFormError('Please enter your Resend API Key (re_...).');
+          return;
+        }
+        config = {
+          api_key: notifForm.resendApiKey.trim(),
+          from_email: notifForm.resendFrom.trim() || 'TRANA eCourts <onboarding@resend.dev>',
+        };
+      } else {
+        if (!notifForm.smtpHost.trim()) {
+          setFormError('Please enter your SMTP Host (e.g. smtp.gmail.com).');
+          return;
+        }
+        config = {
+          host: notifForm.smtpHost.trim(),
+          port: Number(notifForm.smtpPort) || 587,
+          username: notifForm.smtpUsername.trim(),
+          password: notifForm.smtpPassword.trim(),
+          from_email: notifForm.smtpFrom.trim() || notifForm.smtpUsername.trim(),
+          use_tls: true,
+        };
+      }
+    } else {
+      if (notifForm.smsProvider === 'fast2sms') {
+        if (!notifForm.fast2smsApiKey.trim()) {
+          setFormError('Please enter your Fast2SMS Authorization Key.');
+          return;
+        }
+        config = { api_key: notifForm.fast2smsApiKey.trim() };
+      } else {
+        if (!notifForm.twilioSid.trim() || !notifForm.twilioToken.trim() || !notifForm.twilioFrom.trim()) {
+          setFormError('Please enter Twilio Account SID, Auth Token, and From Number.');
+          return;
+        }
+        config = {
+          account_sid: notifForm.twilioSid.trim(),
+          auth_token: notifForm.twilioToken.trim(),
+          from_number: notifForm.twilioFrom.trim(),
+        };
+      }
+    }
+
+    const providerType = notifForm.channel === 'email' ? notifForm.emailProvider : notifForm.smsProvider;
+    const label = notifForm.label.trim() || `${providerType.toUpperCase()} Gateway`;
+
+    setIsAddingNotif(true);
+    setFormError(null);
+    try {
+      const created = await createNotificationProvider(credential, {
+        channel: notifForm.channel,
+        provider: providerType,
+        label,
+        config,
+      });
+
+      setNotifProviders((prev) => [created, ...prev]);
+      const statusRes = await getNotificationStatus(credential);
+      setNotifStatus(statusRes);
+      setNotifSuccessMsg(`Successfully registered ${created.label} (${created.provider.toUpperCase()})`);
+      setTimeout(() => setNotifSuccessMsg(null), 5000);
+      setNotifForm((prev) => ({
+        ...prev,
+        label: '',
+        resendApiKey: '',
+        smtpPassword: '',
+        fast2smsApiKey: '',
+        twilioToken: '',
+      }));
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to register notification provider');
+    } finally {
+      setIsAddingNotif(false);
+    }
+  };
+
+  const handleToggleNotifProvider = async (item: NotificationProvider) => {
+    if (!credential) return;
+    try {
+      const updated = await updateNotificationProvider(credential, item.id, {
+        is_active: !item.is_active,
+      });
+      setNotifProviders((prev) => prev.map((p) => (p.id === item.id ? updated : p)));
+      const statusRes = await getNotificationStatus(credential);
+      setNotifStatus(statusRes);
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle provider');
+    }
+  };
+
+  const handleDeleteNotifProvider = async (item: NotificationProvider) => {
+    if (!credential) return;
+    if (!confirm(`Are you sure you want to delete ${item.label}?`)) return;
+
+    setDeletingNotifId(item.id);
+    try {
+      await deleteNotificationProvider(credential, item.id);
+      setNotifProviders((prev) => prev.filter((p) => p.id !== item.id));
+      const statusRes = await getNotificationStatus(credential);
+      setNotifStatus(statusRes);
+    } catch (err: any) {
+      setError(err.message || 'Failed to remove notification provider');
+    } finally {
+      setDeletingNotifId(null);
+    }
+  };
+
+  const handleSendTestNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credential) return;
+    if (!testNotifEmail.trim() && !testNotifPhone.trim()) {
+      alert('Please enter at least an email or mobile phone number for test dispatch.');
+      return;
+    }
+
+    setIsTestingNotif(true);
+    setTestNotifResult(null);
+    try {
+      const res = await fetch(`${API_URL}/api/cases/reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${credential}`,
+        },
+        body: JSON.stringify({
+          cnr: 'DLCT010036742023',
+          email_alert: testNotifEmail.trim() || undefined,
+          sms_phone: testNotifPhone.trim() || undefined,
+          case_data: {
+            cnr: 'DLCT010036742023',
+            formatted_cnr: 'DLCT01-003674-2023',
+            case_type: 'Cr Rev',
+            case_number: '141/2023',
+            court_name: 'District and Sessions Judge, Central, THC',
+            court_room: 'Court Room No. 01',
+            judge: 'SPECIAL JUDGE (NDPS)',
+            petitioner: 'RAJEEV DANG',
+            respondent: 'AJAY BEGWANI',
+            petitioner_advocate: 'SANDEEP YADAV',
+            respondent_advocate: 'Public Prosecutor',
+            current_stage: 'Listing for Judicial Directions',
+            next_hearing_date: 'Tomorrow, 10:30 AM',
+            hearing_purpose: 'Arguments & Pleadings',
+            last_order_summary: 'Notice returnable; cause list advisory dispatched by TRANA test runner.',
+            source: 'National Judicial Data Grid (eCourts Live)',
+          },
+        }),
+      });
+      const data = await res.json();
+      setTestNotifResult(data);
+    } catch (err: any) {
+      setTestNotifResult({ error: err.message || 'Test reminder dispatch failed' });
+    } finally {
+      setIsTestingNotif(false);
+    }
+  };
+
   const exportAdminCSV = () => {
     if (adminTab === 'keys') {
       const headers = [
@@ -674,6 +887,25 @@ export function AdminView() {
             courtStatus.has_active_key ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-[#222222] text-neutral-400'
           }`}>
             {courtKeys.length}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setAdminTab('notifications')}
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+            adminTab === 'notifications'
+              ? 'bg-amber-400/10 border border-amber-400/50 text-amber-300 font-semibold shadow-sm'
+              : 'bg-[#141414] border border-[#222222] text-neutral-400 hover:text-neutral-200'
+          }`}
+        >
+          <Bell size={14} />
+          <span>Hearing Alerts (SMS & Email)</span>
+          <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono ${
+            (notifStatus.has_active_email || notifStatus.has_active_sms)
+              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+              : 'bg-[#222222] text-neutral-400'
+          }`}>
+            {notifProviders.length}
           </span>
         </button>
         <button
@@ -858,6 +1090,473 @@ export function AdminView() {
         </div>
       )}
 
+
+      {/* Notification Gateway Tab (SMS & Email) */}
+      {adminTab === 'notifications' && (
+        <div className="space-y-8 font-sans">
+          {/* Status & Architecture Banner */}
+          <div className="p-6 rounded-2xl bg-[#121212] border border-[#242424] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                  (notifStatus.has_active_email || notifStatus.has_active_sms)
+                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800'
+                    : 'bg-amber-950/50 text-amber-300 border-amber-700/60'
+                }`}>
+                  <Bell size={20} />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-[#1c1c1c] text-neutral-300 border border-[#2c2c2c]">
+                      Hearing Alerts Gateway
+                    </span>
+                    {notifStatus.has_active_email ? (
+                      <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-600/40 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Email: Active ({notifStatus.active_email_provider?.toUpperCase()})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-600/40">
+                        Email: Awaiting Key
+                      </span>
+                    )}
+
+                    {notifStatus.has_active_sms ? (
+                      <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-600/40 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        SMS: Active ({notifStatus.active_sms_provider?.toUpperCase()})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-600/40">
+                        SMS: Awaiting Gateway
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-serif text-white mt-1">
+                    Automated Hearing Advisories & Calendar Gateway
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{notifProviders.length} {notifProviders.length === 1 ? 'Gateway' : 'Gateways'} Configured</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-400 leading-relaxed font-sans">
+              Connect external messaging providers to dispatch real-time court hearing notices. <strong>Resend</strong> or <strong>SMTP</strong> sends beautifully styled judicial cause list advisories with attached <strong>RFC 5545 (.ics) Calendar</strong> invites that synchronize automatically into Google Calendar or Outlook. <strong>Fast2SMS</strong> or <strong>Twilio</strong> dispatches cellular SMS notifications directly to advocate and clerk mobile numbers.
+            </p>
+          </div>
+
+          {notifSuccessMsg && (
+            <div className="flex items-center gap-2.5 p-4 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-xs text-emerald-300">
+              <Check size={16} />
+              {notifSuccessMsg}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Add Provider Form Column */}
+            <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-5">
+              <div>
+                <p className="text-[11px] font-mono uppercase tracking-wider text-amber-300">Provider Credentials</p>
+                <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Connect Alert Provider</h3>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Add credentials for your transactional email or SMS provider.
+                </p>
+              </div>
+
+              <form onSubmit={handleAddNotifProvider} className="space-y-4">
+                {/* Channel Toggle */}
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                    Delivery Channel
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNotifForm({ ...notifForm, channel: 'email' })}
+                      className={`py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 border transition-colors ${
+                        notifForm.channel === 'email'
+                          ? 'bg-sky-950/60 text-sky-300 border-sky-600/60 font-semibold'
+                          : 'bg-[#161616] text-neutral-400 border-[#2c2c2c]'
+                      }`}
+                    >
+                      <Mail size={13} />
+                      <span>Email (.ics Calendar)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNotifForm({ ...notifForm, channel: 'sms' })}
+                      className={`py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 border transition-colors ${
+                        notifForm.channel === 'sms'
+                          ? 'bg-emerald-950/60 text-emerald-300 border-emerald-600/60 font-semibold'
+                          : 'bg-[#161616] text-neutral-400 border-[#2c2c2c]'
+                      }`}
+                    >
+                      <Smartphone size={13} />
+                      <span>Cellular SMS</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Email Providers */}
+                {notifForm.channel === 'email' && (
+                  <>
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                        Email Service Provider
+                      </label>
+                      <select
+                        value={notifForm.emailProvider}
+                        onChange={(e) => setNotifForm({ ...notifForm, emailProvider: e.target.value as any })}
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
+                      >
+                        <option value="resend">Resend API (Recommended • 3,000 free emails/mo)</option>
+                        <option value="smtp">Standard SMTP (Gmail App Password / SendGrid / SES)</option>
+                      </select>
+                    </div>
+
+                    {notifForm.emailProvider === 'resend' ? (
+                      <>
+                        <div>
+                          <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                            Resend API Key *
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            placeholder="re_xxxxxxxxxxxxxxxxxxxx"
+                            value={notifForm.resendApiKey}
+                            onChange={(e) => setNotifForm({ ...notifForm, resendApiKey: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                            Sender "From" Address
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="TRANA eCourts <onboarding@resend.dev>"
+                            value={notifForm.resendFrom}
+                            onChange={(e) => setNotifForm({ ...notifForm, resendFrom: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono text-[11px]"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="col-span-2">
+                            <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                              SMTP Host *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="smtp.gmail.com"
+                              value={notifForm.smtpHost}
+                              onChange={(e) => setNotifForm({ ...notifForm, smtpHost: e.target.value })}
+                              className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                              Port
+                            </label>
+                            <input
+                              type="number"
+                              value={notifForm.smtpPort}
+                              onChange={(e) => setNotifForm({ ...notifForm, smtpPort: e.target.value })}
+                              className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                            Username / Email *
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            placeholder="advocate@gmail.com"
+                            value={notifForm.smtpUsername}
+                            onChange={(e) => setNotifForm({ ...notifForm, smtpUsername: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                            App Password *
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            placeholder="Gmail 16-character App Password"
+                            value={notifForm.smtpPassword}
+                            onChange={(e) => setNotifForm({ ...notifForm, smtpPassword: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {/* SMS Providers */}
+                {notifForm.channel === 'sms' && (
+                  <>
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                        SMS Gateway Provider
+                      </label>
+                      <select
+                        value={notifForm.smsProvider}
+                        onChange={(e) => setNotifForm({ ...notifForm, smsProvider: e.target.value as any })}
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
+                      >
+                        <option value="fast2sms">Fast2SMS (Indian Cellular Gateway • Instant API Key)</option>
+                        <option value="twilio">Twilio Global SMS (E.164 Cellular Delivery)</option>
+                      </select>
+                    </div>
+
+                    {notifForm.smsProvider === 'fast2sms' ? (
+                      <div>
+                        <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                          Fast2SMS Authorization Key *
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          placeholder="Enter Fast2SMS API key from Dev portal"
+                          value={notifForm.fast2smsApiKey}
+                          onChange={(e) => setNotifForm({ ...notifForm, fast2smsApiKey: e.target.value })}
+                          className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                            Twilio Account SID *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                            value={notifForm.twilioSid}
+                            onChange={(e) => setNotifForm({ ...notifForm, twilioSid: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                            Twilio Auth Token *
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            placeholder="Twilio secret auth token"
+                            value={notifForm.twilioToken}
+                            onChange={(e) => setNotifForm({ ...notifForm, twilioToken: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                            Twilio From Phone Number *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="+1234567890"
+                            value={notifForm.twilioFrom}
+                            onChange={(e) => setNotifForm({ ...notifForm, twilioFrom: e.target.value })}
+                            className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-mono"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1.5">
+                    Label (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Primary Production Mailer"
+                    value={notifForm.label}
+                    onChange={(e) => setNotifForm({ ...notifForm, label: e.target.value })}
+                    className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isAddingNotif}
+                  className="btn-solid w-full text-xs py-2.5 flex items-center justify-center gap-2 rounded-xl bg-white text-black font-semibold hover:bg-neutral-200 transition-colors disabled:opacity-50"
+                >
+                  <Plus size={14} />
+                  <span>{isAddingNotif ? 'Saving Provider...' : 'Save Notification Gateway'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Configured Providers & Live Test Column */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Providers List Card */}
+              <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Connected Services</p>
+                    <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Notification Providers</h3>
+                  </div>
+                  <span className="text-xs font-mono text-neutral-400 bg-[#1a1a1a] px-3 py-1 rounded-full border border-[#262626]">
+                    {notifProviders.length} {notifProviders.length === 1 ? 'gateway' : 'gateways'}
+                  </span>
+                </div>
+
+                {notifProviders.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-[#262626] rounded-xl text-neutral-500 text-xs space-y-2">
+                    <p>No external notification providers configured yet.</p>
+                    <p className="text-[11px] text-neutral-600">
+                      Add a Resend API key or Fast2SMS key on the left to start sending real emails and SMS hearing alerts.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {notifProviders.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#141414] border border-[#242424] hover:border-[#303030] transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${
+                            item.channel === 'email'
+                              ? 'bg-sky-950/60 text-sky-400 border-sky-800/60'
+                              : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60'
+                          }`}>
+                            {item.channel === 'email' ? <Mail size={16} /> : <Smartphone size={16} />}
+                          </div>
+                          <div>
+                            <div className="font-sans text-sm font-semibold text-neutral-100 flex items-center gap-2">
+                              <span>{item.label}</span>
+                              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-[#202020] text-amber-300 border border-[#333333]">
+                                {item.provider}
+                              </span>
+                              <span className={`text-[9px] uppercase font-mono px-1.5 py-0.5 rounded ${
+                                item.channel === 'email' ? 'bg-sky-950 text-sky-300' : 'bg-emerald-950 text-emerald-300'
+                              }`}>
+                                {item.channel}
+                              </span>
+                            </div>
+                            <div className="font-mono text-xs text-neutral-400 mt-0.5">
+                              Key: {item.masked_key}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => void handleToggleNotifProvider(item)}
+                            className={`px-3 py-1 rounded-full text-xs font-mono border transition-colors ${
+                              item.is_active
+                                ? 'bg-emerald-950/60 text-emerald-400 border-emerald-700/60'
+                                : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                            }`}
+                          >
+                            {item.is_active ? 'Active' : 'Disabled'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteNotifProvider(item)}
+                            disabled={deletingNotifId === item.id}
+                            className="p-2 rounded-lg bg-[#1a1a1a] border border-[#2e2e2e] text-rose-400 hover:bg-rose-950/40 hover:border-rose-900 transition-colors"
+                            title="Remove provider"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Interactive Test Alert Dispatcher */}
+              <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-4">
+                <div>
+                  <p className="text-[11px] font-mono uppercase tracking-wider text-amber-300">Live Delivery Testing</p>
+                  <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Test Live Hearing Alert Dispatch</h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Send an authentic court hearing advisory (with .ics Calendar invite) to your personal inbox or mobile phone to verify provider delivery.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSendTestNotification} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                        Test Email Address
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="your-email@gmail.com"
+                        value={testNotifEmail}
+                        onChange={(e) => setTestNotifEmail(e.target.value)}
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                        Test Mobile Phone (SMS)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="+91 9315254223"
+                        value={testNotifPhone}
+                        onChange={(e) => setTestNotifPhone(e.target.value)}
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2 text-xs text-neutral-100 font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isTestingNotif || (!testNotifEmail.trim() && !testNotifPhone.trim())}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-amber-400 text-black text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-amber-300 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Send size={13} />
+                    <span>{isTestingNotif ? 'Dispatching Live Alert...' : 'Dispatch Test Hearing Notice'}</span>
+                  </button>
+                </form>
+
+                {testNotifResult && (
+                  <div className="mt-3 p-4 bg-[#141414] border border-[#282828] rounded-xl font-mono text-xs space-y-2 overflow-x-auto">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#222222]">
+                      <span className="text-neutral-400">Live Gateway Dispatch Result:</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] ${
+                        testNotifResult.ok ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-300'
+                      }`}>
+                        {testNotifResult.ok ? 'DISPATCH COMPLETE' : 'GATEWAY ERROR'}
+                      </span>
+                    </div>
+                    <pre className="text-[11px] text-neutral-300 overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(testNotifResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Court API Management Tab */}
       {adminTab === 'court' && (
