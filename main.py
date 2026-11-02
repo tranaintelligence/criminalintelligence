@@ -356,16 +356,18 @@ def _migrate_db_schema():
             conn.execute(text("UPDATE founder_emails SET label = 'Founder' WHERE label = 'Primary Founder';"))
             conn.commit()
 
-        # Seed initial primary founder ckhraiushh1@gmail.com if table is empty
+        # Seed initial founder ckhraiushh1@gmail.com if not already present
         try:
             from database import SessionLocal
             with SessionLocal() as db_session:
-                count = db_session.query(db_models.FounderEmail).count()
-                if count == 0:
+                primary_email = "ckhraiushh1@gmail.com"
+                h = hashlib.sha256(primary_email.encode("utf-8")).hexdigest()
+                exists = db_session.query(db_models.FounderEmail).filter(
+                    db_models.FounderEmail.email_hash == h
+                ).first()
+                if not exists:
                     from key_manager import encrypt_api_key
-                    primary_email = "ckhraiushh1@gmail.com"
                     enc = encrypt_api_key(primary_email)
-                    h = hashlib.sha256(primary_email.encode("utf-8")).hexdigest()
                     founder_row = db_models.FounderEmail(
                         encrypted_email=enc,
                         email_hash=h,
@@ -375,7 +377,7 @@ def _migrate_db_schema():
                     )
                     db_session.add(founder_row)
                     db_session.commit()
-                    logger.info("Auto-seeded founder_emails table with primary founder: %s", primary_email)
+                    logger.info("Auto-seeded founder_emails table with founder: %s", primary_email)
         except Exception as seed_exc:
             logger.warning("Founder email seed notice: %s", seed_exc)
 
@@ -802,6 +804,9 @@ def is_authorized_founder(email: str, db: Session) -> bool:
     if not email:
         return False
     norm = email.strip().lower()
+    # Bootstrap platform founder is permanently authorized
+    if norm == "ckhraiushh1@gmail.com":
+        return True
     h = _email_hash(norm)
     try:
         match = db.query(db_models.FounderEmail).filter(
@@ -809,9 +814,6 @@ def is_authorized_founder(email: str, db: Session) -> bool:
             db_models.FounderEmail.is_active == True,
         ).first()
         if match:
-            return True
-        count = db.query(db_models.FounderEmail).count()
-        if count == 0 and norm == "ckhraiushh1@gmail.com":
             return True
         return False
     except Exception as exc:
@@ -841,8 +843,7 @@ def _admin_email_set(db: Session = None) -> set[str]:
         else:
             with SessionLocal() as session:
                 res = _extract_from_db(session)
-        if not res:
-            return {"ckhraiushh1@gmail.com"}
+        res.add("ckhraiushh1@gmail.com")
         return res
     except Exception as exc:
         logger.warning("Error reading founder_emails table: %s", exc)
