@@ -485,3 +485,104 @@ class NotificationStatusResponse(BaseModel):
     active_email_provider: Optional[str] = None
     has_active_sms: bool
     active_sms_provider: Optional[str] = None
+
+
+# =============================================================================
+# Lawyer / Legal Professional Verification Schemas
+# =============================================================================
+
+class LawyerRegisterRequest(BaseModel):
+    full_name: str = Field(..., min_length=2, description="Full Legal Name as on Bar Council Sanad")
+    email: str = Field(..., description="Official Advocate / Chamber Email")
+    phone: str = Field(..., description="Mobile Phone Number for urgent alerts and client routing")
+    bar_reg_no: str = Field(..., description="State Bar Council Enrollment No, e.g. D/1429/2019")
+    state_bar_council: str = Field(..., description="State Bar Council Name, e.g. Bar Council of Delhi")
+    year_of_enrollment: int = Field(..., ge=1950, le=2030, description="Year of Bar Council Enrollment")
+    aibe_cop_number: Optional[str] = Field(default=None, description="AIBE Certificate of Practice (COP) Roll/Reg Number")
+    bar_association: Optional[str] = Field(default=None, description="Primary Bar Association Membership, e.g. DHCBA")
+    specialisation: str = Field(default="Criminal Defence & Bail", description="Primary Specialisation Areas")
+    experience_years: int = Field(default=1, ge=0, description="Years in active legal practice")
+    city: str = Field(default="New Delhi", description="Primary City of Practice")
+    state: Optional[str] = Field(default="Delhi", description="State / UT")
+    chamber_address: Optional[str] = Field(default=None, description="Chamber / Office Address")
+    courts: Optional[list[str]] = Field(default=None, description="Courts of practice")
+    bio: Optional[str] = Field(default=None, description="Professional biography")
+    offers_call: bool = Field(default=True)
+    offers_chat: bool = Field(default=True)
+    offers_in_person: bool = Field(default=False)
+    consultation_fee: int = Field(default=0)
+
+
+class LawyerUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    bar_reg_no: Optional[str] = None
+    state_bar_council: Optional[str] = None
+    year_of_enrollment: Optional[int] = None
+    aibe_cop_number: Optional[str] = None
+    bar_association: Optional[str] = None
+    specialisation: Optional[str] = None
+    experience_years: Optional[int] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    chamber_address: Optional[str] = None
+    courts: Optional[list[str]] = None
+    bio: Optional[str] = None
+    offers_call: Optional[bool] = None
+    offers_chat: Optional[bool] = None
+    offers_in_person: Optional[bool] = None
+    consultation_fee: Optional[int] = None
+
+
+class LawyerResponse(BaseModel):
+    id: str
+    user_id: Optional[str] = None
+    full_name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    bar_reg_no: Optional[str] = None
+    state_bar_council: Optional[str] = None
+    year_of_enrollment: Optional[int] = None
+    aibe_cop_number: Optional[str] = None
+    bar_association: Optional[str] = None
+    specialisation: str
+    experience_years: int
+    city: str
+    state: Optional[str] = None
+    chamber_address: Optional[str] = None
+    courts: Optional[list[str]] = None
+    bio: Optional[str] = None
+    sanad_document_url: Optional[str] = None
+    id_card_document_url: Optional[str] = None
+    offers_call: bool
+    offers_chat: bool
+    offers_in_person: bool
+    consultation_fee: int
+    approved: bool
+    verification_status: str
+    verification_notes: Optional[str] = None
+    verified_at: Optional[datetime] = None
+    verified_by: Optional[str] = None
+    internal_rating: float
+    clients_referred: int
+    consultations_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LawyerVerificationActionRequest(BaseModel):
+    action: Literal["VERIFY", "REJECT", "SUSPEND"] = Field(..., description="Action: VERIFY, REJECT, or SUSPEND")
+    notes: Optional[str] = Field(default=None, description="Review notes / explanation for the advocate")
+    internal_rating: Optional[float] = Field(default=None, ge=1.0, le=5.0, description="Internal rating score (1-5)")
+
+
+class LawyersListSummaryResponse(BaseModel):
+    total: int
+    verified: int
+    pending: int
+    suspended: int
+    lawyers: list[LawyerResponse]

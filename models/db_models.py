@@ -281,3 +281,42 @@ class NotificationProvider(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     last_used_at = Column(DateTime, nullable=True)
 
+
+class Lawyer(Base):
+    """Verified advocates and legal professionals registered on TRANA."""
+
+    __tablename__ = "lawyers"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=True, index=True)
+    full_name = Column(String, nullable=False)
+    email = Column(String, nullable=True, index=True)
+    phone = Column(String, nullable=True)
+    bar_reg_no = Column(String, unique=True, index=True, nullable=True)
+    state_bar_council = Column(String, nullable=True)
+    year_of_enrollment = Column(Integer, nullable=True)
+    aibe_cop_number = Column(String, nullable=True)
+    bar_association = Column(String, nullable=True)
+    specialisation = Column(String, nullable=False, default="Criminal Defence and Bail")
+    experience_years = Column(Integer, nullable=False, default=1)
+    city = Column(String, nullable=False, default="New Delhi")
+    state = Column(String, nullable=True, default="Delhi")
+    chamber_address = Column(Text, nullable=True)
+    courts = Column(Text, nullable=True)  # JSON-encoded array of court names
+    bio = Column(Text, nullable=True)
+    sanad_document_url = Column(Text, nullable=True)
+    id_card_document_url = Column(Text, nullable=True)
+    offers_call = Column(Boolean, nullable=False, default=True)
+    offers_chat = Column(Boolean, nullable=False, default=True)
+    offers_in_person = Column(Boolean, nullable=False, default=False)
+    consultation_fee = Column(Integer, nullable=False, default=0)
+    approved = Column(Boolean, nullable=False, default=False)
+    verification_status = Column(String(32), nullable=False, default="PENDING_VERIFICATION", index=True)
+    verification_notes = Column(Text, nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+    verified_by = Column(String, nullable=True)
+    internal_rating = Column(Float, nullable=False, default=5.0)
+    clients_referred = Column(Integer, nullable=False, default=0)
+    consultations_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

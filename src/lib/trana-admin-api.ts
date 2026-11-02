@@ -455,3 +455,141 @@ export const deleteNotificationProvider = (
 
 export const getNotificationStatus = (credential: string): Promise<NotificationStatus> =>
   request<NotificationStatus>(credential, '/api/admin/notification-providers/status');
+
+
+// =============================================================================
+// Verified Legal Professionals & Bar Verification
+// =============================================================================
+
+export interface LawyerRecord {
+  id: string;
+  user_id?: string | null;
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  bar_reg_no?: string | null;
+  state_bar_council?: string | null;
+  year_of_enrollment?: number | null;
+  aibe_cop_number?: string | null;
+  bar_association?: string | null;
+  specialisation: string;
+  experience_years: number;
+  city: string;
+  state?: string | null;
+  chamber_address?: string | null;
+  courts?: string[] | null;
+  bio?: string | null;
+  sanad_document_url?: string | null;
+  id_card_document_url?: string | null;
+  offers_call: boolean;
+  offers_chat: boolean;
+  offers_in_person: boolean;
+  consultation_fee: number;
+  approved: boolean;
+  verification_status: 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+  verification_notes?: string | null;
+  verified_at?: string | null;
+  verified_by?: string | null;
+  internal_rating: number;
+  clients_referred: number;
+  consultations_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LawyerRegisterPayload {
+  full_name: string;
+  email: string;
+  phone: string;
+  bar_reg_no: string;
+  state_bar_council: string;
+  year_of_enrollment: number;
+  aibe_cop_number?: string | null;
+  bar_association?: string | null;
+  specialisation: string;
+  experience_years: number;
+  city: string;
+  state?: string | null;
+  chamber_address?: string | null;
+  courts?: string[] | null;
+  bio?: string | null;
+  offers_call?: boolean;
+  offers_chat?: boolean;
+  offers_in_person?: boolean;
+  consultation_fee?: number;
+}
+
+export interface LawyersSummaryResponse {
+  total: number;
+  verified: number;
+  pending: number;
+  suspended: number;
+  lawyers: LawyerRecord[];
+}
+
+export const getPublicLawyers = async (params?: {
+  search?: string;
+  city?: string;
+  specialisation?: string;
+}): Promise<LawyerRecord[]> => {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.city) query.set('city', params.city);
+  if (params?.specialisation) query.set('specialisation', params.specialisation);
+  const qs = query.toString();
+  const res = await fetch(`${API_URL}/api/lawyers${qs ? `?${qs}` : ''}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch verified advocates: ${res.statusText}`);
+  }
+  return res.json();
+};
+
+export const registerLawyer = (
+  payload: LawyerRegisterPayload,
+  credential?: string
+): Promise<LawyerRecord> =>
+  request<LawyerRecord>(credential || '', '/api/lawyers/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const getCurrentLawyer = (credential: string): Promise<LawyerRecord> =>
+  request<LawyerRecord>(credential, '/api/lawyers/me');
+
+export const updateCurrentLawyer = (
+  credential: string,
+  data: Partial<LawyerRegisterPayload>
+): Promise<LawyerRecord> =>
+  request<LawyerRecord>(credential, '/api/lawyers/me', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const getAdminLawyers = (
+  credential: string,
+  params?: { status?: string; search?: string }
+): Promise<LawyersSummaryResponse> => {
+  const query = new URLSearchParams();
+  if (params?.status) query.set('status', params.status);
+  if (params?.search) query.set('search', params.search);
+  const qs = query.toString();
+  return request<LawyersSummaryResponse>(credential, `/api/admin/lawyers${qs ? `?${qs}` : ''}`);
+};
+
+export const verifyLawyerAdmin = (
+  credential: string,
+  id: string,
+  data: { action: 'VERIFY' | 'REJECT' | 'SUSPEND'; notes?: string; internal_rating?: number }
+): Promise<LawyerRecord> =>
+  request<LawyerRecord>(credential, `/api/admin/lawyers/${encodeURIComponent(id)}/verify`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+
+export const deleteLawyerAdmin = (
+  credential: string,
+  id: string
+): Promise<{ ok: boolean; message: string }> =>
+  request<{ ok: boolean; message: string }>(credential, `/api/admin/lawyers/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });

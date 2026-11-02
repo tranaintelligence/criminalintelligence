@@ -31,7 +31,7 @@ const initialSearchLogs: SearchLog[] = [
   {
     id: "SR-9201",
     query: "Anticipatory bail grounds for cheating under BNS",
-    user: "Adv. Rajeshwaran Iyer",
+    user: "Adv. Krish Chauhan",
     date: "24 Oct 2026",
     time: "21:30 IST",
     targetAct: "BNSS / BNS",
@@ -49,7 +49,7 @@ const initialSearchLogs: SearchLog[] = [
   {
     id: "SR-9199",
     query: "Satender Kumar Antil bail categories summary",
-    user: "Adv. Meenakshi Sundaram",
+    user: "Adv. Krish Chauhan",
     date: "24 Oct 2026",
     time: "19:44 IST",
     targetAct: "CrPC / BNSS",
@@ -67,7 +67,7 @@ const initialSearchLogs: SearchLog[] = [
   {
     id: "SR-9197",
     query: "FIR delay explanation quashing 482",
-    user: "Adv. Harpreet Singh Sodhi",
+    user: "Adv. Krish Chauhan",
     date: "23 Oct 2026",
     time: "15:20 IST",
     targetAct: "BNSS 482",

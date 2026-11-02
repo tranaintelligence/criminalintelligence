@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { 
   User, ShieldCheck, Check, Clock, Upload, 
   MapPin, Phone, MessageSquare, Save, AlertCircle, Camera,
-  X, Search, Plus, Landmark
+  X, Search, Plus, Landmark, Award, Building2, Mail
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,9 +13,15 @@ import {
   ALL_HIGH_COURTS,
   DISTRICT_COURTS_BY_STATE,
   ALL_TRIBUNALS,
+  ALL_STATE_BAR_COUNCILS,
+  PROMINENT_BAR_ASSOCIATIONS,
+  LEGAL_SPECIALISATIONS,
   parseCourtsList,
   formatCourtsHeader,
+  isValidBarRegNo,
 } from "@/lib/courts-data";
+import { updateCurrentLawyer } from "@/lib/trana-admin-api";
+import { useTranaCredential } from "@/lib/trana-auth";
 
 export const Route = createFileRoute("/_authenticated/lawyer/profile")({
   head: () => ({
@@ -28,28 +34,24 @@ export const Route = createFileRoute("/_authenticated/lawyer/profile")({
   component: LawyerProfilePage,
 });
 
-const availableSpecialisations = [
-  "Criminal Law & Bail",
-  "BNS / BNSS Procedure",
-  "Constitutional Writs",
-  "Corporate & Commercial",
-  "Cyber Crime & Data Law",
-  "Cheque Dishonour (138 NI Act)",
-  "Family & Matrimonial",
-  "Civil Litigation & Property",
-  "Arbitration & Dispute Resolution",
-  "Consumer Protection",
-];
-
 function LawyerProfilePage() {
   const { user } = Route.useRouteContext();
+  const { credential } = useTranaCredential();
   const { data: lawyer, refetch } = useLawyerAuth();
 
   // Form states
   const [fullName, setFullName] = useState("");
   const [barRegNo, setBarRegNo] = useState("");
+  const [stateBarCouncil, setStateBarCouncil] = useState<string>("Bar Council of Delhi (BCD)");
+  const [yearOfEnrollment, setYearOfEnrollment] = useState<number>(2021);
+  const [aibeCopNumber, setAibeCopNumber] = useState<string>("");
+  const [barAssociation, setBarAssociation] = useState<string>("Delhi High Court Bar Association (DHCBA)");
+  const [experienceYears, setExperienceYears] = useState<number>(5);
+  const [phone, setPhone] = useState("+91 ");
+  const [email, setEmail] = useState("");
+  const [chamberAddress, setChamberAddress] = useState("");
   const [selectedSpecialisations, setSelectedSpecialisations] = useState<string[]>([]);
-  const [city, setCity] = useState("");
+  const [city, setCity] = useState("New Delhi");
   const [selectedCourts, setSelectedCourts] = useState<string[]>([]);
   const [selectedState, setSelectedState] = useState<string>("Delhi");
   const [selectedDistrictCourt, setSelectedDistrictCourt] = useState<string>("");
@@ -63,13 +65,22 @@ function LawyerProfilePage() {
   const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
 
   // Verification status
-  const isApproved = lawyer?.approved ?? true;
+  const isApproved = lawyer?.approved || lawyer?.verification_status === "VERIFIED";
 
   useEffect(() => {
     if (lawyer) {
       setFullName(lawyer.full_name || "");
-      setBarRegNo(lawyer.bar_reg_no || "D/1429/2019");
+      setBarRegNo(lawyer.bar_reg_no || "D/2104/2021");
+      setStateBarCouncil(lawyer.state_bar_council || "Bar Council of Delhi (BCD)");
+      setYearOfEnrollment(lawyer.year_of_enrollment || 2021);
+      setAibeCopNumber(lawyer.aibe_cop_number || "");
+      setBarAssociation(lawyer.bar_association || "Delhi High Court Bar Association (DHCBA)");
+      setExperienceYears(lawyer.experience_years || 5);
+      setPhone(lawyer.phone || "+91 ");
+      setEmail(lawyer.email || user.email || "");
+      setChamberAddress(lawyer.chamber_address || "");
       setCity(lawyer.city || "New Delhi");
+      setSelectedState(lawyer.state || "Delhi");
       
       const parsedCourts = parseCourtsList(lawyer.courts);
       setSelectedCourts(
@@ -88,14 +99,14 @@ function LawyerProfilePage() {
       // Parse initial specialisations
       if (lawyer.specialisation) {
         const parts = lawyer.specialisation.split(",").map((s) => s.trim());
-        setSelectedSpecialisations(parts.length > 0 ? parts : ["Criminal Law & Bail"]);
+        setSelectedSpecialisations(parts.length > 0 ? parts : ["Criminal Defence & Anticipatory Bail"]);
       } else {
-        setSelectedSpecialisations(["Criminal Law & Bail", "BNS / BNSS Procedure"]);
+        setSelectedSpecialisations(["Criminal Defence & Anticipatory Bail", "BNS & BNSS Criminal Procedure"]);
       }
 
       setHasLoadedProfile(true);
     }
-  }, [lawyer]);
+  }, [lawyer, user.email]);
 
   // Persist courts to local session whenever user updates selection
   useEffect(() => {
@@ -147,21 +158,58 @@ function LawyerProfilePage() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const specString = selectedSpecialisations.join(", ") || "General Practice";
-      const courtsPayload = JSON.stringify(selectedCourts);
+      const specString = selectedSpecialisations.join(", ") || "Criminal Defence & Bail";
+      const cleanBar = barRegNo.trim().toUpperCase();
 
       // 1. Immediately persist to localStorage
       if (typeof window !== "undefined") {
-        localStorage.setItem(`trana_lawyer_bar_${user.id}`, barRegNo);
-        localStorage.setItem(`trana_lawyer_courts_${user.id}`, courtsPayload);
-        localStorage.setItem("trana_lawyer_courts", courtsPayload);
+        localStorage.setItem(`trana_lawyer_bar_${user.id}`, cleanBar);
+        localStorage.setItem(`trana_lawyer_courts_${user.id}`, JSON.stringify(selectedCourts));
+        localStorage.setItem("trana_lawyer_courts", JSON.stringify(selectedCourts));
       }
 
-      // 2. Update Supabase lawyers table
+      // 2. Call Backend API
+      if (credential) {
+        try {
+          await updateCurrentLawyer(credential, {
+            full_name: fullName,
+            bar_reg_no: cleanBar,
+            state_bar_council: stateBarCouncil,
+            year_of_enrollment: Number(yearOfEnrollment) || 2021,
+            aibe_cop_number: aibeCopNumber.trim() || undefined,
+            bar_association: barAssociation,
+            specialisation: specString,
+            experience_years: Number(experienceYears) || 1,
+            city,
+            state: selectedState,
+            chamber_address: chamberAddress.trim() || undefined,
+            courts: selectedCourts,
+            bio,
+            offers_call: offersCall,
+            offers_chat: offersChat,
+          });
+        } catch (beErr) {
+          console.warn("Backend lawyer update notice:", beErr);
+        }
+      }
+
+      // 3. Update Supabase lawyers table
       await supabase.from("lawyers").upsert({
         user_id: user.id,
         full_name: fullName,
+        email: email || user.email,
+        phone: phone,
+        bar_reg_no: cleanBar,
+        state_bar_council: stateBarCouncil,
+        year_of_enrollment: Number(yearOfEnrollment) || 2021,
+        aibe_cop_number: aibeCopNumber.trim() || null,
+        bar_association: barAssociation,
+        experience_years: Number(experienceYears) || 1,
         city: city,
+        state: selectedState,
+        chamber_address: chamberAddress.trim() || null,
+        courts: JSON.stringify(selectedCourts),
+        bio: bio,
         specialisation: specString,
         offers_call: offersCall,
         offers_chat: offersChat,
@@ -169,26 +217,20 @@ function LawyerProfilePage() {
         approved: isApproved,
       }).catch((err) => console.warn("lawyers upsert:", err));
 
-      // 3. Update Supabase profiles table
-      await supabase.from("profiles").upsert({
-        id: user.id,
-        full_name: fullName,
-        city: city,
-      }).catch((err) => console.warn("profiles upsert:", err));
-
       // 4. Update auth user metadata
       await supabase.auth.updateUser({
         data: {
           full_name: fullName,
-          bar_reg_no: barRegNo,
-          courts: courtsPayload,
+          bar_reg_no: cleanBar,
+          state_bar_council: stateBarCouncil,
+          courts: JSON.stringify(selectedCourts),
           bio: bio,
         },
       }).catch((err) => console.warn("auth updateUser:", err));
 
       await supabase.auth.refreshSession().catch(() => {});
       await refetch();
-      toast.success("Profile updated successfully!");
+      toast.success("Advocate profile & Bar credentials updated successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Saved locally for your session.");
@@ -209,10 +251,10 @@ function LawyerProfilePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#222222] pb-6">
         <div>
           <h1 className="font-display text-4xl md:text-5xl font-medium text-white">
-            My Profile
+            My Advocate Profile
           </h1>
           <p className="mt-2 text-sm text-[#999999]">
-            Manage your credentials, court affiliations, and client consultation preferences.
+            Manage your State Bar Council credentials, court admissions, and client consultation channels.
           </p>
         </div>
 
@@ -221,12 +263,12 @@ function LawyerProfilePage() {
           {isApproved ? (
             <div className="inline-flex items-center gap-2 border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-400">
               <ShieldCheck className="h-4 w-4" />
-              <span>✓ Verified</span>
+              <span>✓ Bar Sanad Verified</span>
             </div>
           ) : (
             <div className="inline-flex items-center gap-2 border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400">
               <Clock className="h-4 w-4" />
-              <span>⏳ Pending Verification</span>
+              <span>⏳ Sanad Verification Pending</span>
             </div>
           )}
         </div>
@@ -236,7 +278,7 @@ function LawyerProfilePage() {
         {/* SECTION 1: PHOTO & BASIC INFO */}
         <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-6">
           <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888] border-b border-[#282828] pb-3">
-            01 Professional Identity
+            01 Professional Identity & Bar Council Credentials
           </h2>
 
           <div className="flex flex-col sm:flex-row items-start gap-6">
@@ -265,14 +307,14 @@ function LawyerProfilePage() {
                   onChange={handlePhotoUpload}
                 />
               </div>
-              <span className="text-[0.7rem] text-[#777777]">Profile Photo</span>
+              <span className="text-[0.7rem] text-[#777777]">Sanad Photo</span>
             </div>
 
-            {/* Full Name & Bar Registration */}
-            <div className="flex-1 w-full space-y-4">
-              <div>
+            {/* Inputs Grid */}
+            <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
                 <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
-                  Full Name
+                  Full Legal Name (as on Bar Council Sanad) *
                 </label>
                 <input
                   type="text"
@@ -280,13 +322,30 @@ function LawyerProfilePage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Advocate Full Name"
-                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-3 text-sm text-white focus:border-white focus:outline-none"
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white focus:border-white focus:outline-none"
                 />
               </div>
 
               <div>
                 <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
-                  Bar Council Registration Number
+                  State Bar Council *
+                </label>
+                <select
+                  value={stateBarCouncil}
+                  onChange={(e) => setStateBarCouncil(e.target.value)}
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-3.5 py-2.5 text-sm text-white focus:border-white focus:outline-none"
+                >
+                  {ALL_STATE_BAR_COUNCILS.map((sbc) => (
+                    <option key={sbc} value={sbc} className="bg-[#141414] text-white">
+                      {sbc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                  Bar Enrollment / Sanad No. *
                 </label>
                 <input
                   type="text"
@@ -294,11 +353,87 @@ function LawyerProfilePage() {
                   value={barRegNo}
                   onChange={(e) => setBarRegNo(e.target.value)}
                   placeholder="e.g. D/1429/2019"
-                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-3 text-sm text-white focus:border-white focus:outline-none font-mono"
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white focus:border-white focus:outline-none font-mono uppercase"
                 />
-                <p className="mt-1 text-[0.7rem] text-[#666666]">
-                  Verified against State Bar Council Enrolment Directory.
-                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                  Year of Enrollment
+                </label>
+                <input
+                  type="number"
+                  value={yearOfEnrollment}
+                  onChange={(e) => setYearOfEnrollment(parseInt(e.target.value) || 2021)}
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                  AIBE COP Number
+                </label>
+                <input
+                  type="text"
+                  value={aibeCopNumber}
+                  onChange={(e) => setAibeCopNumber(e.target.value)}
+                  placeholder="e.g. COP/BCD/2021/8831"
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white font-mono focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                  Primary Bar Association Membership
+                </label>
+                <select
+                  value={barAssociation}
+                  onChange={(e) => setBarAssociation(e.target.value)}
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-3.5 py-2.5 text-sm text-white focus:border-white focus:outline-none"
+                >
+                  {PROMINENT_BAR_ASSOCIATIONS.map((ba) => (
+                    <option key={ba} value={ba} className="bg-[#141414] text-white">
+                      {ba}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                  Active Practice Experience (Years)
+                </label>
+                <input
+                  type="number"
+                  value={experienceYears}
+                  onChange={(e) => setExperienceYears(parseInt(e.target.value) || 1)}
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                  Chamber Mobile (SMS Alerts)
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white font-mono focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                  Chamber / Office Address
+                </label>
+                <input
+                  type="text"
+                  value={chamberAddress}
+                  onChange={(e) => setChamberAddress(e.target.value)}
+                  placeholder="e.g. Chamber No. 418, Lawyers Block, High Court of Delhi"
+                  className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white focus:border-white focus:outline-none"
+                />
               </div>
             </div>
           </div>
@@ -316,11 +451,11 @@ function LawyerProfilePage() {
           </div>
 
           <p className="text-xs text-[#999999]">
-            Select all practice areas you accept client referrals for:
+            Select all practice areas you accept client referrals and court appearances for:
           </p>
 
           <div className="flex flex-wrap gap-2.5 pt-2">
-            {availableSpecialisations.map((spec) => {
+            {LEGAL_SPECIALISATIONS.map((spec) => {
               const isSelected = selectedSpecialisations.includes(spec);
               return (
                 <button
@@ -348,323 +483,93 @@ function LawyerProfilePage() {
               <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888]">
                 03 Jurisdiction & Courts of Practice
               </h2>
-              <p className="text-xs text-[#999999] mt-1">
-                Select your courts of practice. Selected courts will update your Advocate Portal header dynamically.
+              <p className="text-xs text-[#777777] mt-0.5">
+                Courts where you are regularly admitted and have vakalatnama appearances.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-white bg-[#0A0A0A] border border-[#333333] px-3 py-1">
-                {selectedCourts.length} {selectedCourts.length === 1 ? "Court" : "Courts"} Selected
-              </span>
-            </div>
+            <span className="text-xs text-neutral-300 font-medium">
+              {formatCourtsHeader(selectedCourts)}
+            </span>
           </div>
 
-          {/* City / Principal Seat */}
-          <div>
-            <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
-              City / Principal Seat
-            </label>
-            <input
-              type="text"
-              required
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. New Delhi"
-              className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-3 text-sm text-white focus:border-white focus:outline-none"
-            />
-          </div>
-
-          {/* Active Selected Courts & Live Header Preview */}
-          <div className="space-y-3 border border-[#2A2A2A] bg-[#0F0F0F] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[0.7rem] uppercase tracking-[0.15em] text-[#888888] font-medium">
-                Active Courts of Practice
-              </span>
-              {selectedCourts.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedCourts([])}
-                  className="text-[0.7rem] text-[#888888] hover:text-rose-400 transition-colors"
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
-
-            {selectedCourts.length === 0 ? (
-              <p className="text-xs text-[#666666] py-1 italic">
-                No courts selected yet. Choose from Supreme Court, High Courts, District Courts, or Tribunals below.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {selectedCourts.map((court) => (
-                  <span
-                    key={court}
-                    className="inline-flex items-center gap-1.5 bg-[#1C1C1C] border border-[#3E3E3E] text-white text-xs px-3 py-1.5"
-                  >
-                    <span>{court}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCourt(court)}
-                      className="text-[#888888] hover:text-white transition-colors ml-0.5"
-                      title={`Remove ${court}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Live Header Display Preview */}
-            <div className="pt-2.5 border-t border-[#222222] flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
-              <span className="text-[#777777] text-[0.7rem] uppercase tracking-wider shrink-0">
-                Portal Header Preview:
-              </span>
-              <span className="font-mono text-white text-[0.75rem] uppercase tracking-[0.2em] bg-[#161616] px-2.5 py-1 border border-[#333333] break-all">
-                {formatCourtsHeader(JSON.stringify(selectedCourts))}
-              </span>
-            </div>
-          </div>
-
-          {/* 1. SUPREME COURT OF INDIA */}
-          <div className="space-y-2">
-            <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
-              1. Apex Court
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <button
-                type="button"
-                onClick={() => toggleCourt(SUPREME_COURT)}
-                className={`w-full sm:w-auto px-4 py-2.5 text-xs border transition-colors flex items-center justify-between sm:justify-start gap-3 ${
-                  selectedCourts.includes(SUPREME_COURT)
-                    ? "border-white bg-white text-black font-semibold"
-                    : "border-[#333333] bg-[#0E0E0E] text-[#CCCCCC] hover:text-white hover:border-[#666666]"
-                }`}
+              <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                Primary City of Practice
+              </label>
+              <input
+                type="text"
+                required
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. New Delhi"
+                className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-2.5 text-sm text-white focus:border-white focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+                State / Jurisdiction
+              </label>
+              <select
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+                className="w-full border border-[#333333] bg-[#0A0A0A] px-3.5 py-2.5 text-sm text-white focus:border-white focus:outline-none"
               >
-                <div className="flex items-center gap-2">
-                  <Landmark className="h-4 w-4" />
-                  <span>{SUPREME_COURT}</span>
-                </div>
-                {selectedCourts.includes(SUPREME_COURT) ? (
-                  <Check className="h-4 w-4 text-black" />
-                ) : (
-                  <span className="text-[0.65rem] text-[#777777] uppercase tracking-wider border border-[#333333] px-1.5 py-0.5">
-                    Apex Court
-                  </span>
-                )}
-              </button>
+                {availableStates.map((st) => (
+                  <option key={st} value={st} className="bg-[#141414] text-white">
+                    {st}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* 2. HIGH COURTS (LIST OF ALL HIGH COURTS) */}
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
-                2. High Courts ({ALL_HIGH_COURTS.length} Constitutional Benches)
-              </label>
-              <div className="relative w-full sm:w-64">
-                <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#666666]" />
-                <input
-                  type="text"
-                  value={highCourtSearch}
-                  onChange={(e) => setHighCourtSearch(e.target.value)}
-                  placeholder="Filter High Courts..."
-                  className="w-full border border-[#333333] bg-[#0A0A0A] pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1 p-2.5 bg-[#0E0E0E] border border-[#262626]">
-              {filteredHighCourts.map((court) => {
-                const isSelected = selectedCourts.includes(court);
-                return (
-                  <button
-                    type="button"
-                    key={court}
-                    onClick={() => toggleCourt(court)}
-                    className={`px-3 py-1.5 text-xs border transition-colors flex items-center gap-1.5 ${
-                      isSelected
-                        ? "border-white bg-white text-black font-semibold"
-                        : "border-[#2A2A2A] bg-[#141414] text-[#999999] hover:text-white hover:border-[#555555]"
-                    }`}
-                  >
-                    {isSelected && <Check className="h-3.5 w-3.5" />}
-                    <span>{court}</span>
-                  </button>
-                );
-              })}
-              {filteredHighCourts.length === 0 && (
-                <p className="text-xs text-[#666666] py-3 px-2">
-                  No High Court matching "{highCourtSearch}".
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* 3. DISTRICT & SESSIONS COURTS (CHOOSE STATE, THEN DISTRICT) */}
-          <div className="space-y-3">
-            <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
-              3. District & Sessions Courts (Choose State, Then District)
-            </label>
-
-            <div className="bg-[#0E0E0E] border border-[#262626] p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* State selector */}
-                <div>
-                  <label className="block text-[0.7rem] uppercase tracking-[0.15em] text-[#777777] mb-1">
-                    Select State / UT
-                  </label>
-                  <select
-                    value={selectedState}
-                    onChange={(e) => {
-                      setSelectedState(e.target.value);
-                      setSelectedDistrictCourt("");
-                    }}
-                    className="w-full border border-[#333333] bg-[#0A0A0A] px-3 py-2 text-xs text-white focus:border-white focus:outline-none"
-                  >
-                    {availableStates.map((state) => (
-                      <option key={state} value={state} className="bg-[#111111] text-white">
-                        {state}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* District court dropdown */}
-                <div>
-                  <label className="block text-[0.7rem] uppercase tracking-[0.15em] text-[#777777] mb-1">
-                    Select District Court ({selectedState})
-                  </label>
-                  <select
-                    value={selectedDistrictCourt}
-                    onChange={(e) => setSelectedDistrictCourt(e.target.value)}
-                    className="w-full border border-[#333333] bg-[#0A0A0A] px-3 py-2 text-xs text-white focus:border-white focus:outline-none"
-                  >
-                    <option value="" className="bg-[#111111] text-[#777777]">
-                      -- Select Court Complex --
-                    </option>
-                    {currentDistrictOptions.map((dc) => (
-                      <option key={dc} value={dc} className="bg-[#111111] text-white">
-                        {dc}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Add District Button & Custom Entry */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-[#1C1C1C]">
-                <button
-                  type="button"
-                  disabled={!selectedDistrictCourt}
-                  onClick={() => {
-                    if (selectedDistrictCourt) {
-                      handleAddCourt(selectedDistrictCourt);
-                      setSelectedDistrictCourt("");
-                    }
-                  }}
-                  className={`px-4 py-2 text-xs uppercase tracking-[0.15em] font-medium border transition-colors flex items-center justify-center gap-1.5 ${
-                    selectedDistrictCourt
-                      ? "border-white bg-white text-black hover:bg-neutral-200"
-                      : "border-[#2A2A2A] bg-[#141414] text-[#555555] cursor-not-allowed"
-                  }`}
+          {/* Currently Selected Courts Chips */}
+          <div className="border border-[#282828] bg-[#111111] p-4 space-y-2">
+            <span className="text-xs uppercase tracking-wider text-[#888888] block">
+              Admitted Practice Courts ({selectedCourts.length})
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {selectedCourts.map((court) => (
+                <span
+                  key={court}
+                  className="inline-flex items-center gap-1.5 bg-[#1F1F1F] border border-white/20 px-3 py-1 text-xs text-white"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Selected District Court</span>
-                </button>
-
-                {/* Custom district court input fallback */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={customDistrictInput}
-                    onChange={(e) => setCustomDistrictInput(e.target.value)}
-                    placeholder="Other District Court..."
-                    className="border border-[#333333] bg-[#0A0A0A] px-3 py-1.5 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none w-56"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        if (customDistrictInput.trim()) {
-                          handleAddCourt(customDistrictInput.trim());
-                          setCustomDistrictInput("");
-                        }
-                      }
-                    }}
-                  />
+                  <Landmark className="h-3 w-3 text-neutral-400" />
+                  <span>{court}</span>
                   <button
                     type="button"
-                    disabled={!customDistrictInput.trim()}
-                    onClick={() => {
-                      if (customDistrictInput.trim()) {
-                        handleAddCourt(customDistrictInput.trim());
-                        setCustomDistrictInput("");
-                      }
-                    }}
-                    className={`px-3 py-1.5 text-xs border transition-colors ${
-                      customDistrictInput.trim()
-                        ? "border-[#555555] text-white hover:border-white"
-                        : "border-[#222222] text-[#444444] cursor-not-allowed"
-                    }`}
+                    onClick={() => handleRemoveCourt(court)}
+                    className="ml-1 text-[#888888] hover:text-red-400"
                   >
-                    Add
+                    <X className="h-3 w-3" />
                   </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 4. TRIBUNALS */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
-                4. Statutory Tribunals & Appellate Boards
-              </label>
-              <span className="text-[0.7rem] text-[#666666]">
-                NCLAT, NCLT, NGT, CAT, DRT, ITAT, CESTAT, etc.
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2 p-2.5 bg-[#0E0E0E] border border-[#262626]">
-              {ALL_TRIBUNALS.map((tribunal) => {
-                const isSelected = selectedCourts.includes(tribunal);
-                return (
-                  <button
-                    type="button"
-                    key={tribunal}
-                    onClick={() => toggleCourt(tribunal)}
-                    className={`px-3 py-1.5 text-xs border transition-colors flex items-center gap-1.5 text-left ${
-                      isSelected
-                        ? "border-white bg-white text-black font-semibold"
-                        : "border-[#2A2A2A] bg-[#141414] text-[#999999] hover:text-white hover:border-[#555555]"
-                    }`}
-                  >
-                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
-                    <span>{tribunal}</span>
-                  </button>
-                );
-              })}
+                </span>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* SECTION 4: CONSULTATION TYPES OFFERED */}
-        <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-4">
+        {/* SECTION 4: PROFESSIONAL BIO & CONSULTATION PREFERENCES */}
+        <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-6">
           <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888] border-b border-[#282828] pb-3">
-            04 Consultation Types Offered
+            04 Professional Summary & Client Consultation Preferences
           </h2>
 
-          <p className="text-xs text-[#999999]">
-            Clients seeking your counsel will be offered these communication channels:
-          </p>
+          <div>
+            <label className="block text-xs uppercase tracking-[0.15em] text-[#888888] mb-1.5">
+              Professional Biography
+            </label>
+            <textarea
+              rows={4}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              className="w-full border border-[#333333] bg-[#0A0A0A] px-4 py-3 text-sm text-white focus:border-white focus:outline-none"
+            />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            {/* Call */}
-            <label
-              className={`border p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                offersCall ? "border-white bg-[#222222]" : "border-[#333333] bg-[#111111]"
-              }`}
-            >
+            <label className="flex items-center gap-3 p-4 border border-[#333333] bg-[#111111] cursor-pointer hover:border-white transition-colors">
               <input
                 type="checkbox"
                 checked={offersCall}
@@ -672,19 +577,14 @@ function LawyerProfilePage() {
                 className="h-4 w-4 accent-white"
               />
               <div>
-                <span className="text-sm font-medium text-white flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5" /> Call
-                </span>
-                <span className="text-[0.7rem] text-[#888888] block">Voice / Video consultation</span>
+                <p className="text-sm font-medium text-white flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5" /> Accept Telephone Consultations
+                </p>
+                <p className="text-[11px] text-[#777777]">Allow verified clients to schedule phone briefings</p>
               </div>
             </label>
 
-            {/* Chat */}
-            <label
-              className={`border p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                offersChat ? "border-white bg-[#222222]" : "border-[#333333] bg-[#111111]"
-              }`}
-            >
+            <label className="flex items-center gap-3 p-4 border border-[#333333] bg-[#111111] cursor-pointer hover:border-white transition-colors">
               <input
                 type="checkbox"
                 checked={offersChat}
@@ -692,46 +592,24 @@ function LawyerProfilePage() {
                 className="h-4 w-4 accent-white"
               />
               <div>
-                <span className="text-sm font-medium text-white flex items-center gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5" /> Chat
-                </span>
-                <span className="text-[0.7rem] text-[#888888] block">Text advice & doc review</span>
+                <p className="text-sm font-medium text-white flex items-center gap-2">
+                  <MessageSquare className="h-3.5 w-3.5" /> Accept Masked Chat Inquiries
+                </p>
+                <p className="text-[11px] text-[#777777]">Receive privileged client queries via encrypted channel</p>
               </div>
             </label>
           </div>
         </div>
 
-        {/* SECTION 5: SHORT BIO */}
-        <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-4">
-          <div className="flex items-center justify-between border-b border-[#282828] pb-3">
-            <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888]">
-              05 Short Bio (Shown to Clients)
-            </h2>
-            <span className="text-xs text-[#777777] font-mono">
-              {bio.length} characters
-            </span>
-          </div>
-
-          <div>
-            <textarea
-              rows={4}
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Brief summary of your legal background, notable matters handled, and approach to client representation..."
-              className="w-full border border-[#333333] bg-[#0A0A0A] p-4 text-sm text-white placeholder:text-[#555555] focus:border-white focus:outline-none leading-relaxed"
-            />
-          </div>
-        </div>
-
-        {/* SAVE BUTTON */}
-        <div className="flex justify-end gap-4 pt-2">
+        {/* SUBMIT BUTTON */}
+        <div className="flex justify-end pt-4">
           <button
             type="submit"
             disabled={isSaving}
-            className="bg-white text-black px-8 py-4 text-xs font-semibold uppercase tracking-[0.2em] hover:bg-neutral-200 transition-colors flex items-center gap-2 shadow-xl"
+            className="bg-white px-8 py-3.5 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center gap-2"
           >
-            <Save className="h-4 w-4 text-black" />
-            <span>{isSaving ? "Saving..." : "Save Profile Changes"}</span>
+            <Save className="h-4 w-4" />
+            {isSaving ? "Saving Updates..." : "Save Profile & Bar Credentials"}
           </button>
         </div>
       </form>

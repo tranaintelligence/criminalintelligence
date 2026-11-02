@@ -249,3 +249,70 @@ export function formatCourtsHeader(courtsVal?: string | string[] | null): string
   const remaining = list.length - 2;
   return `${list[0]} · ${list[1]} +${remaining} more`;
 }
+
+
+export const ALL_STATE_BAR_COUNCILS = [
+  "Bar Council of Delhi (BCD)",
+  "Bar Council of Maharashtra & Goa (BCMG)",
+  "Bar Council of Uttar Pradesh (BCUP)",
+  "Bar Council of Punjab & Haryana (BCPH)",
+  "Karnataka State Bar Council (KSBC)",
+  "Bar Council of West Bengal (BCWB)",
+  "Bar Council of Tamil Nadu & Puducherry (BCTNP)",
+  "Bar Council of Gujarat (BCG)",
+  "Bar Council of Rajasthan (BCR)",
+  "Bar Council of Madhya Pradesh (BCMP)",
+  "Bar Council of Kerala (BCK)",
+  "Bar Council of Bihar (BCB)",
+  "Bar Council of Andhra Pradesh (BCAP)",
+  "Telangana Bar Council (TGBC)",
+  "Bar Council of Odisha (BCO)",
+  "Bar Council of Assam, Nagaland & NE (BCNE)",
+  "Bar Council of Himachal Pradesh (BCHP)",
+  "Bar Council of Jharkhand (BCJ)",
+  "Bar Council of Chhattisgarh (BCCG)",
+  "Bar Council of Uttarakhand (BCUK)",
+] as const;
+
+export const PROMINENT_BAR_ASSOCIATIONS = [
+  "Supreme Court Bar Association (SCBA)",
+  "Delhi High Court Bar Association (DHCBA)",
+  "Bombay Bar Association (BBA)",
+  "Advocates Association of Western India (AAWI)",
+  "Calcutta High Court Bar Association",
+  "Madras High Court Advocates Association (MHAA)",
+  "Punjab & Haryana High Court Bar Association",
+  "Allahabad High Court Bar Association",
+  "Karnataka High Court Advocates Association (KHCAA)",
+  "Tis Hazari Court Bar Association (Delhi)",
+  "Patiala House Court Bar Association (Delhi)",
+  "Saket Court Bar Association (Delhi)",
+  "Rouse Avenue Bar Association (Delhi)",
+  "Rohini Court Bar Association (Delhi)",
+  "Dwarka Court Bar Association (Delhi)",
+  "Karkardooma Court Bar Association (Delhi)",
+  "City Civil Court Bar Association (Mumbai)",
+  "District Bar Association",
+] as const;
+
+export const LEGAL_SPECIALISATIONS = [
+  "Criminal Defence & Anticipatory Bail",
+  "BNS & BNSS Criminal Procedure",
+  "Cyber Crime & Data Protection Litigation",
+  "White Collar Crime & Financial Fraud",
+  "Constitutional Writs & Appellate Practice",
+  "Cheque Dishonour (Section 138 NI Act)",
+  "Corporate & Commercial Litigation",
+  "Matrimonial & Family Law",
+  "Civil Litigation & Property Disputes",
+  "Narcotics & NDPS Act",
+  "Arbitration & Dispute Resolution (ADR)",
+  "Consumer Protection & RERA",
+] as const;
+
+export function isValidBarRegNo(val: string): boolean {
+  if (!val) return false;
+  const clean = val.trim().toUpperCase();
+  const pattern = /^[A-Z]{1,5}\/\d{1,8}\/\d{4}$/;
+  return pattern.test(clean);
+}

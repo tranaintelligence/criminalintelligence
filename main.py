@@ -305,6 +305,38 @@ def _migrate_db_schema():
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;"))
             conn.execute(text("ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL;"))
+            
+            # Ensure lawyers table verification columns
+            lawyer_cols = [
+                ("email", "VARCHAR"),
+                ("phone", "VARCHAR"),
+                ("bar_reg_no", "VARCHAR"),
+                ("state_bar_council", "VARCHAR"),
+                ("year_of_enrollment", "INTEGER"),
+                ("aibe_cop_number", "VARCHAR"),
+                ("bar_association", "VARCHAR"),
+                ("experience_years", "INTEGER DEFAULT 1"),
+                ("state", "VARCHAR DEFAULT 'Delhi'"),
+                ("chamber_address", "TEXT"),
+                ("courts", "TEXT"),
+                ("bio", "TEXT"),
+                ("sanad_document_url", "TEXT"),
+                ("id_card_document_url", "TEXT"),
+                ("consultation_fee", "INTEGER DEFAULT 0"),
+                ("verification_status", "VARCHAR(32) DEFAULT 'PENDING_VERIFICATION'"),
+                ("verification_notes", "TEXT"),
+                ("verified_at", "TIMESTAMP"),
+                ("verified_by", "VARCHAR"),
+                ("internal_rating", "FLOAT DEFAULT 5.0"),
+                ("clients_referred", "INTEGER DEFAULT 0"),
+                ("consultations_count", "INTEGER DEFAULT 0"),
+                ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+            ]
+            for col, col_type in lawyer_cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE lawyers ADD COLUMN IF NOT EXISTS {col} {col_type};"))
+                except Exception:
+                    pass
             conn.commit()
     except Exception as exc:
         logger.info("Database schema migration notice: %s", exc)
@@ -3222,6 +3254,329 @@ async def schedule_reminder(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Verified Legal Professionals & Advocates API
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _lawyer_to_dict(row: db_models.Lawyer) -> dict:
+    courts_list = []
+    if row.courts:
+        try:
+            courts_list = json.loads(row.courts) if isinstance(row.courts, str) else list(row.courts)
+        except Exception:
+            courts_list = [c.strip() for c in str(row.courts).split(",") if c.strip()]
+
+    return {
+        "id": str(row.id),
+        "user_id": row.user_id,
+        "full_name": row.full_name,
+        "email": row.email,
+        "phone": row.phone,
+        "bar_reg_no": row.bar_reg_no,
+        "state_bar_council": row.state_bar_council,
+        "year_of_enrollment": row.year_of_enrollment,
+        "aibe_cop_number": row.aibe_cop_number,
+        "bar_association": row.bar_association,
+        "specialisation": row.specialisation,
+        "experience_years": row.experience_years or 1,
+        "city": row.city,
+        "state": row.state or "Delhi",
+        "chamber_address": row.chamber_address,
+        "courts": courts_list,
+        "bio": row.bio,
+        "sanad_document_url": row.sanad_document_url,
+        "id_card_document_url": row.id_card_document_url,
+        "offers_call": row.offers_call,
+        "offers_chat": row.offers_chat,
+        "offers_in_person": row.offers_in_person,
+        "consultation_fee": row.consultation_fee or 0,
+        "approved": row.approved,
+        "verification_status": row.verification_status or "PENDING_VERIFICATION",
+        "verification_notes": row.verification_notes,
+        "verified_at": row.verified_at,
+        "verified_by": row.verified_by,
+        "internal_rating": row.internal_rating or 5.0,
+        "clients_referred": row.clients_referred or 0,
+        "consultations_count": row.consultations_count or 0,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+
+@app.post("/api/lawyers/register", response_model=schemas.LawyerResponse, status_code=201, tags=["Lawyers"])
+def register_lawyer(
+    req: schemas.LawyerRegisterRequest,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Register an advocate with Bar Council credentials for professional verification."""
+    clean_bar = req.bar_reg_no.strip().upper()
+    existing = db.query(db_models.Lawyer).filter(
+        (db_models.Lawyer.bar_reg_no == clean_bar) |
+        (db_models.Lawyer.email == req.email.strip().lower())
+    ).first()
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"An advocate application with this Bar Enrollment Number ({clean_bar}) or Email ({req.email}) is already registered."
+        )
+
+    # Optional current user extraction
+    user_id = None
+    if authorization and authorization.lower().startswith("bearer "):
+        try:
+            token = authorization.split(" ", 1)[1].strip()
+            user_email = _get_trana_session(token, db)
+            if not user_email:
+                claims = _decode_supabase_token(token)
+                if claims and claims.get("email"):
+                    user_email = claims.get("email")
+            if user_email:
+                u = db.query(db_models.User).filter(db_models.User.email == user_email.lower().strip()).first()
+                if u:
+                    user_id = u.id
+        except Exception:
+            pass
+
+    admin_emails = _admin_email_set()
+    is_admin = req.email.strip().lower() in admin_emails
+
+    # Automatic verification for platform founders, otherwise queue for verification review
+    verification_status = "VERIFIED" if is_admin else "PENDING_VERIFICATION"
+    approved = True if is_admin else False
+    verified_at = datetime.utcnow() if is_admin else None
+    verified_by = "Platform Auto-Verify (Founder)" if is_admin else None
+
+    courts_str = json.dumps(req.courts) if req.courts else json.dumps(["Supreme Court of India", "Delhi High Court"])
+
+    new_lawyer = db_models.Lawyer(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        full_name=req.full_name.strip(),
+        email=req.email.strip().lower(),
+        phone=req.phone.strip(),
+        bar_reg_no=clean_bar,
+        state_bar_council=req.state_bar_council.strip(),
+        year_of_enrollment=req.year_of_enrollment,
+        aibe_cop_number=req.aibe_cop_number.strip() if req.aibe_cop_number else None,
+        bar_association=req.bar_association.strip() if req.bar_association else None,
+        specialisation=req.specialisation.strip(),
+        experience_years=req.experience_years,
+        city=req.city.strip(),
+        state=req.state.strip() if req.state else "Delhi",
+        chamber_address=req.chamber_address.strip() if req.chamber_address else None,
+        courts=courts_str,
+        bio=req.bio.strip() if req.bio else None,
+        offers_call=req.offers_call,
+        offers_chat=req.offers_chat,
+        offers_in_person=req.offers_in_person,
+        consultation_fee=req.consultation_fee,
+        approved=approved,
+        verification_status=verification_status,
+        verified_at=verified_at,
+        verified_by=verified_by,
+        internal_rating=5.0,
+        clients_referred=0,
+        consultations_count=0,
+    )
+
+    db.add(new_lawyer)
+    db.commit()
+    db.refresh(new_lawyer)
+
+    logger.info("Advocate registered: %s (%s) - status: %s", new_lawyer.full_name, new_lawyer.bar_reg_no, new_lawyer.verification_status)
+    return _lawyer_to_dict(new_lawyer)
+
+
+@app.get("/api/lawyers", response_model=list[schemas.LawyerResponse], tags=["Lawyers"])
+def list_verified_lawyers(
+    search: Optional[str] = None,
+    city: Optional[str] = None,
+    specialisation: Optional[str] = None,
+    court: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Directory of verified advocates for citizens and clients."""
+    query = db.query(db_models.Lawyer).filter(
+        db_models.Lawyer.verification_status == "VERIFIED",
+        db_models.Lawyer.approved == True,
+    )
+
+    if city and city.strip() and city.lower() != "all":
+        query = query.filter(db_models.Lawyer.city.ilike(f"%{city.strip()}%"))
+
+    if specialisation and specialisation.strip() and specialisation.lower() != "all":
+        query = query.filter(db_models.Lawyer.specialisation.ilike(f"%{specialisation.strip()}%"))
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (db_models.Lawyer.full_name.ilike(term)) |
+            (db_models.Lawyer.specialisation.ilike(term)) |
+            (db_models.Lawyer.city.ilike(term)) |
+            (db_models.Lawyer.courts.ilike(term))
+        )
+
+    rows = query.order_by(db_models.Lawyer.internal_rating.desc(), db_models.Lawyer.full_name.asc()).all()
+    return [_lawyer_to_dict(r) for r in rows]
+
+
+@app.get("/api/lawyers/me", response_model=schemas.LawyerResponse, tags=["Lawyers"])
+def get_current_lawyer(
+    user_email: str = Depends(get_current_user_email),
+    db: Session = Depends(get_db),
+):
+    """Return the registered lawyer profile for the currently signed in user."""
+    clean_email = user_email.lower().strip()
+    lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.email == clean_email).first()
+
+    if lawyer is None:
+        u = db.query(db_models.User).filter(db_models.User.email == clean_email).first()
+        if u:
+            lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.user_id == u.id).first()
+
+    if lawyer is None:
+        raise HTTPException(status_code=404, detail="No advocate registration found for this user account.")
+
+    return _lawyer_to_dict(lawyer)
+
+
+@app.put("/api/lawyers/me", response_model=schemas.LawyerResponse, tags=["Lawyers"])
+def update_current_lawyer(
+    update_data: schemas.LawyerUpdateRequest,
+    user_email: str = Depends(get_current_user_email),
+    db: Session = Depends(get_db),
+):
+    """Update profile and practice details for the currently signed in advocate."""
+    clean_email = user_email.lower().strip()
+    lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.email == clean_email).first()
+
+    if lawyer is None:
+        u = db.query(db_models.User).filter(db_models.User.email == clean_email).first()
+        if u:
+            lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.user_id == u.id).first()
+
+    if lawyer is None:
+        raise HTTPException(status_code=404, detail="No advocate registration found to update.")
+
+    for field, val in update_data.model_dump(exclude_unset=True).items():
+        if field == "courts" and isinstance(val, list):
+            setattr(lawyer, "courts", json.dumps(val))
+        elif field == "bar_reg_no" and val:
+            setattr(lawyer, "bar_reg_no", val.strip().upper())
+        elif hasattr(lawyer, field) and val is not None:
+            setattr(lawyer, field, val)
+
+    lawyer.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(lawyer)
+    return _lawyer_to_dict(lawyer)
+
+
+@app.get("/api/lawyers/{lawyer_id}", response_model=schemas.LawyerResponse, tags=["Lawyers"])
+def get_lawyer_by_id(lawyer_id: str, db: Session = Depends(get_db)):
+    """Fetch advocate profile by identifier."""
+    lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.id == lawyer_id).first()
+    if not lawyer:
+        raise HTTPException(status_code=404, detail="Advocate not found.")
+    return _lawyer_to_dict(lawyer)
+
+
+@app.get("/api/admin/lawyers", response_model=schemas.LawyersListSummaryResponse, tags=["Admin Lawyers"])
+def get_admin_lawyers(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return all registered advocates and pending Bar Council applications for admin review."""
+    base_query = db.query(db_models.Lawyer)
+
+    total = base_query.count()
+    verified = base_query.filter(db_models.Lawyer.verification_status == "VERIFIED").count()
+    pending = base_query.filter(db_models.Lawyer.verification_status == "PENDING_VERIFICATION").count()
+    suspended = base_query.filter(db_models.Lawyer.verification_status == "SUSPENDED").count()
+
+    query = base_query
+    if status and status.strip() and status.upper() != "ALL":
+        query = query.filter(db_models.Lawyer.verification_status == status.strip().upper())
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (db_models.Lawyer.full_name.ilike(term)) |
+            (db_models.Lawyer.bar_reg_no.ilike(term)) |
+            (db_models.Lawyer.email.ilike(term)) |
+            (db_models.Lawyer.city.ilike(term))
+        )
+
+    rows = query.order_by(db_models.Lawyer.created_at.desc()).all()
+
+    return {
+        "total": total,
+        "verified": verified,
+        "pending": pending,
+        "suspended": suspended,
+        "lawyers": [_lawyer_to_dict(r) for r in rows],
+    }
+
+
+@app.patch("/api/admin/lawyers/{lawyer_id}/verify", response_model=schemas.LawyerResponse, tags=["Admin Lawyers"])
+def verify_lawyer_admin(
+    lawyer_id: str,
+    action_in: schemas.LawyerVerificationActionRequest,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Approve, reject, or suspend an advocate application with verification review notes."""
+    lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.id == lawyer_id).first()
+    if not lawyer:
+        raise HTTPException(status_code=404, detail="Advocate not found.")
+
+    if action_in.action == "VERIFY":
+        lawyer.approved = True
+        lawyer.verification_status = "VERIFIED"
+        lawyer.verified_at = datetime.utcnow()
+        lawyer.verified_by = admin_email
+    elif action_in.action == "REJECT":
+        lawyer.approved = False
+        lawyer.verification_status = "REJECTED"
+    elif action_in.action == "SUSPEND":
+        lawyer.approved = False
+        lawyer.verification_status = "SUSPENDED"
+
+    if action_in.notes is not None:
+        lawyer.verification_notes = action_in.notes
+
+    if action_in.internal_rating is not None:
+        lawyer.internal_rating = action_in.internal_rating
+
+    lawyer.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(lawyer)
+
+    logger.info("Admin %s updated advocate %s (%s) -> %s", admin_email, lawyer.full_name, lawyer.id, lawyer.verification_status)
+    return _lawyer_to_dict(lawyer)
+
+
+@app.delete("/api/admin/lawyers/{lawyer_id}", tags=["Admin Lawyers"])
+def delete_lawyer_admin(
+    lawyer_id: str,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Delete an advocate record from the directory."""
+    lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.id == lawyer_id).first()
+    if not lawyer:
+        raise HTTPException(status_code=404, detail="Advocate not found.")
+
+    db.delete(lawyer)
+    db.commit()
+    return {"ok": True, "message": f"Advocate {lawyer.full_name} ({lawyer.bar_reg_no}) deleted."}
+
+
 # Error Handlers
 # ═══════════════════════════════════════════════════════════════════════════
 

@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Phone, MessageSquare, Lock, X, ShieldCheck } from "lucide-react";
+import { Phone, MessageSquare, Lock, X, ShieldCheck, Scale, Award, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranaCredential } from "@/lib/trana-auth";
 import { buildClientIntakeBrief } from "@/lib/intake-brief";
 import { ConsultationChatModal } from "@/components/ConsultationChatModal";
+import { getPublicLawyers, LawyerRecord } from "@/lib/trana-admin-api";
 
 export const Route = createFileRoute("/_authenticated/dashboard/lawyers")({
   head: () => ({
@@ -23,97 +24,18 @@ export const Route = createFileRoute("/_authenticated/dashboard/lawyers")({
 type Lawyer = {
   id: string;
   full_name: string;
+  bar_reg_no?: string;
+  state_bar_council?: string;
+  experience_years?: number;
   specialisation: string;
   city: string;
+  state?: string;
+  courts?: string;
   offers_call: boolean;
   offers_chat: boolean;
   offers_in_person?: boolean;
   approved?: boolean;
 };
-
-// Benchmarked sample advocate profiles for testing and demonstration
-const sampleBenchmarkLawyers: Lawyer[] = [
-  {
-    id: "sample-law-01",
-    full_name: "Adv. Rajeshwaran Iyer",
-    specialisation: "Criminal Defence & Anticipatory Bail",
-    city: "New Delhi",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-  {
-    id: "sample-law-02",
-    full_name: "Adv. Meenakshi Sundaram",
-    specialisation: "Corporate Crimes & White Collar Offences",
-    city: "Mumbai",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-  {
-    id: "sample-law-03",
-    full_name: "Adv. Harpreet Singh Sodhi",
-    specialisation: "Constitutional Writs & Service Law",
-    city: "Chandigarh",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-  {
-    id: "sample-law-04",
-    full_name: "Adv. Kavita Deshmukh",
-    specialisation: "Commercial Arbitration & Cheque Dishonour",
-    city: "Pune",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-  {
-    id: "sample-law-05",
-    full_name: "Adv. Vikramjit Banerjee",
-    specialisation: "BNS Criminal Procedure & Bail",
-    city: "Kolkata",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-  {
-    id: "sample-law-06",
-    full_name: "Adv. Ananya Sengupta",
-    specialisation: "Cyber Crime & Data Protection Litigation",
-    city: "Bengaluru",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-  {
-    id: "sample-law-07",
-    full_name: "Adv. Pradeep K. Dwivedi",
-    specialisation: "BNSS Criminal Procedure & Trial",
-    city: "Prayagraj",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-  {
-    id: "sample-law-08",
-    full_name: "Adv. Sumedha Sen",
-    specialisation: "Technology Contracts & Privacy Compliance",
-    city: "Bengaluru",
-    offers_call: true,
-    offers_chat: true,
-    offers_in_person: false,
-    approved: true,
-  },
-];
 
 function Lawyers() {
   const { user } = Route.useRouteContext();
@@ -139,10 +61,28 @@ function Lawyers() {
     consultType: string;
   } | null>(null);
 
-  // Fetch verified advocates onboard with TRANA from Supabase
+  // Fetch verified advocates from Backend API & Supabase database
   const { data: dbLawyers = [], isLoading } = useQuery({
-    queryKey: ["lawyers"],
-    queryFn: async () => (await supabase.from("lawyers").select("*").order("full_name")).data ?? [],
+    queryKey: ["verified-lawyers-directory"],
+    queryFn: async () => {
+      // 1. Try Backend API
+      try {
+        const apiRows = await getPublicLawyers();
+        if (apiRows && apiRows.length > 0) {
+          return apiRows;
+        }
+      } catch (e) {
+        console.warn("Backend getPublicLawyers fallback to Supabase:", e);
+      }
+
+      // 2. Direct Supabase Query
+      const { data } = await supabase
+        .from("lawyers")
+        .select("*")
+        .eq("approved", true)
+        .order("full_name");
+      return data ?? [];
+    },
   });
 
   // User's existing consultations so previously requested lawyer boxes remain locked unless denied
@@ -176,7 +116,6 @@ function Lawyers() {
       }
     });
 
-    // Also check local referrals in case case was denied in lawyer workspace
     if (typeof window !== "undefined") {
       try {
         const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
@@ -208,61 +147,59 @@ function Lawyers() {
       }
     }
 
-    // Explicitly delete any denied lawyers so their box is unlocked
     deniedIds.forEach((id) => ids.delete(id));
     deniedNames.forEach((n) => names.delete(n));
 
     return { lockedIds: ids, lockedNames: names };
   }, [userConsultations, user?.id]);
 
-  // Reconcile onboarded database lawyers, founders' newly added lawyers, and sample benchmark advocates
+  // Reconcile ONLY real verified advocates from the database
   const lawyers = useMemo(() => {
     let removedIds: string[] = [];
-    let foundersAdded: any[] = [];
     try {
       if (typeof window !== "undefined") {
         removedIds = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
-        foundersAdded = JSON.parse(localStorage.getItem("trana_founders_added_lawyers") || "[]");
       }
     } catch {
       // ignore
     }
 
-    const mappedFoundersAdded: Lawyer[] = (foundersAdded || [])
-      .filter((item) => item && (item.status === "Active" || !item.status))
-      .map((item) => ({
-        id: item.id || `manual-${item.name || item.full_name}`,
-        full_name: item.name || item.full_name || "Advocate",
-        specialisation: item.specialisation || "General Legal Practice",
-        city: item.city || "New Delhi",
-        offers_call: true,
-        offers_chat: true,
-        offers_in_person: false,
-        approved: true,
-      }));
-
-    const mappedDbLawyers: Lawyer[] = (dbLawyers || []).map((row: any) => ({
-      id: row.id,
-      full_name: row.full_name,
-      specialisation: row.specialisation || "General Legal Practice",
-      city: row.city || "New Delhi",
-      offers_call: row.offers_call ?? true,
-      offers_chat: row.offers_chat ?? true,
-      offers_in_person: false,
-      approved: row.approved ?? true,
-    }));
-
-    const combinedCandidates: Lawyer[] = [
-      ...mappedFoundersAdded,
-      ...mappedDbLawyers,
-      ...sampleBenchmarkLawyers,
-    ];
+    const mappedDbLawyers: Lawyer[] = (dbLawyers || [])
+      .filter((row: any) => row.approved !== false && row.verification_status !== "REJECTED" && row.verification_status !== "SUSPENDED")
+      .map((row: any) => {
+        let courtsDisplay = "";
+        if (row.courts) {
+          try {
+            const parsed = Array.isArray(row.courts) ? row.courts : JSON.parse(row.courts);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              courtsDisplay = parsed.slice(0, 2).join(" · ") + (parsed.length > 2 ? ` +${parsed.length - 2} more` : "");
+            }
+          } catch {
+            courtsDisplay = String(row.courts);
+          }
+        }
+        return {
+          id: row.id,
+          full_name: row.full_name,
+          bar_reg_no: row.bar_reg_no,
+          state_bar_council: row.state_bar_council,
+          experience_years: row.experience_years,
+          specialisation: row.specialisation || "General Legal Practice",
+          city: row.city || "New Delhi",
+          state: row.state || "Delhi",
+          courts: courtsDisplay || "Supreme Court of India · Delhi High Court",
+          offers_call: row.offers_call ?? true,
+          offers_chat: row.offers_chat ?? true,
+          offers_in_person: false,
+          approved: true,
+        };
+      });
 
     const result: Lawyer[] = [];
     const seenIds = new Set<string>();
     const seenNames = new Set<string>();
 
-    for (const l of combinedCandidates) {
+    for (const l of mappedDbLawyers) {
       if (!l.id || !l.full_name) continue;
       if (removedIds.includes(l.id)) continue;
 
@@ -283,7 +220,7 @@ function Lawyers() {
   const cities = [...new Set(lawyers.map((l) => l.city).filter(Boolean))];
   const list = lawyers.filter((l) => {
     const t = q.toLowerCase().trim();
-    if (t && ![l.full_name, l.specialisation, l.city].some((v) => v?.toLowerCase().includes(t))) return false;
+    if (t && ![l.full_name, l.specialisation, l.city, l.bar_reg_no, l.courts].some((v) => v?.toLowerCase().includes(t))) return false;
     if (area && l.specialisation !== area) return false;
     if (city && l.city !== city) return false;
     if (type === "call" && !l.offers_call) return false;
@@ -293,7 +230,6 @@ function Lawyers() {
 
   function handleInitiateRequest(l: Lawyer) {
     setConsultingLawyer(l);
-    // Default to available consultation type
     const initialMode = l.offers_call && !l.offers_chat ? "call" : l.offers_chat && !l.offers_call ? "chat" : "call";
     setSelectedMode(initialMode);
     setIsModeModalOpen(true);
@@ -321,7 +257,6 @@ function Lawyers() {
     setLoadingLawyerId(l.id);
     try {
       const clientName = (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
-      // Generate client intake brief from citizen's AI conversation / analysis
       const brief = await buildClientIntakeBrief({
         userId: user.id,
         userEmail: user.email,
@@ -348,7 +283,6 @@ function Lawyers() {
       if (inserted?.id) {
         createdId = `REF-${inserted.id.slice(0, 8).toUpperCase()}`;
       } else if (error) {
-        // Fallback retry with lawyer_id: null in case foreign key check on mock id failed
         const retry = await supabase.from("consultations").insert({
           user_id: user.id,
           lawyer_id: null,
@@ -364,7 +298,7 @@ function Lawyers() {
         }
       }
 
-      // Send all details to the lawyers dashboard under client referrals
+      // Send to lawyer referrals inbox
       try {
         const newReferral = {
           id: createdId,
@@ -389,7 +323,7 @@ function Lawyers() {
         console.warn("Could not save to client referrals:", err);
       }
 
-      // Persist locked box state for this citizen
+      // Lock state
       try {
         const stored = JSON.parse(localStorage.getItem(`trana_requested_lawyers_${user.id}`) || "[]");
         stored.push({ id: l.id, name: l.full_name });
@@ -404,7 +338,6 @@ function Lawyers() {
       qc.invalidateQueries({ queryKey: ["lawyer-referrals-consultations"] });
       qc.invalidateQueries({ queryKey: ["lawyer-overview-consultations"] });
 
-      // Immediately open masked consultation chat between client and lawyer
       setActiveChat({
         consultationId: createdId,
         lawyerName: l.full_name,
@@ -425,45 +358,64 @@ function Lawyers() {
     }
   }
 
-  const sel = "border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none";
+  const sel = "border border-[#333333] bg-[#111111] px-3.5 py-2 text-xs text-white focus:border-white focus:outline-none";
+
   return (
     <div>
-      <h1 className="font-display text-4xl md:text-5xl">Find a Legal Professional</h1>
-      <p className="mt-3 text-sm text-muted-foreground">Connect with verified lawyers and legal experts. Arrange a consultation by call or chat.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#222222] pb-6">
+        <div>
+          <h1 className="font-display text-4xl md:text-5xl font-medium text-white">Find a Legal Professional</h1>
+          <p className="mt-2 text-sm text-[#999999]">
+            Connect with verified advocates enrolled with State Bar Councils across India. Arrange a privileged consultation by call or chat.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-1.5 text-xs text-emerald-400 self-start sm:self-auto">
+          <ShieldCheck className="h-4 w-4" />
+          <span>Bar Sanad Verified Advocates</span>
+        </div>
+      </div>
 
-      <div className="mt-10">
+      <div className="mt-8">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by specialisation or city"
-          className="w-full border border-foreground/80 bg-background px-5 py-4 text-sm placeholder:text-muted-foreground focus:outline-none"
+          placeholder="Search by advocate name, Bar Council, court, specialisation, or city..."
+          className="w-full border border-white/20 bg-[#111111] px-5 py-3.5 text-sm text-white placeholder:text-[#666666] focus:border-white focus:outline-none"
         />
         <div className="mt-3 flex flex-wrap gap-3">
           <select className={sel} value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area of law">
             <option value="">All areas of law</option>
-            {areas.map((a) => <option key={a}>{a}</option>)}
+            {areas.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
           <select className={sel} value={city} onChange={(e) => setCity(e.target.value)} aria-label="City">
             <option value="">All cities</option>
-            {cities.map((c) => <option key={c}>{c}</option>)}
+            {cities.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <select className={sel} value={type} onChange={(e) => setType(e.target.value)} aria-label="Consultation type">
-            <option value="">Any consultation type</option>
-            <option value="call">Call</option>
-            <option value="chat">Chat</option>
+            <option value="">Any consultation mode</option>
+            <option value="call">Offers Call</option>
+            <option value="chat">Offers Chat</option>
           </select>
         </div>
       </div>
 
-      {isLoading ? null : lawyers.length === 0 ? (
-        <div className="mt-10 border border-border bg-card p-8">
-          <p className="font-display text-2xl">No lawyers listed yet</p>
-          <p className="mt-2 text-sm text-muted-foreground">We're verifying our first legal professionals. Check back soon in an emergency, contact your nearest legal aid authority (NALSA helpline 15100).</p>
+      {isLoading ? (
+        <div className="mt-12 text-center text-sm text-[#777777]">Loading verified advocate directory...</div>
+      ) : lawyers.length === 0 ? (
+        <div className="mt-10 border border-[#2E2E2E] bg-[#141414] p-8 text-center space-y-3">
+          <Scale className="h-8 w-8 text-[#777777] mx-auto mb-2" />
+          <p className="font-display text-2xl text-white">No Verified Advocates Listed Yet</p>
+          <p className="text-sm text-[#888888] max-w-lg mx-auto">
+            Our verification desk authenticates advocate Sanads directly against State Bar Council rolls before granting public listing. If you are an advocate, verify your credentials via the Legal Professional Workspace.
+          </p>
         </div>
       ) : list.length === 0 ? (
-        <p className="mt-10 text-sm text-muted-foreground">No lawyers match these filters.</p>
+        <div className="mt-10 border border-[#2E2E2E] bg-[#141414] p-8 text-center space-y-2">
+          <p className="font-display text-xl text-white">No advocates match these filters</p>
+          <p className="text-xs text-[#888888]">Try resetting the city or specialisation filters above.</p>
+        </div>
       ) : (
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((l) => {
             const isLocked = Boolean(
               requested[l.id] ||
@@ -477,192 +429,191 @@ function Lawyers() {
                 className={`flex flex-col justify-between border p-6 transition-all relative ${
                   isLocked
                     ? "border-emerald-500/60 bg-emerald-950/10 shadow-sm"
-                    : "border-foreground/80 bg-card"
+                    : "border-white/15 bg-[#141414] hover:border-white/40"
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">✓ Verified by TRANA</p>
+                  <div className="flex items-center justify-between gap-2 border-b border-[#222222] pb-3 mb-3">
+                    <span className="inline-flex items-center gap-1.5 text-[0.65rem] uppercase tracking-[0.15em] text-emerald-400 font-semibold">
+                      <ShieldCheck className="h-3 w-3" />
+                      <span>Verified Sanad</span>
+                    </span>
+                    {l.bar_reg_no && (
+                      <span className="font-mono text-[10px] text-[#888888] bg-[#1A1A1A] px-2 py-0.5 border border-[#333333]">
+                        {l.bar_reg_no}
+                      </span>
+                    )}
                     {isLocked && (
                       <span className="flex items-center gap-1 text-[0.65rem] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded">
-                        <Lock className="h-3 w-3" /> Locked
+                        <Lock className="h-3 w-3" /> In Touch
                       </span>
                     )}
                   </div>
-                  <h2 className="mt-3 font-display text-2xl">{l.full_name}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{l.specialisation}</p>
-                  <p className="text-sm text-muted-foreground">{l.city}</p>
-                  <div className="mt-4 flex gap-4 text-sm">
-                    {l.offers_call && <span className="flex items-center gap-1.5"><Phone className="h-4 w-4" />Call</span>}
-                    {l.offers_chat && <span className="flex items-center gap-1.5"><MessageSquare className="h-4 w-4" />Chat</span>}
+
+                  <h2 className="font-display text-2xl font-medium text-white">{l.full_name}</h2>
+                  
+                  {l.state_bar_council && (
+                    <p className="text-xs text-[#888888] mt-0.5 flex items-center gap-1">
+                      <Award className="h-3 w-3 text-neutral-400 shrink-0" />
+                      <span>{l.state_bar_council}</span>
+                    </p>
+                  )}
+
+                  <p className="mt-3 text-sm text-neutral-200 font-medium">{l.specialisation}</p>
+                  
+                  {l.courts && (
+                    <p className="mt-1 text-xs text-[#888888]">
+                      Courts: <span className="text-neutral-300">{l.courts}</span>
+                    </p>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-between text-xs text-[#777777] border-t border-[#222222] pt-3">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-neutral-400" />
+                      <span>{l.city}, {l.state || "India"}</span>
+                    </span>
+                    {l.experience_years ? (
+                      <span className="text-[11px] text-neutral-400 font-mono">
+                        {l.experience_years}+ Yrs Practice
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 flex gap-4 text-xs text-[#888888]">
+                    {l.offers_call && <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-white" />Direct Call</span>}
+                    {l.offers_chat && <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5 text-white" />Confidential Chat</span>}
                   </div>
                 </div>
 
-                {isLocked ? (
-                  <div className="mt-6 flex flex-col gap-2">
-                    <div className="border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 py-2.5 px-3 text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 rounded cursor-not-allowed">
-                      <Lock className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Consultation Requested</span>
-                    </div>
+                <div className="mt-6 pt-4 border-t border-[#222222]">
+                  {isLocked ? (
                     <button
                       type="button"
                       onClick={() => handleOpenExistingChat(l)}
-                      className="border border-white/40 hover:border-white bg-[#1A1A1A] hover:bg-[#252525] text-white py-2 px-3 text-xs uppercase tracking-wider font-mono flex items-center justify-center gap-1.5 transition-colors"
+                      className="w-full bg-[#1A1A1A] border border-emerald-500/50 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-emerald-400 hover:bg-emerald-950/40 transition-colors flex items-center justify-center gap-2"
                     >
-                      <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Open Consultation Chat</span>
+                      <MessageSquare className="h-4 w-4" />
+                      <span>Open Consultation Channel</span>
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleInitiateRequest(l)}
-                    disabled={loadingLawyerId === l.id}
-                    className="btn-line mt-6 disabled:opacity-50"
-                  >
-                    {loadingLawyerId === l.id ? "Preparing Brief..." : "Request Consultation"}
-                  </button>
-                )}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleInitiateRequest(l)}
+                      disabled={loadingLawyerId === l.id}
+                      className="w-full bg-white py-3 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {loadingLawyerId === l.id ? (
+                        <span>Routing Request...</span>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-4 w-4" />
+                          <span>Request Consultation</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* CITIZEN CONSULTATION MODE SELECTION MODAL */}
+      {/* Consultation Mode Selection Modal */}
       {isModeModalOpen && consultingLawyer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-[#161616] border border-[#333333] p-6 shadow-2xl space-y-5">
-            <div className="flex items-start justify-between border-b border-[#282828] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md border border-[#333333] bg-[#141414] p-6 shadow-2xl relative">
+            <button
+              onClick={() => setIsModeModalOpen(false)}
+              className="absolute right-4 top-4 text-[#888888] hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-2 border-b border-[#252525] pb-4 mb-4">
+              <Scale className="h-5 w-5 text-white" />
               <div>
-                <span className="text-[0.65rem] uppercase tracking-widest text-[#888888] font-mono">
-                  CONSULTATION PREFERENCE
-                </span>
-                <h3 className="font-display text-2xl font-medium text-white mt-1">
-                  Choose Consultation Mode
-                </h3>
-                <p className="text-xs text-[#AAAAAA] mt-0.5">
-                  Connecting with {consultingLawyer.full_name}
-                </p>
+                <h3 className="font-display text-lg font-medium text-white">{consultingLawyer.full_name}</h3>
+                <p className="text-xs text-[#888888]">{consultingLawyer.bar_reg_no || consultingLawyer.specialisation}</p>
               </div>
-              <button
-                onClick={() => {
-                  setIsModeModalOpen(false);
-                  setConsultingLawyer(null);
-                }}
-                className="p-1 border border-[#333333] text-[#AAAAAA] hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-xs text-[#888888] uppercase tracking-wider font-mono block">
-                Select your preferred mode of consultation:
-              </label>
+            <p className="text-xs text-[#999999] mb-4">
+              Select your preferred consultation channel. All inquiries are encrypted and protected under advocate-client privilege.
+            </p>
 
-              {/* Option 1: Phone Call */}
-              <button
-                type="button"
-                disabled={!consultingLawyer.offers_call}
-                onClick={() => setSelectedMode("call")}
-                className={`w-full p-4 border text-left flex items-start gap-3 transition-colors ${
-                  selectedMode === "call"
-                    ? "border-white bg-[#222222] text-white"
-                    : consultingLawyer.offers_call
-                    ? "border-[#333333] bg-[#111111] text-[#AAAAAA] hover:text-white hover:border-[#555555]"
-                    : "border-[#222222] bg-[#0E0E0E] text-[#555555] cursor-not-allowed opacity-50"
-                }`}
-              >
-                <Phone className={`h-5 w-5 mt-0.5 ${selectedMode === "call" ? "text-sky-400" : "text-[#777777]"}`} />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white">Phone Consultation</span>
-                    {selectedMode === "call" && (
-                      <span className="text-[0.65rem] font-mono bg-sky-950 text-sky-400 px-1.5 py-0.5 border border-sky-800 rounded">
-                        Selected
-                      </span>
-                    )}
+            <div className="space-y-3 mb-6">
+              {consultingLawyer.offers_call && (
+                <label
+                  onClick={() => setSelectedMode("call")}
+                  className={`flex items-center justify-between p-3.5 border cursor-pointer transition-colors ${
+                    selectedMode === "call" ? "border-white bg-[#222222]" : "border-[#333333] bg-[#0E0E0E]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-white" />
+                    <div>
+                      <p className="text-sm font-medium text-white">Telephone Consultation</p>
+                      <p className="text-[11px] text-[#777777]">Direct briefing call with advocate</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#888888] mt-1">
-                    Direct phone consultation with advocate. Masked privacy relay.
-                  </p>
-                </div>
-              </button>
+                  <input type="radio" checked={selectedMode === "call"} onChange={() => {}} className="accent-white" />
+                </label>
+              )}
 
-              {/* Option 2: Secure In-App Chat */}
-              <button
-                type="button"
-                disabled={!consultingLawyer.offers_chat}
-                onClick={() => setSelectedMode("chat")}
-                className={`w-full p-4 border text-left flex items-start gap-3 transition-colors ${
-                  selectedMode === "chat"
-                    ? "border-white bg-[#222222] text-white"
-                    : consultingLawyer.offers_chat
-                    ? "border-[#333333] bg-[#111111] text-[#AAAAAA] hover:text-white hover:border-[#555555]"
-                    : "border-[#222222] bg-[#0E0E0E] text-[#555555] cursor-not-allowed opacity-50"
-                }`}
-              >
-                <MessageSquare className={`h-5 w-5 mt-0.5 ${selectedMode === "chat" ? "text-purple-400" : "text-[#777777]"}`} />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white">Secure In-App Chat</span>
-                    {selectedMode === "chat" && (
-                      <span className="text-[0.65rem] font-mono bg-purple-950 text-purple-400 px-1.5 py-0.5 border border-purple-800 rounded">
-                        Selected
-                      </span>
-                    )}
+              {consultingLawyer.offers_chat && (
+                <label
+                  onClick={() => setSelectedMode("chat")}
+                  className={`flex items-center justify-between p-3.5 border cursor-pointer transition-colors ${
+                    selectedMode === "chat" ? "border-white bg-[#222222]" : "border-[#333333] bg-[#0E0E0E]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="h-4 w-4 text-white" />
+                    <div>
+                      <p className="text-sm font-medium text-white">Confidential Masked Chat</p>
+                      <p className="text-[11px] text-[#777777]">Instant secure messaging channel</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#888888] mt-1">
-                    Direct confidential messaging with counsel. No personal contact details disclosed.
-                  </p>
-                </div>
-              </button>
+                  <input type="radio" checked={selectedMode === "chat"} onChange={() => {}} className="accent-white" />
+                </label>
+              )}
             </div>
 
-            <div className="bg-[#111111] border border-[#222222] p-3 text-[0.7rem] text-[#888888] flex items-center gap-2 font-mono">
-              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span>Strict Privacy: Only names and consultation mode are disclosed between parties.</span>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => {
-                  setIsModeModalOpen(false);
-                  setConsultingLawyer(null);
-                }}
-                className="border border-[#333333] px-4 py-2 text-xs uppercase tracking-wider text-[#AAAAAA] hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const l = consultingLawyer;
+                  const target = consultingLawyer;
                   const mode = selectedMode;
                   setIsModeModalOpen(false);
-                  setConsultingLawyer(null);
-                  request(l, mode);
+                  if (target) request(target, mode);
                 }}
-                className="bg-white text-black px-5 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors"
+                className="flex-1 bg-white py-3 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors"
               >
-                Proceed with Request
+                Confirm & Connect
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsModeModalOpen(false)}
+                className="border border-[#333333] px-4 py-3 text-xs uppercase tracking-[0.15em] text-[#888888] hover:text-white"
+              >
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* PRIVATE MASKED CONSULTATION CHAT MODAL */}
+      {/* Private Masked Consultation Chat Modal */}
       {activeChat && (
         <ConsultationChatModal
-          isOpen={Boolean(activeChat)}
+          isOpen={true}
           onClose={() => setActiveChat(null)}
           consultationId={activeChat.consultationId}
-          consultationType={activeChat.consultType}
-          currentParty="client"
-          clientName={activeChat.clientName}
           lawyerName={activeChat.lawyerName}
+          clientName={activeChat.clientName}
+          consultType={activeChat.consultType}
         />
       )}
     </div>
