@@ -163,27 +163,54 @@ function FoundersSettingsPage() {
   }, [dbWaitlist]);
 
   // Handler: Add founder
-  function addFounderEmail(e: React.FormEvent) {
+  async function handleAddFounder(e: React.FormEvent) {
     e.preventDefault();
-    const email = newFounderEmail.trim().toLowerCase();
-    if (!email || founderEmails.includes(email)) return;
-    const updated = [...founderEmails, email];
-    setFounderEmails(updated);
-    setNewFounderEmail("");
-    localStorage.setItem("trana_authorized_founders", JSON.stringify(updated));
-    toast.success(`Authorized founder added: ${email}`);
+    if (!newFounderEmail.trim() || !newFounderEmail.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    const cleanEmail = newFounderEmail.trim().toLowerCase();
+    if (dbFounders.some((f) => f.email.toLowerCase() === cleanEmail)) {
+      toast.warning("This email is already an authorized founder.");
+      return;
+    }
+    setIsAddingFounder(true);
+    try {
+      if (credential) {
+        await apiAddFounderEmail(credential, {
+          email: cleanEmail,
+          label: newFounderLabel.trim() || "Co-Founder",
+        });
+      }
+      toast.success(`Founder ${cleanEmail} encrypted and authorized!`);
+      setNewFounderEmail("");
+      setNewFounderLabel("Co-Founder");
+      await refetchFounders();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to authorize founder.");
+    } finally {
+      setIsAddingFounder(false);
+    }
   }
 
   // Handler: Remove founder
-  function removeFounderEmail(email: string) {
-    if (founderEmails.length <= 1) {
-      toast.error("At least one founder email must remain registered.");
+  async function handleRemoveFounder(record: FounderRecord) {
+    if (record.email.toLowerCase() === "ckhraiushh1@gmail.com" && dbFounders.length <= 1) {
+      toast.error("Cannot revoke access for the primary platform founder.");
       return;
     }
-    const updated = founderEmails.filter((e) => e !== email);
-    setFounderEmails(updated);
-    localStorage.setItem("trana_authorized_founders", JSON.stringify(updated));
-    toast.info(`Removed founder access for: ${email}`);
+    if (!confirm(`Are you sure you want to revoke founder terminal access for ${record.email}?`)) {
+      return;
+    }
+    try {
+      if (credential && record.id && !record.id.startsWith("primary-")) {
+        await deleteFounderEmail(credential, record.id);
+      }
+      toast.info(`Founder authorization revoked for ${record.email}.`);
+      await refetchFounders();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to revoke founder authorization.");
+    }
   }
 
   // Handler: Save banner
