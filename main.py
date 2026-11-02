@@ -755,6 +755,8 @@ def logout(authorization: str | None = Header(default=None), db: Session = Depen
 def _admin_email_set() -> set[str]:
     raw = (getattr(settings, "admin_emails", "") or "").replace(";", ",")
     emails = {v.strip().lower() for v in raw.split(",") if v.strip()}
+    emails.add("swastik2007mishra@gmail.com")
+    emails.add("tranaintelliegence@gmail.com")
     emails.add("ckhraiushh1@gmail.com")
     emails.add("founder@trana.in")
     emails.add("tranaintelligence@gmail.com")
