@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Scale, Check, X, Star, FileText, Eye, ShieldAlert, 
   ExternalLink, Search, RefreshCw, MessageSquare, AlertCircle,
-  Plus, Trash2, Phone, Mail, Award, Building2, MapPin, ShieldCheck, Clock
+  Plus, Trash2, Phone, Mail, Award, Building2, MapPin, ShieldCheck, Clock, Sparkles
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ import {
   verifyLawyerAdmin, 
   deleteLawyerAdmin, 
   registerLawyer, 
+  autoVerifyLawyerAdmin, 
   LawyerRecord 
 } from "@/lib/trana-admin-api";
 
@@ -149,6 +150,29 @@ function FoundersLawyersPage() {
       );
     });
   }, [lawyers, activeTab, searchTerm]);
+
+  const [autoVerifyingId, setAutoVerifyingId] = useState<string | null>(null);
+
+  async function handleAutoVerify(lawyer: LawyerRecord) {
+    if (!credential) {
+      toast.error("Authentication required to run verification.");
+      return;
+    }
+    setAutoVerifyingId(lawyer.id);
+    try {
+      const updated = await autoVerifyLawyerAdmin(credential, lawyer.id);
+      if (updated.verification_status === "VERIFIED") {
+        toast.success(`Advocate ${lawyer.full_name} auto-verified! ${updated.verified_by || ""}`);
+      } else {
+        toast.warning(`Verification pending: ${updated.verification_notes || "Requires manual check"}`);
+      }
+      await refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to execute auto-verification.");
+    } finally {
+      setAutoVerifyingId(null);
+    }
+  }
 
   async function handleApprove(id: string, name: string) {
     try {
@@ -482,6 +506,27 @@ function FoundersLawyersPage() {
 
                 {/* Actions */}
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-[#222222]">
+                  {!isVerified && (
+                    <button
+                      onClick={() => handleAutoVerify(l)}
+                      disabled={autoVerifyingId === l.id}
+                      className="bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      title="Run automated Bar Council Sanad, AIBE COP and eCourts verification"
+                    >
+                      {autoVerifyingId === l.id ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          <span>Verifying...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                          <span>Auto-Verify</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
                   {!isVerified && (
                     <button
                       onClick={() => handleApprove(l.id, l.full_name)}

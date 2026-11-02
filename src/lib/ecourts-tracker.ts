@@ -282,7 +282,25 @@ export function formatCnr(cleanCnr: string): string {
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem("trana_session_token");
+    const direct = localStorage.getItem("trana_session_token");
+    if (direct) return direct;
+
+    // Scan for Supabase session auth token if logged in via OAuth
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("sb-") || key.includes("supabase")) && key.endsWith("-auth-token")) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          try {
+            const parsed = JSON.parse(item);
+            if (parsed?.access_token) return parsed.access_token;
+          } catch {
+            // ignore JSON parse error
+          }
+        }
+      }
+    }
+    return null;
   } catch {
     return null;
   }

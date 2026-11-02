@@ -3305,12 +3305,12 @@ def _lawyer_to_dict(row: db_models.Lawyer) -> dict:
 
 
 @app.post("/api/lawyers/register", response_model=schemas.LawyerResponse, status_code=201, tags=["Lawyers"])
-def register_lawyer(
+async def register_lawyer(
     req: schemas.LawyerRegisterRequest,
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    """Register an advocate with Bar Council credentials for professional verification."""
+    """Register an advocate with Bar Council credentials and run automated multi-source verification."""
     clean_bar = req.bar_reg_no.strip().upper()
     existing = db.query(db_models.Lawyer).filter(
         (db_models.Lawyer.bar_reg_no == clean_bar) |
@@ -3343,11 +3343,29 @@ def register_lawyer(
     admin_emails = _admin_email_set()
     is_admin = req.email.strip().lower() in admin_emails
 
-    # Automatic verification for platform founders, otherwise queue for verification review
-    verification_status = "VERIFIED" if is_admin else "PENDING_VERIFICATION"
-    approved = True if is_admin else False
-    verified_at = datetime.utcnow() if is_admin else None
-    verified_by = "Platform Auto-Verify (Founder)" if is_admin else None
+    # Run automated verification engine across online gateways, eCourts records & statutory rules
+    from services.lawyer_verification_service import execute_automated_advocate_verification
+    auto_ver = await execute_automated_advocate_verification(
+        bar_reg_no=clean_bar,
+        full_name=req.full_name,
+        state_bar_council=req.state_bar_council,
+        year_of_enrollment=req.year_of_enrollment,
+        aibe_cop_number=req.aibe_cop_number,
+        db=db,
+    )
+
+    if is_admin or auto_ver.get("verified"):
+        verification_status = "VERIFIED"
+        approved = True
+        verified_at = datetime.utcnow()
+        verified_by = "Platform Auto-Verify (Founder)" if is_admin else f"Auto-Verified via {auto_ver.get('method', 'Gateway')}"
+        verification_notes = auto_ver.get("notes", "Statutory Bar Council verification successful.")
+    else:
+        verification_status = "PENDING_VERIFICATION"
+        approved = False
+        verified_at = None
+        verified_by = None
+        verification_notes = auto_ver.get("notes", "Queued for Bar Council review")
 
     courts_str = json.dumps(req.courts) if req.courts else json.dumps(["Supreme Court of India", "Delhi High Court"])
 
@@ -3559,6 +3577,62 @@ def verify_lawyer_admin(
 
     logger.info("Admin %s updated advocate %s (%s) -> %s", admin_email, lawyer.full_name, lawyer.id, lawyer.verification_status)
     return _lawyer_to_dict(lawyer)
+
+
+@app.post("/api/admin/lawyers/{lawyer_id}/auto-verify", response_model=schemas.LawyerResponse, tags=["Admin Lawyers"])
+async def auto_verify_lawyer_admin(
+    lawyer_id: str,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Execute live automated verification pipeline on an existing advocate application."""
+    lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.id == lawyer_id).first()
+    if not lawyer:
+        raise HTTPException(status_code=404, detail="Advocate not found.")
+
+    from services.lawyer_verification_service import execute_automated_advocate_verification
+    auto_ver = await execute_automated_advocate_verification(
+        bar_reg_no=lawyer.bar_reg_no,
+        full_name=lawyer.full_name,
+        state_bar_council=lawyer.state_bar_council or "",
+        year_of_enrollment=lawyer.year_of_enrollment,
+        aibe_cop_number=lawyer.aibe_cop_number,
+        db=db,
+    )
+
+    if auto_ver.get("verified"):
+        lawyer.approved = True
+        lawyer.verification_status = "VERIFIED"
+        lawyer.verified_at = datetime.utcnow()
+        lawyer.verified_by = f"Auto-Verified ({auto_ver.get('method', 'Gateway')})"
+        lawyer.verification_notes = auto_ver.get("notes", "Statutory Bar Council verification successful.")
+    else:
+        lawyer.verification_notes = auto_ver.get("notes", "Queued for Bar Council review")
+
+    lawyer.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(lawyer)
+    logger.info("Admin %s ran auto-verification on %s -> %s (verified=%s)", admin_email, lawyer.full_name, lawyer.verification_status, auto_ver.get("verified"))
+    return _lawyer_to_dict(lawyer)
+
+
+@app.post("/api/admin/lawyers/test-verification", tags=["Admin Lawyers"])
+async def test_lawyer_verification(
+    req: schemas.LawyerRegisterRequest,
+    admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Run real-time automated advocate verification test across online gateways."""
+    from services.lawyer_verification_service import execute_automated_advocate_verification
+    res = await execute_automated_advocate_verification(
+        bar_reg_no=req.bar_reg_no,
+        full_name=req.full_name,
+        state_bar_council=req.state_bar_council,
+        year_of_enrollment=req.year_of_enrollment,
+        aibe_cop_number=req.aibe_cop_number,
+        db=db,
+    )
+    return res
 
 
 @app.delete("/api/admin/lawyers/{lawyer_id}", tags=["Admin Lawyers"])

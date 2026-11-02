@@ -593,3 +593,26 @@ export const deleteLawyerAdmin = (
   request<{ ok: boolean; message: string }>(credential, `/api/admin/lawyers/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+
+export const testLawyerVerification = (
+  credential: string,
+  payload: {
+    bar_reg_no: string;
+    full_name: string;
+    state_bar_council?: string;
+    year_of_enrollment?: number;
+    aibe_cop_number?: string;
+  }
+): Promise<any> =>
+  request<any>(credential, '/api/admin/lawyers/test-verification', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const autoVerifyLawyerAdmin = (
+  credential: string,
+  id: string
+): Promise<LawyerRecord> =>
+  request<LawyerRecord>(credential, `/api/admin/lawyers/${encodeURIComponent(id)}/auto-verify`, {
+    method: 'POST',
+  });

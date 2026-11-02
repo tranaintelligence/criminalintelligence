@@ -17,6 +17,7 @@ import {
   Download,
   Scale,
   Landmark,
+  Award,
   ExternalLink,
   Search,
   Bell,
@@ -44,12 +45,14 @@ import {
   deleteCourtKey,
   getCourtAPIStatus,
   testCourtCnrLookup,
+  testLawyerVerification,
   getNotificationProviders,
   createNotificationProvider,
   updateNotificationProvider,
   deleteNotificationProvider,
   getNotificationStatus,
 } from '@/lib/trana-admin-api';
+import { ALL_STATE_BAR_COUNCILS } from '@/lib/courts-data';
 import type { AdminKey, AdminUsageRow, UsageBucket, AdminIP, CourtAPIKey, CourtAPIStatus, NotificationProvider, NotificationStatus } from '@/lib/trana-admin-api';
 import { API_URL } from '@/lib/trana-backend';
 
@@ -278,6 +281,15 @@ export function AdminView() {
   const [testCnrInput, setTestCnrInput] = useState('');
   const [testCnrResult, setTestCnrResult] = useState<any | null>(null);
   const [isTestingCnr, setIsTestingCnr] = useState(false);
+
+  // Advocate Verification Test State
+  const [testAdvName, setTestAdvName] = useState('Adv. Krish Chauhan');
+  const [testAdvBarNo, setTestAdvBarNo] = useState('D/2104/2021');
+  const [testAdvCouncil, setTestAdvCouncil] = useState('Bar Council of Delhi (BCD)');
+  const [testAdvYear, setTestAdvYear] = useState('2021');
+  const [testAdvCop, setTestAdvCop] = useState('COP/2021/08912');
+  const [isTestingAdv, setIsTestingAdv] = useState(false);
+  const [testAdvResult, setTestAdvResult] = useState<any | null>(null);
   const [ips, setIps] = useState<AdminIP[]>([]);
   const [clientIp, setClientIp] = useState('');
   const [ipAddressInput, setIpAddressInput] = useState('');
@@ -553,6 +565,31 @@ export function AdminView() {
       setError(err.message || 'Failed to delete court key');
     } finally {
       setDeletingCourtKeyId(null);
+    }
+  };
+
+  const handleTestAdvocateVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credential) return;
+    if (!testAdvBarNo.trim() || !testAdvName.trim()) {
+      alert('Please enter advocate full name and Bar registration number.');
+      return;
+    }
+    setIsTestingAdv(true);
+    setTestAdvResult(null);
+    try {
+      const data = await testLawyerVerification(credential, {
+        bar_reg_no: testAdvBarNo.trim(),
+        full_name: testAdvName.trim(),
+        state_bar_council: testAdvCouncil.trim() || undefined,
+        year_of_enrollment: Number(testAdvYear) || undefined,
+        aibe_cop_number: testAdvCop.trim() || undefined,
+      });
+      setTestAdvResult(data);
+    } catch (err: any) {
+      setTestAdvResult({ error: err.message || 'Failed to run automated verification', verified: false });
+    } finally {
+      setIsTestingAdv(false);
     }
   };
 
@@ -1634,6 +1671,7 @@ export function AdminView() {
                     className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2.5 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
                   >
                     <option value="surepass">Surepass Court Case Search (Recommended)</option>
+                    <option value="attestr">Attestr Advocate & Bar Verification API (Recommended for Lawyers)</option>
                     <option value="ecourtsindia">eCourtsIndia Enterprise REST API</option>
                     <option value="indiankanoon">Indian Kanoon Search API</option>
                     <option value="claw">Claw Legaltech / Vakeel360 API</option>
@@ -1815,6 +1853,129 @@ export function AdminView() {
                     </div>
                     <pre className="text-[11px] text-neutral-300 overflow-x-auto whitespace-pre-wrap">
                       {JSON.stringify(testCnrResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              {/* Live Advocate Sanad Verification & Diagnostics */}
+              <div className="p-6 rounded-2xl bg-[#111111] border border-[#222222] space-y-4 font-sans">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-amber-300">Statutory Advocate Diagnostics</p>
+                    <h3 className="text-xl font-serif text-neutral-100 mt-0.5">Test Live Advocate Verification</h3>
+                    <p className="text-xs text-neutral-400 mt-1 font-sans">
+                      Validate any Indian advocate against statutory Bar Council Sanad rules, AIBE COP formatting, Attestr BGV API, and active eCourts appearances.
+                    </p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] text-amber-300 shrink-0">
+                    <Award size={20} />
+                  </div>
+                </div>
+
+                <form onSubmit={handleTestAdvocateVerification} className="space-y-3 font-sans">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                        Advocate Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={testAdvName}
+                        onChange={(e) => setTestAdvName(e.target.value)}
+                        placeholder="e.g. Adv. Krish Chauhan"
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-sans"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                        Bar Sanad / Reg No. (STATE/NO/YEAR)
+                      </label>
+                      <input
+                        type="text"
+                        value={testAdvBarNo}
+                        onChange={(e) => setTestAdvBarNo(e.target.value.toUpperCase())}
+                        placeholder="e.g. D/2104/2021 or MAH/1234/2018"
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3.5 py-2 text-xs text-neutral-100 font-mono uppercase focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                        State Bar Council
+                      </label>
+                      <select
+                        value={testAdvCouncil}
+                        onChange={(e) => setTestAdvCouncil(e.target.value)}
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-2.5 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400 font-sans"
+                      >
+                        {ALL_STATE_BAR_COUNCILS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                        Enrollment Year
+                      </label>
+                      <input
+                        type="number"
+                        value={testAdvYear}
+                        onChange={(e) => setTestAdvYear(e.target.value)}
+                        placeholder="e.g. 2021"
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                        AIBE COP Number
+                      </label>
+                      <input
+                        type="text"
+                        value={testAdvCop}
+                        onChange={(e) => setTestAdvCop(e.target.value)}
+                        placeholder="e.g. COP/2021/08912"
+                        className="w-full bg-[#161616] border border-[#2c2c2c] rounded-xl px-3 py-2 text-xs text-neutral-100 font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isTestingAdv || !testAdvBarNo.trim() || !testAdvName.trim()}
+                    className="w-full px-5 py-2.5 bg-amber-400 text-black text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-amber-300 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 whitespace-nowrap font-sans"
+                  >
+                    <Award size={14} />
+                    <span>{isTestingAdv ? 'Executing Verification...' : 'Run Live Auto-Verification Diagnostic'}</span>
+                  </button>
+                </form>
+
+                {testAdvResult && (
+                  <div className="mt-3 p-4 bg-[#141414] border border-[#282828] rounded-xl font-mono text-xs space-y-2 overflow-x-auto">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#222222]">
+                      <span className="text-neutral-400">Resolution Status:</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium ${
+                        testAdvResult.error || testAdvResult.status === 'REJECTED'
+                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                          : testAdvResult.verified
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          : 'bg-amber-950 text-amber-300 border border-amber-800'
+                      }`}>
+                        {testAdvResult.error
+                          ? 'VERIFICATION ERROR'
+                          : testAdvResult.verified
+                          ? `VERIFIED (SCORE: ${testAdvResult.score})`
+                          : 'PENDING VERIFICATION'}
+                      </span>
+                    </div>
+                    <pre className="text-[11px] text-neutral-300 overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(testAdvResult, null, 2)}
                     </pre>
                   </div>
                 )}
