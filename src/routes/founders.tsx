@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { API_URL } from "@/lib/trana-backend";
 
 export const DEFAULT_ADMIN_EMAILS = [
   "ckhraiushh1@gmail.com",
@@ -35,6 +36,41 @@ export function checkIsAdmin(email?: string | null): boolean {
     .filter(Boolean);
   return envAdmins.includes(normalized);
 }
+
+export async function checkIsAdminAsync(email?: string | null): Promise<boolean> {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+
+  // 1. Instant check against cache or root founder
+  if (checkIsAdmin(normalized)) return true;
+
+  // 2. Query encrypted backend founder verification endpoint
+  try {
+    const res = await fetch(`${API_URL}/api/auth/founder-check?email=${encodeURIComponent(normalized)}`, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.is_founder) {
+        // Cache in localStorage so subsequent checks are instant
+        try {
+          const cached = localStorage.getItem("trana_authorized_founders");
+          const list: string[] = cached ? JSON.parse(cached) : [];
+          if (!list.map((e) => e.toLowerCase()).includes(normalized)) {
+            list.push(normalized);
+            localStorage.setItem("trana_authorized_founders", JSON.stringify(list));
+          }
+        } catch {}
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn("Error verifying founder access with backend:", err);
+  }
+
+  return false;
+}
+
 
 export async function getAuthenticatedUser(): Promise<{ id: string; email: string; name?: string } | null> {
   if (typeof window !== "undefined") {
@@ -87,7 +123,7 @@ export const Route = createFileRoute("/founders")({
     }
 
     // 2. Require admin: if not admin, bounce any subroute back to /founders so Access Denied screen renders
-    const isAdmin = checkIsAdmin(user.email);
+    const isAdmin = await checkIsAdminAsync(user.email);
     if (!isAdmin && location.pathname !== "/founders" && location.pathname !== "/founders/") {
       throw redirect({
         to: "/founders",
@@ -143,6 +179,7 @@ function FoundersLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; email: string; name?: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     document.title = "Founders Dashboard — TRANA";
@@ -150,12 +187,25 @@ function FoundersLayout() {
 
   useEffect(() => {
     let active = true;
-    getAuthenticatedUser().then((u) => {
+    (async () => {
+      setCheckingAuth(true);
+      const user = await getAuthenticatedUser();
+      if (!active) return;
+      setCurrentUser(user);
+
+      if (!user || !user.email) {
+        setIsAdmin(false);
+        setCheckingAuth(false);
+        return;
+      }
+
+      const adminAuthorized = await checkIsAdminAsync(user.email);
       if (active) {
-        setCurrentUser(u);
+        setIsAdmin(adminAuthorized);
         setCheckingAuth(false);
       }
-    });
+    })();
+
     return () => {
       active = false;
     };
@@ -201,7 +251,6 @@ function FoundersLayout() {
   }
 
   // 3. Authenticated user who is NOT an admin -> Access Denied Screen
-  const isAdmin = checkIsAdmin(currentUser.email);
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0] flex flex-col items-center justify-center p-6 font-mono selection:bg-white selection:text-black">

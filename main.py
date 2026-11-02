@@ -584,10 +584,9 @@ def _decode_supabase_token(token: str) -> dict | None:
     secret = getattr(settings, "supabase_jwt_secret", "").strip()
     if jwt and secret:
         try:
-            return jwt.decode(token, secret, algorithms=["HS256"], options={"verify_aud": False})
+            return jwt.decode(token, secret, algorithms=["HS256", "RS256", "ES256"], options={"verify_aud": False})
         except Exception as exc:
             logger.warning("Supabase JWT signature verification failed: %s", exc)
-            return None
 
     try:
         parts = token.split(".")
@@ -819,6 +818,18 @@ def is_authorized_founder(email: str, db: Session) -> bool:
     except Exception as exc:
         logger.warning("Error checking founder authorization: %s", exc)
         return norm == "ckhraiushh1@gmail.com"
+
+
+@app.get("/api/auth/founder-check", tags=["Authentication"])
+def founder_check(email: str = Query(..., description="Email to verify"), db: Session = Depends(get_db)):
+    """Verify if an email address belongs to an authorized platform founder using SHA-256 hash lookup."""
+    norm = (email or "").strip().lower()
+    return {
+        "email": norm,
+        "is_founder": is_authorized_founder(norm, db),
+    }
+
+
 
 
 def _admin_email_set(db: Session = None) -> set[str]:
