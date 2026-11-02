@@ -68,7 +68,7 @@ function FoundersSettingsPage() {
         return [{
           id: "primary-01",
           email: "ckhraiushh1@gmail.com",
-          label: "Primary Founder",
+          label: "Founder",
           added_by: "System Genesis",
           is_active: true,
           created_at: new Date().toISOString(),
@@ -89,7 +89,7 @@ function FoundersSettingsPage() {
       return [{
         id: "primary-01",
         email: "ckhraiushh1@gmail.com",
-        label: "Primary Founder",
+        label: "Founder",
         added_by: "System Genesis",
         is_active: true,
         created_at: new Date().toISOString(),
@@ -196,7 +196,7 @@ function FoundersSettingsPage() {
   // Handler: Remove founder
   async function handleRemoveFounder(record: FounderRecord) {
     if (record.email.toLowerCase() === "ckhraiushh1@gmail.com" && dbFounders.length <= 1) {
-      toast.error("Cannot revoke access for the primary platform founder.");
+      toast.error("Cannot revoke access for the sole platform founder.");
       return;
     }
     if (!confirm(`Are you sure you want to revoke founder terminal access for ${record.email}?`)) {
@@ -300,13 +300,8 @@ function FoundersSettingsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-white font-mono text-xs">{founder.email}</span>
-                        {isPrimary && (
-                          <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-600/40">
-                            Primary Founder
-                          </span>
-                        )}
                         <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-[#181818] text-neutral-400 border border-[#2a2a2a]">
-                          {founder.label || "Founder"}
+                          {founder.label === "Primary Founder" ? "Founder" : (founder.label || "Founder")}
                         </span>
                       </div>
                       <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
@@ -319,7 +314,7 @@ function FoundersSettingsPage() {
                     onClick={() => handleRemoveFounder(founder)}
                     disabled={isPrimary && dbFounders.length <= 1}
                     className="text-red-400 hover:text-red-300 p-1.5 border border-red-500/20 hover:border-red-500/50 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                    title={isPrimary && dbFounders.length <= 1 ? "Cannot delete sole primary founder" : "Revoke founder access"}
+                    title={isPrimary && dbFounders.length <= 1 ? "Cannot delete sole founder" : "Revoke founder access"}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

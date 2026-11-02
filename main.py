@@ -353,6 +353,7 @@ def _migrate_db_schema():
             """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_founder_emails_email_hash ON founder_emails(email_hash);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_founder_emails_is_active ON founder_emails(is_active);"))
+            conn.execute(text("UPDATE founder_emails SET label = 'Founder' WHERE label = 'Primary Founder';"))
             conn.commit()
 
         # Seed initial primary founder ckhraiushh1@gmail.com if table is empty
@@ -368,7 +369,7 @@ def _migrate_db_schema():
                     founder_row = db_models.FounderEmail(
                         encrypted_email=enc,
                         email_hash=h,
-                        label="Primary Founder",
+                        label="Founder",
                         added_by="System Genesis",
                         is_active=True,
                     )
