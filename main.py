@@ -354,6 +354,32 @@ def _migrate_db_schema():
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_founder_emails_email_hash ON founder_emails(email_hash);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_founder_emails_is_active ON founder_emails(is_active);"))
             conn.execute(text("UPDATE founder_emails SET label = 'Founder' WHERE label = 'Primary Founder';"))
+            # Ensure Row Level Security (RLS) is enabled on all backend tables in the public schema
+            # to prevent unauthorized access via Supabase PostgREST API (resolves rls_disabled_in_public
+            # and sensitive_columns_exposed security advisor alerts).
+            backend_tables = [
+                "allowed_ips",
+                "auth_sessions",
+                "chat_attachments",
+                "chat_messages",
+                "chat_sessions",
+                "court_api_keys",
+                "founder_emails",
+                "gemini_api_key_usage",
+                "gemini_api_keys",
+                "notification_providers",
+                "provider_api_key_usage",
+                "provider_api_keys",
+                "tracked_cases",
+                "users",
+            ]
+            for tbl in backend_tables:
+                try:
+                    conn.execute(text(f"ALTER TABLE IF EXISTS public.{tbl} ENABLE ROW LEVEL SECURITY;"))
+                    conn.execute(text(f"REVOKE ALL ON TABLE public.{tbl} FROM anon, authenticated;"))
+                except Exception as rls_err:
+                    logger.debug("Table %s RLS notice: %s", tbl, rls_err)
+
             conn.commit()
 
         # Seed initial founder ckhraiushh1@gmail.com if not already present
