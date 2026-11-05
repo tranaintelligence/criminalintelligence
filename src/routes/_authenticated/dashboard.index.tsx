@@ -59,7 +59,7 @@ const cards = [
   {
     title: "Complaint Analyser",
     badge: "Document & Case",
-    body: "Describe what happened or upload a legal document. Get a plain-language explanation of your rights and next steps.",
+    body: "Describe what happened or upload the FIR/complaint. Get a plain-language explanation of your rights and next steps.",
     cta: "Get Started",
     to: "/dashboard/analyse",
   },

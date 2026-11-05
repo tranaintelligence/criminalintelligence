@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/analyse")({
   head: () => ({
     meta: [
       { title: "Citizens Dashboard — TRANA" },
-      { name: "description", content: "Describe what happened or upload a document and understand your rights and next steps." },
+      { name: "description", content: "Describe what happened or upload the FIR/complaint and understand your rights and next steps." },
       { property: "og:title", content: "Citizens Dashboard — TRANA" },
       { property: "og:description", content: "Let us understand your situation in plain language." },
     ],
@@ -69,7 +69,7 @@ function Analyse() {
           Let Us Understand Your Situation
         </h1>
         <p className="mt-3.5 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          Describe what happened or upload a document. TRANA will help you understand it and connect you to a lawyer if needed.
+          Describe what happened or upload the FIR/complaint. TRANA will help you understand it and connect you to a lawyer if needed.
         </p>
       </div>
 
