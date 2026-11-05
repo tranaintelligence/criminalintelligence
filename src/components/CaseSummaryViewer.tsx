@@ -88,7 +88,8 @@ export function CaseSummaryContent({ content, className = "" }: CaseSummaryViewe
     // Check for title header lines e.g. "CASE SUMMARY (TRANA AI FIRST-AID)"
     if (
       trimmed.toUpperCase().startsWith("CASE SUMMARY") ||
-      trimmed.toUpperCase().startsWith("FIR ANALYSER")
+      trimmed.toUpperCase().startsWith("FIR ANALYSER") ||
+      trimmed.toUpperCase().startsWith("COMPLAINT ANALYSER")
     ) {
       flushBullets(`title-${index}`);
       flushMeta();

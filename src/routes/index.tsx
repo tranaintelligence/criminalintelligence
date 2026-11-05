@@ -151,7 +151,7 @@ function Index() {
             <p className="mt-4 md:mt-6 text-base md:text-lg font-light text-ink-muted">Powerful features available now to make legal help faster and smarter.</p></div>
           <div className="mt-8 md:mt-16 grid gap-4 md:gap-6 md:grid-cols-2">
             {[
-              ["Active Tool", "FIR Analyser", "Describe or upload an FIR. Our AI will identify the sections invoked, explain what they mean, check bail eligibility, and suggest next steps in plain language.", "/dashboard/analyse", "Launch FIR Analyser →"],
+              ["Active Tool", "Complaint Analyser", "Describe or upload an FIR or complaint. Our AI will identify the sections invoked, explain what they mean, check bail eligibility, and suggest next steps in plain language.", "/dashboard/analyse", "Launch Complaint Analyser →"],
               ["Active Tool", "Legal Information Assistant", "A chat assistant that answers your legal questions using verified Indian law and always guides you toward a qualified lawyer when needed.", "/dashboard/chat", "Start Legal Chat →"],
             ].map(([badge, t, b, linkTo, linkText]) => (
               <div key={t} className="reveal border border-paper-border bg-paper p-5 md:p-10 flex flex-col justify-between">

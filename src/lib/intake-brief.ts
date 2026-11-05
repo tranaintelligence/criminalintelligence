@@ -137,7 +137,7 @@ ${rights.length > 0 ? `3. Constitutional & Statutory Safeguards\n${rights.map((r
     const matterType = analysisRecord.is_criminal ? "Criminal FIR & Offence Defence" : "Civil / Legal Rights Matter";
     const sections = Array.isArray(res.sections) ? res.sections.map((s: any) => `${s.code}: ${s.explanation}`) : [];
     const sectionsSummary = Array.isArray(res.sections) && res.sections.length > 0 ? res.sections.map((s: any) => s.code).join(", ") : "Statutes identified in situation analysis";
-    const facts = analysisRecord.situation || "Citizen analysed situation via FIR Analyser.";
+    const facts = analysisRecord.situation || "Citizen analysed situation via Complaint Analyser.";
     const analysis = res.meaning || "Situation analysed by TRANA statutory model.";
     const bailStatus = res.bail?.status ? `${res.bail.status.toUpperCase()} — ${res.bail.summary || ""}` : "Not applicable";
     const rights = Array.isArray(res.rights) ? res.rights : [];
@@ -145,7 +145,7 @@ ${rights.length > 0 ? `3. Constitutional & Statutory Safeguards\n${rights.map((r
 
     const summary = facts.length > 180 ? `${facts.slice(0, 180)}...` : facts;
 
-    const fullBriefMarkdown = `CASE SUMMARY (TRANA FIR ANALYSER)
+    const fullBriefMarkdown = `CASE SUMMARY (TRANA COMPLAINT ANALYSER)
 Matter: ${matterType}
 Client: ${clientName} (${userEmail || "Anonymous"}) • Phone: ${clientPhone} • City: ${clientCity}
 Target Counsel: ${lawyerName}

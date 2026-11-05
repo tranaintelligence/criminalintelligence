@@ -57,7 +57,7 @@ const cards = [
     to: "/dashboard/chat",
   },
   {
-    title: "FIR Analyser",
+    title: "Complaint Analyser",
     badge: "Document & Case",
     body: "Describe what happened or upload a legal document. Get a plain-language explanation of your rights and next steps.",
     cta: "Get Started",

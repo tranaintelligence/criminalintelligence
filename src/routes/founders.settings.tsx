@@ -427,7 +427,7 @@ function FoundersSettingsPage() {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          {/* Toggle: FIR Analyser */}
+          {/* Toggle: Complaint Analyser */}
           <div
             onClick={() => toggleFlag("firAnalyser")}
             className={`border p-3.5 flex items-center justify-between cursor-pointer transition-colors ${
@@ -435,7 +435,7 @@ function FoundersSettingsPage() {
             }`}
           >
             <div>
-              <span className="font-semibold text-white block">FIR Analyser</span>
+              <span className="font-semibold text-white block">Complaint Analyser</span>
               <span className="text-[0.65rem] text-[#777777]">AI statutory situation decoding</span>
             </div>
             <span
