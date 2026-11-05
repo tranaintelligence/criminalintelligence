@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { StatutoryDisclaimerModal } from "@/components/StatutoryDisclaimerModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -39,9 +40,16 @@ function Index() {
     return () => io.disconnect();
   }, []);
   const [modalOpen, setModalOpen] = useState(false);
+  const [disclaimerModalOpen, setDisclaimerModalOpen] = useState(false);
 
   return (
     <div className="bg-background text-foreground border-l border-r border-black min-h-screen">
+      {/* Mandatory Bar Council Statutory Disclaimer & Volition Acknowledgement Modal */}
+      <StatutoryDisclaimerModal
+        forceOpen={disclaimerModalOpen}
+        onClose={() => setDisclaimerModalOpen(false)}
+      />
+
       <nav className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 md:px-6 py-3 md:py-4">
           <a href="#top" className="font-display text-xl md:text-2xl font-semibold tracking-[0.25em]">TRANA</a>
@@ -260,7 +268,7 @@ function Index() {
               <p className="mt-1 md:mt-2 font-display italic text-muted-foreground">त्राणा — Protection.</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground md:text-sm">
-              {["For Citizens", "For Lawyers", "Legal Research", "About", "Privacy Policy", "Contact", "Team Login"].map((l) => {
+              {["For Citizens", "For Lawyers", "Legal Research", "About", "Privacy Policy", "Contact", "Bar Council Disclaimer", "Team Login"].map((l) => {
                 if (l === "For Citizens") {
                   return <Link key={l} to="/dashboard" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "For Lawyers") {
@@ -273,6 +281,17 @@ function Index() {
                   return <Link key={l} to="/privacy-policy" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Contact") {
                   return <Link key={l} to="/dashboard/help" className="hover:text-foreground">{l}</Link>;
+                } else if (l === "Bar Council Disclaimer") {
+                  return (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setDisclaimerModalOpen(true)}
+                      className="hover:text-foreground text-left transition-colors cursor-pointer"
+                    >
+                      {l}
+                    </button>
+                  );
                 } else if (l === "Team Login") {
                   return <Link key={l} to="/founders" className="hover:text-foreground border-l border-border pl-4">{l}</Link>;
                 } else {

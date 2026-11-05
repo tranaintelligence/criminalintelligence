@@ -67,7 +67,7 @@ function DashboardLayout() {
       if (!user?.id) return false;
       if (typeof window !== "undefined") {
         const cached = localStorage.getItem(`trana_disclaimer_accepted_${user.id}`);
-        if (cached === "true") return true;
+        if (cached === "true" || localStorage.getItem("trana_statutory_disclaimer_accepted") === "true") return true;
       }
       try {
         const { data } = await supabase
@@ -97,7 +97,9 @@ function DashboardLayout() {
     setOpen(false);
 
     // If logged in and already acknowledged, go directly without prompting again
-    const isCached = user?.id && typeof window !== "undefined" && localStorage.getItem(`trana_disclaimer_accepted_${user.id}`) === "true";
+    const isCached =
+      (user?.id && typeof window !== "undefined" && localStorage.getItem(`trana_disclaimer_accepted_${user.id}`) === "true") ||
+      (typeof window !== "undefined" && localStorage.getItem("trana_statutory_disclaimer_accepted") === "true");
     if (hasAcknowledged || isCached) {
       navigate({ to: "/dashboard/lawyers" });
       return;
