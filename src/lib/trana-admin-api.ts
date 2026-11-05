@@ -339,6 +339,17 @@ export const getAdminUserDetail = (credential: string, userIdentifier: string): 
 export const getAdminUserChats = (credential: string, userIdentifier: string): Promise<AdminUserChatSession[]> =>
   request<AdminUserChatSession[]>(credential, `/api/admin/users/${encodeURIComponent(userIdentifier)}/chats`);
 
+export const getAdminAllChats = (
+  credential: string,
+  params?: { limit?: number; search?: string }
+): Promise<AdminUserChatSession[]> => {
+  const query = new URLSearchParams();
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.search) query.set('search', params.search);
+  const qs = query.toString();
+  return request<AdminUserChatSession[]>(credential, `/api/admin/chats${qs ? `?${qs}` : ''}`);
+};
+
 
 // =============================================================================
 // Court Data & eCourts API Management

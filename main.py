@@ -55,7 +55,7 @@ from config import settings
 from database import engine, get_db, Base
 import models.db_models as db_models
 import json
-from sqlalchemy import func, inspect, text
+from sqlalchemy import func, inspect, text, or_
 from urllib.parse import unquote
 
 print("[Progress] Loading schemas...")
@@ -1382,6 +1382,98 @@ def get_admin_user_chats(
 ):
     """Return all chat sessions and complete read-only message history for a user."""
     _user, _email, sessions = _resolve_user_and_sessions(user_identifier, db)
+
+    session_ids = [s.id for s in sessions]
+    messages = db.query(db_models.ChatMessage).filter(
+        db_models.ChatMessage.session_id.in_(session_ids)
+    ).order_by(db_models.ChatMessage.created_at.asc()).all() if session_ids else []
+
+    attachments = db.query(
+        db_models.ChatAttachment.id,
+        db_models.ChatAttachment.chat_id,
+        db_models.ChatAttachment.filename,
+        db_models.ChatAttachment.content_type,
+        db_models.ChatAttachment.size,
+        db_models.ChatAttachment.created_at,
+    ).filter(
+        db_models.ChatAttachment.chat_id.in_(session_ids)
+    ).all() if session_ids else []
+
+    msgs_by_session: dict[str, list] = {}
+    for m in messages:
+        structured = None
+        if m.structured_content:
+            try:
+                structured = json.loads(m.structured_content)
+            except Exception:
+                structured = m.structured_content
+        sources = None
+        if m.sources:
+            try:
+                sources = json.loads(m.sources)
+            except Exception:
+                sources = None
+
+        msgs_by_session.setdefault(m.session_id, []).append({
+            "id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "structured_content": structured,
+            "sources": sources,
+            "model_used": m.model_used,
+            "processing_time_seconds": m.processing_time_seconds,
+            "created_at": _iso(m.created_at),
+        })
+
+    att_by_session: dict[str, list] = {}
+    for a in attachments:
+        att_by_session.setdefault(a.chat_id, []).append({
+            "id": a.id,
+            "filename": a.filename,
+            "content_type": a.content_type,
+            "size": a.size,
+            "created_at": _iso(a.created_at),
+        })
+
+    return [
+        {
+            "id": s.id,
+            "title": s.title,
+            "user_email": s.user_email,
+            "created_at": _iso(s.created_at),
+            "updated_at": _iso(s.updated_at),
+            "deleted_by_user": bool(getattr(s, "deleted_by_user", False)),
+            "deleted_at": _iso(getattr(s, "deleted_at", None)),
+            "message_count": len(msgs_by_session.get(s.id, [])),
+            "messages": msgs_by_session.get(s.id, []),
+            "attachments": att_by_session.get(s.id, []),
+        }
+        for s in sessions
+    ]
+
+
+@app.get("/api/admin/chats", tags=["Admin API"])
+def get_admin_all_chats(
+    limit: int = 200,
+    search: Optional[str] = None,
+    _admin_email: str = Depends(get_admin_email),
+    db: Session = Depends(get_db),
+):
+    """Return all platform chat sessions and messages for Founders Desk supervisory monitoring."""
+    query = db.query(db_models.ChatSession)
+    if search:
+        s_pattern = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                db_models.ChatSession.title.ilike(s_pattern),
+                db_models.ChatSession.user_email.ilike(s_pattern),
+                db_models.ChatSession.id.ilike(s_pattern),
+            )
+        )
+    sessions = query.order_by(
+        db_models.ChatSession.updated_at.desc(),
+        db_models.ChatSession.created_at.desc(),
+    ).limit(limit).all()
 
     session_ids = [s.id for s in sessions]
     messages = db.query(db_models.ChatMessage).filter(

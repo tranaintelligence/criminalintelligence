@@ -4,180 +4,92 @@ import { useQuery } from "@tanstack/react-query";
 import { 
   MessageSquare, Search, Phone, ShieldCheck, Download, 
   ExternalLink, User, CheckCircle2, XCircle, Clock, RefreshCw, 
-  AlertTriangle, ArrowRight, ShieldAlert, Sparkles, Filter
+  AlertTriangle, ArrowRight, ShieldAlert, Sparkles, Filter,
+  Bot, Scale, FileText, Lock, Check, Layers
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ConsultationChatMessage } from "@/components/ConsultationChatModal";
+import { useTranaCredential } from "@/lib/trana-auth";
+import { getAdminAllChats, AdminUserChatSession } from "@/lib/trana-admin-api";
 import { maskConfidentialPatterns } from "@/lib/privacy-mask";
 
 export const Route = createFileRoute("/founders/chats")({
   head: () => ({
     meta: [
-      { title: "Client Lawyer Chat Monitor — TRANA Founders" },
-      { name: "description", content: "Supervisory monitoring, compliance audit, and anti-evasion privacy inspection of client-advocate communications." },
-      { property: "og:title", content: "Client Lawyer Chat Monitor — TRANA Founders" },
+      { title: "Real Chat Monitor — TRANA Founders" },
+      { name: "description", content: "Supervisory oversight, telemetry audit, and compliance monitoring across platform Legal AI inquiries and advocate consultations." },
+      { property: "og:title", content: "Real Chat Monitor — TRANA Founders" },
     ],
   }),
   component: FoundersChatsPage,
 });
 
-type ChatSession = {
+export type RealChatMessage = {
   id: string;
-  clientName: string;
-  lawyerName: string;
-  consultationType: "Chat" | "Call";
-  status: "Confirmed" | "Requested" | "Denied" | "Completed" | "Withdrawn";
-  lastMessage: string;
-  lastUpdated: string;
-  messageCount: number;
-  maskingInterceptions: number;
+  sender: "citizen" | "ai" | "lawyer" | "system";
+  senderName: string;
+  text: string;
+  timestamp: string;
+  modelUsed?: string | null;
+  processingTime?: number | null;
+  structuredContent?: any;
+  sources?: any;
 };
 
-// Benchmark demonstration transcripts showing Anti-Evasion Privacy Masking in action
-const benchmarkSessions: { session: ChatSession; messages: ConsultationChatMessage[] }[] = [
-  {
-    session: {
-      id: "REF-ADV-001",
-      clientName: "Rahul Verma",
-      lawyerName: "Adv. Krish Chauhan",
-      consultationType: "Chat",
-      status: "Confirmed",
-      lastMessage: "Thank you counsel, I have noted the documentation list.",
-      lastUpdated: "Today, 10:45 AM",
-      messageCount: 5,
-      maskingInterceptions: 2,
-    },
-    messages: [
-      {
-        id: "bm-1",
-        sender: "system",
-        senderName: "TRANA Secure Relay",
-        text: "Confidential consultation channel established. All communications are protected under TRANA Legal Privacy Shield. Direct contact phone numbers, numerical sequences, and Morse code are automatically masked to XXXXX.",
-        timestamp: "10:30 AM",
-      },
-      {
-        id: "bm-2",
-        sender: "client",
-        senderName: "Rahul Verma",
-        text: "Hello Adv. Chauhan, I am reaching out regarding a breach of non-compete clause in my prior employment contract.",
-        timestamp: "10:32 AM",
-      },
-      {
-        id: "bm-3",
-        sender: "lawyer",
-        senderName: "Adv. Krish Chauhan",
-        text: "Namaste Mr. Verma. Under Section 27 of the Indian Contract Act, agreements in restraint of lawful profession or trade are void ab initio. Please share the key covenant wording.",
-        timestamp: "10:35 AM",
-      },
-      {
-        id: "bm-4",
-        sender: "client",
-        senderName: "Rahul Verma",
-        text: "Understood! If you want to review the offer letter urgently, you can also reach me at XXXXX during office hours.",
-        timestamp: "10:38 AM",
-      },
-      {
-        id: "bm-5",
-        sender: "client",
-        senderName: "Rahul Verma",
-        text: "Thank you counsel, I have noted the documentation list.",
-        timestamp: "10:45 AM",
-      },
-    ],
-  },
-  {
-    session: {
-      id: "REF-ADV-002",
-      clientName: "Priya Sharma",
-      lawyerName: "Adv. Krish Chauhan",
-      consultationType: "Call",
-      status: "Confirmed",
-      lastMessage: "Confirmed for telephonic briefing at 4:00 PM.",
-      lastUpdated: "Yesterday, 04:12 PM",
-      messageCount: 4,
-      maskingInterceptions: 1,
-    },
-    messages: [
-      {
-        id: "bm-6",
-        sender: "system",
-        senderName: "TRANA Secure Relay",
-        text: "Secure Call Consultation scheduled. TRANA Virtual PBX will bridge the call at 04:00 PM without exposing either party's personal phone number.",
-        timestamp: "03:50 PM",
-      },
-      {
-        id: "bm-7",
-        sender: "client",
-        senderName: "Priya Sharma",
-        text: "Good afternoon Adv. Sundaram, looking forward to discussing the RERA delayed possession compensation for our Noida tower.",
-        timestamp: "03:55 PM",
-      },
-      {
-        id: "bm-8",
-        sender: "lawyer",
-        senderName: "Adv. Krish Chauhan",
-        text: "Good afternoon Priya. Under Section 18 of RERA Act 2016, buyers are entitled to statutory interest for every month of delay until possession is handed over.",
-        timestamp: "04:05 PM",
-      },
-      {
-        id: "bm-9",
-        sender: "client",
-        senderName: "Priya Sharma",
-        text: "Confirmed for telephonic briefing at 4:00 PM.",
-        timestamp: "04:12 PM",
-      },
-    ],
-  },
-  {
-    session: {
-      id: "REF-ADV-003",
-      clientName: "Vikram Mehta",
-      lawyerName: "Adv. Krish Chauhan",
-      consultationType: "Chat",
-      status: "Withdrawn",
-      lastMessage: "Advocate Krish Chauhan has withdrawn from this matter.",
-      lastUpdated: "22 Oct 2026",
-      messageCount: 3,
-      maskingInterceptions: 1,
-    },
-    messages: [
-      {
-        id: "bm-10",
-        sender: "client",
-        senderName: "Vikram Mehta",
-        text: "Need urgent consultation on commercial lease forfeiture.",
-        timestamp: "11:00 AM",
-      },
-      {
-        id: "bm-11",
-        sender: "client",
-        senderName: "Vikram Mehta",
-        text: "Call back emergency: XXXXX",
-        timestamp: "11:02 AM",
-      },
-      {
-        id: "bm-12",
-        sender: "system",
-        senderName: "TRANA Secure Relay",
-        text: "Advocate Krish Chauhan has withdrawn from this matter. Client is now free to consult another lawyer from the directory.",
-        timestamp: "11:15 AM",
-      },
-    ],
-  },
-];
+export type RealChatSession = {
+  id: string;
+  category: "ai" | "advocate";
+  title: string;
+  participantPrimary: string;
+  participantSecondary: string;
+  mode: "Legal AI" | "Chat" | "Call";
+  status: string;
+  lastMessage: string;
+  lastUpdated: string;
+  timestampSort: number;
+  messageCount: number;
+  maskingInterceptions: number;
+  messages: RealChatMessage[];
+  intakeBrief?: string | null;
+};
 
 function FoundersChatsPage() {
+  const { credential } = useTranaCredential();
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"All" | "Chat" | "Call">("All");
-  const [statusFilter, setStatusFilter] = useState<"All" | "Confirmed" | "Requested" | "Withdrawn">("All");
-  const [selectedSessionId, setSelectedSessionId] = useState<string>("REF-ADV-001");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "ai" | "advocate">("all");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("");
   const [liveTrigger, setLiveTrigger] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch real consultations from database
-  const { data: dbConsults = [], refetch } = useQuery({
-    queryKey: ["founders-all-consultations"],
+  // 1. Fetch Real Legal AI Chat Sessions from Backend Database
+  const { 
+    data: adminChats = [], 
+    refetch: refetchAdminChats,
+    isFetching: isFetchingAdminChats,
+  } = useQuery({
+    queryKey: ["founders-all-backend-chats", credential, liveTrigger],
+    queryFn: async () => {
+      if (!credential) return [];
+      try {
+        const chats = await getAdminAllChats(credential, { limit: 300 });
+        return chats || [];
+      } catch (err) {
+        console.warn("Could not fetch admin platform chats:", err);
+        return [];
+      }
+    },
+    enabled: Boolean(credential),
+    refetchInterval: 15000,
+  });
+
+  // 2. Fetch Real Advocate Consultations from Supabase
+  const { 
+    data: dbConsults = [], 
+    refetch: refetchConsults,
+    isFetching: isFetchingConsults,
+  } = useQuery({
+    queryKey: ["founders-all-consultations", liveTrigger],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("consultations")
@@ -189,13 +101,15 @@ function FoundersChatsPage() {
       }
       return data ?? [];
     },
+    refetchInterval: 15000,
   });
 
-  // Listen for real-time chat updates across tabs and within this app
+  // Real-time synchronization events (same window and cross-tab)
   useEffect(() => {
     function handleUpdate() {
       setLiveTrigger((prev) => prev + 1);
-      refetch();
+      refetchAdminChats();
+      refetchConsults();
     }
     window.addEventListener("storage", handleUpdate);
     window.addEventListener("trana_consult_chat_update", handleUpdate);
@@ -203,68 +117,76 @@ function FoundersChatsPage() {
       window.removeEventListener("storage", handleUpdate);
       window.removeEventListener("trana_consult_chat_update", handleUpdate);
     };
-  }, [refetch]);
+  }, [refetchAdminChats, refetchConsults]);
 
-  // Aggregate all live and benchmark chat sessions
-  const sessions = useMemo(() => {
-    const list: ChatSession[] = [];
+  // Aggregate and normalize all real sessions into Unified RealChatSession format
+  const sessions: RealChatSession[] = useMemo(() => {
+    const list: RealChatSession[] = [];
 
-    // 1. Read from localStorage chat index
-    let indexedChats: Record<string, any> = {};
-    try {
-      if (typeof window !== "undefined") {
-        indexedChats = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
-      }
-    } catch {
-      // ignore
-    }
+    // --- Process Real Platform Legal AI Chats ---
+    (adminChats || []).forEach((s: AdminUserChatSession) => {
+      if (!s || !s.id) return;
 
-    Object.values(indexedChats).forEach((item: any) => {
-      if (!item || !item.consultationId) return;
-      const rawStored = localStorage.getItem(`trana_consult_chat_${item.consultationId}`);
-      let msgCount = 0;
-      let maskCount = 0;
-      if (rawStored) {
-        try {
-          const parsed = JSON.parse(rawStored);
-          if (Array.isArray(parsed)) {
-            msgCount = parsed.length;
-            maskCount = parsed.reduce((acc, m) => {
-              const text = m.text || "";
-              const matches = text.match(/XXXXX/g);
-              return acc + (matches ? matches.length : 0);
-            }, 0);
-          }
-        } catch {
-          // ignore
-        }
-      }
+      const msgs: RealChatMessage[] = (s.messages || []).map((m, idx) => {
+        const isUser = m.role === "user";
+        return {
+          id: m.id || `msg-ai-${s.id}-${idx}`,
+          sender: isUser ? "citizen" : "ai",
+          senderName: isUser ? s.user_email : "TRANA Legal AI",
+          text: m.content || "",
+          timestamp: m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+          modelUsed: m.model_used,
+          processingTime: m.processing_time_seconds,
+          structuredContent: m.structured_content,
+          sources: m.sources,
+        };
+      });
+
+      // Mask count for user inquiries if any
+      const maskCount = msgs.reduce((acc, m) => {
+        const matches = (m.text || "").match(/XXXXX/g);
+        return acc + (matches ? matches.length : 0);
+      }, 0);
+
+      const lastMsgText = msgs.length > 0 ? msgs[msgs.length - 1].text : "Session initiated";
+      const sessionDate = s.updated_at || s.created_at;
+      const sortTime = sessionDate ? new Date(sessionDate).getTime() : 0;
 
       list.push({
-        id: item.consultationId,
-        clientName: item.clientName || "Citizen Client",
-        lawyerName: item.lawyerName || "Advocate Counsel",
-        consultationType: item.consultationType === "Call" ? "Call" : "Chat",
-        status: (item.status as ChatSession["status"]) || "Confirmed",
-        lastMessage: item.lastMessage || "Live communication active",
-        lastUpdated: item.lastUpdated ? new Date(item.lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active Now",
-        messageCount: msgCount,
+        id: s.id,
+        category: "ai",
+        title: s.title || "Legal Inquiry",
+        participantPrimary: s.user_email || "Anonymous Citizen",
+        participantSecondary: "TRANA Legal AI",
+        mode: "Legal AI",
+        status: s.deleted_by_user ? "Archived by User" : "Active Session",
+        lastMessage: lastMsgText,
+        lastUpdated: sessionDate 
+          ? new Date(sessionDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+          : "Recent",
+        timestampSort: sortTime,
+        messageCount: s.message_count || msgs.length,
         maskingInterceptions: maskCount,
+        messages: msgs,
       });
     });
 
-    // 2. Read from Supabase consultations
+    // --- Process Real Advocate Consultations ---
     (dbConsults || []).forEach((row) => {
+      if (!row || !row.id) return;
       const rowId = `REF-${row.id.slice(0, 8).toUpperCase()}`;
-      if (list.some((existing) => existing.id === rowId || existing.id === row.id)) return;
 
-      const briefText = row.intake_brief || row.note || "";
+      const briefText = row.intake_brief || "";
       let clientName = "Citizen Client";
-      const clientMatch = briefText.match(/\*\*Client\*\*:\s*([^(•\n]+)/);
-      if (clientMatch && clientMatch[1].trim() && clientMatch[1].trim() !== "Citizen Client") {
-        clientName = clientMatch[1].trim();
+      if (briefText) {
+        const clientMatch = briefText.match(/\*\*Client\*\*:\s*([^(•\n]+)/);
+        if (clientMatch && clientMatch[1].trim() && clientMatch[1].trim() !== "Citizen Client") {
+          clientName = clientMatch[1].trim();
+        } else if (row.user_id) {
+          clientName = `Citizen (${row.user_id.slice(0, 8)})`;
+        }
       } else if (row.user_id) {
-        clientName = `Citizen (${row.user_id.slice(0, 6)})`;
+        clientName = `Citizen (${row.user_id.slice(0, 8)})`;
       }
 
       const stLower = (row.status || "").toLowerCase();
@@ -277,188 +199,204 @@ function FoundersChatsPage() {
           ? "Withdrawn"
           : "Requested";
 
-      const rawStored = typeof window !== "undefined" ? localStorage.getItem(`trana_consult_chat_${row.id}`) || localStorage.getItem(`trana_consult_chat_${rowId}`) : null;
-      let msgCount = 0;
-      let maskCount = 0;
-      let lastMsg = briefText ? `Inquiry: ${briefText.slice(0, 80)}...` : "Consultation requested with counsel.";
-      if (rawStored) {
+      // Parse messages from note field or fallback to localStorage
+      let consultMessages: RealChatMessage[] = [];
+      if (row.note) {
         try {
-          const parsed = JSON.parse(rawStored);
+          const parsed = JSON.parse(row.note);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            msgCount = parsed.length;
-            lastMsg = parsed[parsed.length - 1].text;
-            maskCount = parsed.reduce((acc, m) => {
-              const text = m.text || "";
-              const matches = text.match(/XXXXX/g);
-              return acc + (matches ? matches.length : 0);
-            }, 0);
+            consultMessages = parsed.map((m: any, idx: number) => ({
+              id: m.id || `msg-adv-${idx}`,
+              sender: m.sender === "lawyer" ? "lawyer" : m.sender === "system" ? "system" : "citizen",
+              senderName: m.senderName || (m.sender === "lawyer" ? (row.lawyer_name || "Advocate") : clientName),
+              text: m.text || "",
+              timestamp: m.timestamp || "",
+            }));
           }
         } catch {
-          // ignore
+          // not stored as JSON
         }
       }
 
+      if (consultMessages.length === 0 && typeof window !== "undefined") {
+        const localRaw = localStorage.getItem(`trana_consult_chat_${row.id}`) || localStorage.getItem(`trana_consult_chat_${rowId}`);
+        if (localRaw) {
+          try {
+            const parsed = JSON.parse(localRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              consultMessages = parsed.map((m: any, idx: number) => ({
+                id: m.id || `msg-adv-${idx}`,
+                sender: m.sender === "lawyer" ? "lawyer" : m.sender === "system" ? "system" : "citizen",
+                senderName: m.senderName || (m.sender === "lawyer" ? (row.lawyer_name || "Advocate") : clientName),
+                text: m.text || "",
+                timestamp: m.timestamp || "",
+              }));
+            }
+          } catch {}
+        }
+      }
+
+      // If no messages exchanged yet, provide system channel status
+      if (consultMessages.length === 0) {
+        consultMessages.push({
+          id: `msg-init-${row.id}`,
+          sender: "system",
+          senderName: "TRANA Relay",
+          text: `Consultation requested for ${clientName} with ${row.lawyer_name || "Advocate"}. Channel mode: ${row.consult_type === "call" ? "Telephonic Relay" : "Secure In-App Chat"}.`,
+          timestamp: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Created",
+        });
+      }
+
+      const maskCount = consultMessages.reduce((acc, m) => {
+        const matches = (m.text || "").match(/XXXXX/g);
+        return acc + (matches ? matches.length : 0);
+      }, 0);
+
+      const lastMsg = consultMessages[consultMessages.length - 1]?.text || (briefText ? `Inquiry: ${briefText.slice(0, 80)}...` : "Consultation requested with counsel.");
+      const sortTime = row.created_at ? new Date(row.created_at).getTime() : 0;
+
       list.push({
         id: rowId,
-        clientName,
-        lawyerName: row.lawyer_name || "Advocate Counsel",
-        consultationType: row.consult_type === "call" ? "Call" : "Chat",
+        category: "advocate",
+        title: briefText ? briefText.slice(0, 50) + "..." : `Consultation with ${row.lawyer_name || "Counsel"}`,
+        participantPrimary: clientName,
+        participantSecondary: row.lawyer_name || "Advocate Counsel",
+        mode: row.consult_type === "call" ? "Call" : "Chat",
         status: statusLabel,
         lastMessage: lastMsg,
         lastUpdated: row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Today",
-        messageCount: msgCount,
+        timestampSort: sortTime,
+        messageCount: consultMessages.length,
         maskingInterceptions: maskCount,
+        messages: consultMessages,
+        intakeBrief: briefText || null,
       });
     });
 
-    // 3. Append benchmark records
-    benchmarkSessions.forEach((bm) => {
-      if (!list.some((existing) => existing.id === bm.session.id)) {
-        list.push(bm.session);
-      }
-    });
+    // Sort newest first
+    return list.sort((a, b) => b.timestampSort - a.timestampSort);
+  }, [adminChats, dbConsults]);
 
-    return list;
-  }, [dbConsults, liveTrigger]);
+  // Keep selection synchronized
+  useEffect(() => {
+    if (sessions.length > 0 && !sessions.some(s => s.id === selectedSessionId)) {
+      setSelectedSessionId(sessions[0].id);
+    }
+  }, [sessions, selectedSessionId]);
 
   // Active selected session
   const activeSession = useMemo(() => {
     return sessions.find((s) => s.id === selectedSessionId) || sessions[0] || null;
   }, [sessions, selectedSessionId]);
 
-  // Messages for active selected session
-  const activeMessages: ConsultationChatMessage[] = useMemo(() => {
-    if (!activeSession) return [];
-
-    // Check localStorage
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(`trana_consult_chat_${activeSession.id}`);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch {
-          // ignore
-        }
-      }
-      // Also check normalized DB ID
-      const bareId = activeSession.id.replace(/^REF-/, "");
-      const storedBare = localStorage.getItem(`trana_consult_chat_${bareId}`);
-      if (storedBare) {
-        try {
-          const parsed = JSON.parse(storedBare);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    // Benchmark fallback
-    const bm = benchmarkSessions.find((b) => b.session.id === activeSession.id);
-    if (bm) return bm.messages;
-
-    return [
-      {
-        id: "sys-init",
-        sender: "system",
-        senderName: "TRANA Secure Relay",
-        text: `Consultation session for ${activeSession.clientName} & ${activeSession.lawyerName}. TRANA Anti-Evasion Privacy Masking active.`,
-        timestamp: "Initial",
-      },
-    ];
-  }, [activeSession, liveTrigger]);
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeMessages]);
+  }, [activeSession?.messages]);
 
-  // Aggregate Platform Privacy Metrics
+  // Aggregate Platform Telemetry Metrics (derived 100% from real database data)
   const stats = useMemo(() => {
     const totalSessions = sessions.length;
+    const aiSessions = sessions.filter(s => s.category === "ai").length;
+    const advocateSessions = sessions.filter(s => s.category === "advocate").length;
+    
     let totalMessages = 0;
     let totalInterceptions = 0;
+    const uniqueParticipants = new Set<string>();
 
     sessions.forEach((s) => {
-      totalMessages += Math.max(s.messageCount, 1);
+      totalMessages += s.messageCount;
       totalInterceptions += s.maskingInterceptions;
+      if (s.participantPrimary) uniqueParticipants.add(s.participantPrimary.toLowerCase());
     });
 
-    // Count chat vs call
-    const chatCount = sessions.filter((s) => s.consultationType === "Chat").length;
-    const callCount = sessions.filter((s) => s.consultationType === "Call").length;
-
-    return { totalSessions, totalMessages, totalInterceptions, chatCount, callCount };
+    return {
+      totalSessions,
+      aiSessions,
+      advocateSessions,
+      totalMessages,
+      totalInterceptions,
+      uniqueParticipants: uniqueParticipants.size,
+    };
   }, [sessions]);
 
   // Filtered session list
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
-      if (typeFilter !== "All" && s.consultationType !== typeFilter) return false;
-      if (statusFilter !== "All" && s.status !== statusFilter) return false;
+      if (categoryFilter === "ai" && s.category !== "ai") return false;
+      if (categoryFilter === "advocate" && s.category !== "advocate") return false;
+
+      if (statusFilter !== "All") {
+        if (s.category === "advocate" && s.status !== statusFilter) return false;
+        if (s.category === "ai" && statusFilter === "Withdrawn") return false;
+      }
+
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
-          s.clientName.toLowerCase().includes(q) ||
-          s.lawyerName.toLowerCase().includes(q) ||
+          s.participantPrimary.toLowerCase().includes(q) ||
+          s.participantSecondary.toLowerCase().includes(q) ||
+          s.title.toLowerCase().includes(q) ||
           s.id.toLowerCase().includes(q) ||
           s.lastMessage.toLowerCase().includes(q)
         );
       }
       return true;
     });
-  }, [sessions, typeFilter, statusFilter, search]);
+  }, [sessions, categoryFilter, statusFilter, search]);
 
   // Export full transcript as audit log
   function handleExportTranscript() {
     if (!activeSession) return;
     const lines = [
       `============================================================`,
-      `TRANA LEGAL PLATFORM — CLIENT-LAWYER CHAT AUDIT LOG`,
+      `TRANA LEGAL PLATFORM — SUPERVISORY CHAT AUDIT LOG`,
       `============================================================`,
-      `Session ID        : ${activeSession.id}`,
-      `Client Name       : ${activeSession.clientName}`,
-      `Advocate Counsel  : ${activeSession.lawyerName}`,
-      `Consultation Type : ${activeSession.consultationType}`,
-      `Case Status       : ${activeSession.status}`,
-      `Privacy Masking   : ACTIVE (Anti-Evasion Engine v2.0 - XXXXX)`,
-      `Audit Date        : ${new Date().toLocaleString("en-IN")}`,
+      `Session ID          : ${activeSession.id}`,
+      `Category            : ${activeSession.category === "ai" ? "Platform Legal AI Session" : "Client-Advocate Consultation"}`,
+      `Primary Participant : ${activeSession.participantPrimary}`,
+      `Interlocutor        : ${activeSession.participantSecondary}`,
+      `Channel Mode        : ${activeSession.mode}`,
+      `Status              : ${activeSession.status}`,
+      `Total Messages      : ${activeSession.messages.length}`,
+      `Audit Export Date   : ${new Date().toLocaleString("en-IN")}`,
       `============================================================\n`,
     ];
 
-    activeMessages.forEach((m) => {
-      const senderLabel =
-        m.sender === "system"
-          ? "[SYSTEM NOTICE]"
-          : m.sender === "lawyer"
-          ? `[ADVOCATE: ${m.senderName}]`
-          : `[CLIENT: ${m.senderName}]`;
-      lines.push(`${m.timestamp} ${senderLabel}:\n${m.text}\n`);
+    if (activeSession.intakeBrief) {
+      lines.push(`--- CASE INTAKE BRIEF ---`);
+      lines.push(`${activeSession.intakeBrief}\n`);
+    }
+
+    lines.push(`--- MESSAGE TRANSCRIPT ---`);
+    activeSession.messages.forEach((m) => {
+      const senderTag = `[${m.senderName.toUpperCase()}]`;
+      const meta = m.modelUsed ? ` (Model: ${m.modelUsed}${m.processingTime ? `, ${m.processingTime}s` : ""})` : "";
+      lines.push(`${m.timestamp || ""} ${senderTag}${meta}:\n${m.text}\n`);
     });
 
     const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `TRANA_CHAT_AUDIT_${activeSession.id}.txt`;
+    link.download = `TRANA_AUDIT_${activeSession.id}.txt`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`Transcript for ${activeSession.id} downloaded.`);
+    toast.success(`Transcript for ${activeSession.id} exported successfully.`);
   }
 
   // Format message text and visually highlight any masked tokens
   function renderMaskedText(text: string) {
     if (!text.includes("XXXXX")) {
-      return <span>{text}</span>;
+      return <span className="whitespace-pre-wrap">{text}</span>;
     }
     const parts = text.split(/(XXXXX)/g);
     return (
-      <span>
+      <span className="whitespace-pre-wrap">
         {parts.map((part, i) =>
           part === "XXXXX" ? (
             <span
               key={i}
-              className="inline-flex items-center gap-0.5 px-1 py-0.5 mx-0.5 rounded bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 font-mono font-bold text-[0.8rem] tracking-widest shadow-sm"
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 mx-0.5 rounded bg-white/10 border border-white/20 text-white font-mono font-bold text-[0.8rem] tracking-widest shadow-sm"
               title="TRANA Privacy Shield: Phone number, digits, or Morse code masked to protect neutrality"
             >
               <ShieldCheck className="h-3 w-3 inline text-emerald-400" />
@@ -472,22 +410,24 @@ function FoundersChatsPage() {
     );
   }
 
+  const isSyncing = isFetchingAdminChats || isFetchingConsults;
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#222222] pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[0.65rem] border border-white/20 px-2 py-0.5 text-emerald-400 font-mono tracking-widest uppercase">
+            <span className="text-[0.65rem] border border-white/20 px-2 py-0.5 text-neutral-300 font-mono tracking-widest uppercase">
               Supervisory Monitor
             </span>
-            <span className="text-xs text-[#888888] font-mono">• Founders Desk</span>
+            <span className="text-xs text-[#888888] font-mono">• Founders Console</span>
           </div>
           <h1 className="font-display text-3xl md:text-4xl text-[#F0F0F0] mt-1">
-            Client Lawyer Chat
+            Platform Chat Monitor
           </h1>
           <p className="text-xs md:text-sm text-[#999999] mt-1 max-w-3xl">
-            Live supervisory oversight of all client-advocate communications with automated phone, number-sequence, and Morse code privacy masking (XXXXX).
+            Real-time telemetry and supervisory oversight of legal inquiry sessions and client-advocate consultations. Live database-backed records only.
           </p>
         </div>
 
@@ -495,62 +435,64 @@ function FoundersChatsPage() {
           <button
             type="button"
             onClick={() => {
-              refetch();
+              refetchAdminChats();
+              refetchConsults();
               setLiveTrigger((p) => p + 1);
-              toast.success("Chat stream synchronized.");
+              toast.success("All platform chat streams synchronized.");
             }}
-            className="border border-[#333333] hover:border-white bg-[#141414] hover:bg-[#1E1E1E] px-3 py-2 text-xs font-mono uppercase tracking-wider text-[#F0F0F0] flex items-center gap-1.5 transition-colors"
+            disabled={isSyncing}
+            className="border border-[#333333] hover:border-white/40 bg-[#141414] hover:bg-[#1E1E1E] px-3.5 py-2 text-xs font-mono uppercase tracking-wider text-[#F0F0F0] flex items-center gap-2 transition-all rounded"
           >
-            <RefreshCw className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Sync Stream</span>
+            <RefreshCw className={`h-3.5 w-3.5 text-neutral-300 ${isSyncing ? "animate-spin" : ""}`} />
+            <span>{isSyncing ? "Syncing..." : "Sync Streams"}</span>
           </button>
         </div>
       </div>
 
-      {/* High-Level Metric Tiles */}
+      {/* High-Level Metric Tiles (Real Platform Data) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 font-mono">
-        <div className="border border-[#222222] bg-[#111111] p-4">
+        <div className="border border-[#222222] bg-[#111111] p-4 rounded">
           <div className="text-[0.7rem] text-[#888888] uppercase tracking-wider flex items-center justify-between">
-            <span>Active Channels</span>
-            <MessageSquare className="h-4 w-4 text-emerald-400" />
+            <span>Total Real Sessions</span>
+            <MessageSquare className="h-4 w-4 text-neutral-300" />
           </div>
           <div className="mt-2 text-2xl md:text-3xl font-bold text-[#F0F0F0]">
             {stats.totalSessions}
           </div>
           <div className="mt-1 text-[0.65rem] text-[#888888]">
-            {stats.chatCount} Chats • {stats.callCount} Call Relays
+            {stats.aiSessions} Legal AI • {stats.advocateSessions} Consultations
           </div>
         </div>
 
-        <div className="border border-[#222222] bg-[#111111] p-4">
-          <div className="text-[0.7rem] text-[#888888] uppercase tracking-wider flex items-center justify-between">
-            <span>Masking Interceptions</span>
-            <ShieldAlert className="h-4 w-4 text-amber-400" />
-          </div>
-          <div className="mt-2 text-2xl md:text-3xl font-bold text-amber-300">
-            {stats.totalInterceptions}
-          </div>
-          <div className="mt-1 text-[0.65rem] text-[#888888]">
-            Numbers & Morse blocked to XXXXX
-          </div>
-        </div>
-
-        <div className="border border-[#222222] bg-[#111111] p-4">
+        <div className="border border-[#222222] bg-[#111111] p-4 rounded">
           <div className="text-[0.7rem] text-[#888888] uppercase tracking-wider flex items-center justify-between">
             <span>Messages Audited</span>
-            <Sparkles className="h-4 w-4 text-sky-400" />
+            <Sparkles className="h-4 w-4 text-neutral-300" />
           </div>
           <div className="mt-2 text-2xl md:text-3xl font-bold text-[#F0F0F0]">
             {stats.totalMessages}
           </div>
           <div className="mt-1 text-[0.65rem] text-[#888888]">
-            Zero off-platform leakages
+            Database-backed queries + replies
           </div>
         </div>
 
-        <div className="border border-[#222222] bg-[#111111] p-4">
+        <div className="border border-[#222222] bg-[#111111] p-4 rounded">
           <div className="text-[0.7rem] text-[#888888] uppercase tracking-wider flex items-center justify-between">
-            <span>Anti-Evasion Engine</span>
+            <span>Active Inquirers</span>
+            <User className="h-4 w-4 text-neutral-300" />
+          </div>
+          <div className="mt-2 text-2xl md:text-3xl font-bold text-[#F0F0F0]">
+            {stats.uniqueParticipants}
+          </div>
+          <div className="mt-1 text-[0.65rem] text-[#888888]">
+            Distinct citizen accounts on platform
+          </div>
+        </div>
+
+        <div className="border border-[#222222] bg-[#111111] p-4 rounded">
+          <div className="text-[0.7rem] text-[#888888] uppercase tracking-wider flex items-center justify-between">
+            <span>Anti-Evasion Shield</span>
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-lg md:text-xl font-bold text-emerald-400 flex items-center gap-1.5">
@@ -558,75 +500,84 @@ function FoundersChatsPage() {
             <span>ENFORCED</span>
           </div>
           <div className="mt-1 text-[0.65rem] text-[#888888]">
-            Full platform neutrality certified
+            {stats.totalInterceptions} numbers masked to XXXXX
           </div>
         </div>
       </div>
 
-      {/* Main Workspace: Master-Detail Split */}
+      {/* Main Workspace: Split Master-Detail */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[640px]">
-        {/* Left Column: Chat Channel Directory (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col border border-[#222222] bg-[#111111]">
-          {/* Search and Filters */}
+        {/* Left Column: Real Session Directory (5 cols) */}
+        <div className="lg:col-span-5 flex flex-col border border-[#222222] bg-[#111111] rounded overflow-hidden">
+          {/* Search and Category Filters */}
           <div className="p-3 border-b border-[#222222] space-y-3 bg-[#141414]">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#666666]" />
               <input
                 type="text"
-                placeholder="Search by client, lawyer, matter, or text..."
+                placeholder="Search citizen email, title, or inquiry..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[#0E0E0E] border border-[#2A2A2A] text-xs text-[#F0F0F0] pl-9 pr-3 py-2 font-mono placeholder:text-[#555555] focus:outline-none focus:border-white transition-colors"
+                className="w-full bg-[#0E0E0E] border border-[#2A2A2A] text-xs text-[#F0F0F0] pl-9 pr-3 py-2 font-mono placeholder:text-[#555555] focus:outline-none focus:border-white transition-colors rounded"
               />
             </div>
 
-            {/* Filter Pills */}
+            {/* Category Filter Pills */}
             <div className="flex items-center gap-1.5 flex-wrap font-mono text-[0.7rem]">
-              {(["All", "Chat", "Call"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTypeFilter(t)}
-                  className={`px-2 py-1 border transition-colors ${
-                    typeFilter === t
-                      ? "border-white bg-[#222222] text-white"
-                      : "border-[#2A2A2A] text-[#888888] hover:text-white"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("all")}
+                className={`px-2.5 py-1 border transition-colors rounded ${
+                  categoryFilter === "all"
+                    ? "border-white bg-[#242424] text-white"
+                    : "border-[#2A2A2A] text-[#888888] hover:text-white"
+                }`}
+              >
+                All Real Chats ({sessions.length})
+              </button>
 
-              <div className="h-3 w-[1px] bg-[#333333] mx-1" />
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("ai")}
+                className={`px-2.5 py-1 border transition-colors rounded flex items-center gap-1 ${
+                  categoryFilter === "ai"
+                    ? "border-white bg-[#242424] text-white"
+                    : "border-[#2A2A2A] text-[#888888] hover:text-white"
+                }`}
+              >
+                <Bot className="h-3 w-3" />
+                <span>Legal AI ({stats.aiSessions})</span>
+              </button>
 
-              {(["All", "Confirmed", "Requested", "Withdrawn"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-2 py-1 border transition-colors ${
-                    statusFilter === s
-                      ? "border-emerald-500/80 bg-emerald-950/40 text-emerald-300"
-                      : "border-[#2A2A2A] text-[#888888] hover:text-white"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("advocate")}
+                className={`px-2.5 py-1 border transition-colors rounded flex items-center gap-1 ${
+                  categoryFilter === "advocate"
+                    ? "border-white bg-[#242424] text-white"
+                    : "border-[#2A2A2A] text-[#888888] hover:text-white"
+                }`}
+              >
+                <Scale className="h-3 w-3" />
+                <span>Advocates ({stats.advocateSessions})</span>
+              </button>
             </div>
           </div>
 
-          {/* Session List */}
+          {/* Real Session Feed */}
           <div className="flex-1 overflow-y-auto divide-y divide-[#1D1D1D] max-h-[580px]">
             {filteredSessions.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#777777] font-mono">
-                No matching chat sessions found.
+              <div className="p-12 text-center text-xs text-[#777777] font-mono flex flex-col items-center gap-2">
+                <MessageSquare className="h-6 w-6 text-[#444444]" />
+                <span className="font-semibold text-[#AAAAAA]">No real chat sessions found</span>
+                <span className="text-[0.65rem] text-[#666666]">
+                  {search ? "No sessions match your search terms." : "There are currently no recorded sessions in this category."}
+                </span>
               </div>
             ) : (
               filteredSessions.map((s) => {
                 const isSelected = s.id === activeSession?.id;
-                const isConfirmed = s.status === "Confirmed";
-                const isWithdrawn = s.status === "Withdrawn" || s.status === "Denied";
+                const isAI = s.category === "ai";
 
                 return (
                   <button
@@ -635,23 +586,27 @@ function FoundersChatsPage() {
                     onClick={() => setSelectedSessionId(s.id)}
                     className={`w-full text-left p-3.5 transition-all flex flex-col gap-1.5 ${
                       isSelected
-                        ? "bg-[#1C1C1C] border-l-2 border-emerald-400"
+                        ? "bg-[#1E1E1E] border-l-2 border-white"
                         : "hover:bg-[#161616] border-l-2 border-transparent"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-xs text-[#F0F0F0] truncate flex items-center gap-1.5">
-                        <User className="h-3.5 w-3.5 text-[#888888] shrink-0" />
-                        <span>{s.clientName}</span>
+                        {isAI ? (
+                          <Bot className="h-3.5 w-3.5 text-neutral-300 shrink-0" />
+                        ) : (
+                          <User className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
+                        )}
+                        <span className="truncate">{s.participantPrimary}</span>
                       </span>
                       <span className="text-[0.65rem] font-mono text-[#888888] shrink-0">
                         {s.lastUpdated}
                       </span>
                     </div>
 
-                    <div className="text-[0.75rem] text-[#AAAAAA] truncate flex items-center gap-1">
-                      <span className="text-[#666666]">Counsel:</span>
-                      <span className="font-medium text-white">{s.lawyerName}</span>
+                    <div className="text-[0.75rem] text-[#CCCCCC] truncate font-medium flex items-center gap-1">
+                      <span className="text-[#666666]">{isAI ? "Topic:" : "Counsel:"}</span>
+                      <span className="text-[#E0E0E0] truncate">{isAI ? s.title : s.participantSecondary}</span>
                     </div>
 
                     <p className="text-[0.7rem] text-[#777777] truncate font-mono">
@@ -660,37 +615,18 @@ function FoundersChatsPage() {
 
                     <div className="flex items-center justify-between gap-2 pt-1 font-mono text-[0.65rem]">
                       <div className="flex items-center gap-1.5">
-                        <span
-                          className={`px-1.5 py-0.5 border uppercase tracking-wider flex items-center gap-1 ${
-                            s.consultationType === "Chat"
-                              ? "border-purple-500/40 bg-purple-950/20 text-purple-300"
-                              : "border-sky-500/40 bg-sky-950/20 text-sky-300"
-                          }`}
-                        >
-                          {s.consultationType === "Chat" ? (
-                            <MessageSquare className="h-2.5 w-2.5" />
-                          ) : (
-                            <Phone className="h-2.5 w-2.5" />
-                          )}
-                          <span>{s.consultationType}</span>
+                        <span className="px-1.5 py-0.5 border border-white/20 bg-white/5 text-neutral-300 uppercase tracking-wider rounded">
+                          {s.mode}
                         </span>
 
-                        <span
-                          className={`px-1.5 py-0.5 border uppercase tracking-wider ${
-                            isConfirmed
-                              ? "border-emerald-500/50 bg-emerald-950/30 text-emerald-300"
-                              : isWithdrawn
-                              ? "border-red-500/50 bg-red-950/30 text-red-300"
-                              : "border-amber-500/50 bg-amber-950/30 text-amber-300"
-                          }`}
-                        >
-                          {s.status}
+                        <span className="px-1.5 py-0.5 border border-[#333333] text-[#AAAAAA] uppercase tracking-wider rounded">
+                          {s.messageCount} msg{s.messageCount === 1 ? "" : "s"}
                         </span>
                       </div>
 
                       {s.maskingInterceptions > 0 && (
-                        <span className="text-amber-400 font-bold flex items-center gap-1">
-                          <ShieldAlert className="h-3 w-3" />
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" />
                           <span>{s.maskingInterceptions} Masked</span>
                         </span>
                       )}
@@ -702,28 +638,29 @@ function FoundersChatsPage() {
           </div>
         </div>
 
-        {/* Right Column: Chat Transcript Supervisory Inspector (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col border border-[#222222] bg-[#111111] overflow-hidden">
+        {/* Right Column: Real Chat Transcript Supervisory Inspector (7 cols) */}
+        <div className="lg:col-span-7 flex flex-col border border-[#222222] bg-[#111111] rounded overflow-hidden">
           {activeSession ? (
             <>
-              {/* Header */}
+              {/* Active Session Header */}
               <div className="p-4 border-b border-[#222222] bg-[#161616] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-display text-lg text-white">
-                      {activeSession.clientName}
+                      {activeSession.participantPrimary}
                     </span>
                     <ArrowRight className="h-3.5 w-3.5 text-[#666666]" />
-                    <span className="font-display text-lg text-emerald-300">
-                      {activeSession.lawyerName}
+                    <span className="font-display text-lg text-neutral-300 flex items-center gap-1.5">
+                      {activeSession.category === "ai" && <Bot className="h-4 w-4 text-neutral-300 inline" />}
+                      {activeSession.participantSecondary}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 font-mono text-[0.7rem] text-[#888888]">
-                    <span>ID: {activeSession.id}</span>
+                  <div className="mt-1 flex items-center gap-2 font-mono text-[0.7rem] text-[#888888] flex-wrap">
+                    <span>ID: {activeSession.id.slice(0, 16)}...</span>
                     <span>•</span>
-                    <span className="uppercase">{activeSession.consultationType} Mode</span>
+                    <span className="uppercase">{activeSession.mode}</span>
                     <span>•</span>
-                    <span className="text-emerald-400">{activeSession.status}</span>
+                    <span className="text-neutral-300">{activeSession.status}</span>
                   </div>
                 </div>
 
@@ -731,10 +668,10 @@ function FoundersChatsPage() {
                   <button
                     type="button"
                     onClick={handleExportTranscript}
-                    className="border border-[#333333] hover:border-white bg-[#0E0E0E] hover:bg-[#202020] px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-[#F0F0F0] flex items-center gap-1.5 transition-colors"
-                    title="Export certified transcript"
+                    className="border border-[#333333] hover:border-white/40 bg-[#0E0E0E] hover:bg-[#202020] px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-[#F0F0F0] flex items-center gap-1.5 transition-colors rounded"
+                    title="Export verified transcript"
                   >
-                    <Download className="h-3.5 w-3.5 text-emerald-400" />
+                    <Download className="h-3.5 w-3.5 text-neutral-300" />
                     <span>Download Log</span>
                   </button>
                 </div>
@@ -745,73 +682,132 @@ function FoundersChatsPage() {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>
-                    TRANA Anti-Evasion Engine: All direct contact digits, spaced numbers, and Morse code transmissions are masked to <strong className="text-emerald-300">XXXXX</strong>.
+                    TRANA Anti-Evasion Privacy Engine: Contact numbers, digits, and Morse code transmissions are masked to <strong className="text-white">XXXXX</strong>.
                   </span>
                 </div>
-                <span className="hidden sm:inline text-[0.65rem] border border-emerald-500/40 text-emerald-400 px-1.5 py-0.5">
-                  AUDIT LOG SECURE
+                <span className="hidden sm:inline text-[0.65rem] border border-white/20 text-neutral-300 px-1.5 py-0.5 rounded">
+                  VERIFIED AUDIT LOG
                 </span>
               </div>
 
-              {/* Live Chat Stream */}
+              {/* Case Brief if available */}
+              {activeSession.intakeBrief && (
+                <div className="p-3.5 bg-[#141414] border-b border-[#222222] text-xs font-mono text-[#CCCCCC] space-y-1">
+                  <div className="text-[0.65rem] uppercase text-[#888888] tracking-widest font-bold">
+                    Intake Case Brief
+                  </div>
+                  <p className="line-clamp-2 text-[#999999]">
+                    {activeSession.intakeBrief}
+                  </p>
+                </div>
+              )}
+
+              {/* Real Chat Messages Stream */}
               <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 bg-[#0A0A0A] max-h-[520px]">
-                {activeMessages.map((msg) => {
-                  if (msg.sender === "system") {
+                {activeSession.messages.length === 0 ? (
+                  <div className="text-center py-12 text-xs font-mono text-[#777777]">
+                    No messages recorded in this conversation yet.
+                  </div>
+                ) : (
+                  activeSession.messages.map((msg) => {
+                    if (msg.sender === "system") {
+                      return (
+                        <div key={msg.id} className="flex justify-center my-2">
+                          <div className="border border-[#333333] bg-[#141414] px-4 py-2 text-[0.75rem] text-[#888888] font-mono max-w-xl text-center flex items-center gap-2 rounded">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                            <span>{msg.text}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const isAI = msg.sender === "ai";
+                    const isLawyer = msg.sender === "lawyer";
+                    const isCitizen = msg.sender === "citizen";
+
                     return (
-                      <div key={msg.id} className="flex justify-center my-2">
-                        <div className="border border-[#333333] bg-[#141414] px-4 py-2 text-[0.75rem] text-[#888888] font-mono max-w-xl text-center flex items-center gap-2">
-                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                          <span>{msg.text}</span>
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col ${isCitizen ? "items-start" : "items-end"}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1 text-[0.7rem] font-mono text-[#888888]">
+                          <span className={isCitizen ? "text-white font-medium" : "text-neutral-300 font-medium"}>
+                            {msg.senderName}
+                          </span>
+                          <span className="text-[0.65rem] uppercase px-1 border border-[#333333] text-[#777777] rounded">
+                            {isAI ? "Platform AI" : isLawyer ? "Advocate Counsel" : "Citizen Client"}
+                          </span>
+                          {msg.modelUsed && (
+                            <span className="text-[0.65rem] px-1 border border-white/20 text-neutral-300 font-mono rounded">
+                              {msg.modelUsed}
+                            </span>
+                          )}
+                          {msg.processingTime && (
+                            <span className="text-[0.65rem] text-[#666666]">
+                              {msg.processingTime.toFixed(1)}s
+                            </span>
+                          )}
+                          <span>{msg.timestamp}</span>
+                        </div>
+
+                        <div
+                          className={`max-w-2xl p-4 rounded text-xs md:text-sm leading-relaxed border ${
+                            isCitizen
+                              ? "bg-[#161616] border-[#2A2A2A] text-[#F0F0F0]"
+                              : isAI
+                              ? "bg-[#1A1A1A] border-white/10 text-[#F5F5F5]"
+                              : "bg-[#1A1A1A] border-emerald-500/30 text-[#F5F5F5]"
+                          }`}
+                        >
+                          {renderMaskedText(msg.text)}
+
+                          {/* Render structured citations if present */}
+                          {msg.structuredContent && typeof msg.structuredContent === "object" && (
+                            <div className="mt-3 pt-3 border-t border-[#333333] space-y-2 text-xs font-mono">
+                              {msg.structuredContent.applicable_laws && Array.isArray(msg.structuredContent.applicable_laws) && (
+                                <div>
+                                  <div className="text-[0.65rem] uppercase text-[#888888] font-bold">
+                                    Statutory Provisions Cited:
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {msg.structuredContent.applicable_laws.map((law: any, li: number) => (
+                                      <span key={li} className="px-1.5 py-0.5 bg-[#262626] border border-[#3A3A3A] text-neutral-300 text-[0.65rem] rounded">
+                                        {law.act || law.code} {law.section ? `Sec ${law.section}` : ""}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {msg.structuredContent.bail_status && (
+                                <div className="text-[#AAAAAA]">
+                                  <strong className="text-white">Bail Outlook:</strong> {msg.structuredContent.bail_status}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
-                  }
-
-                  const isLawyer = msg.sender === "lawyer";
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col ${isLawyer ? "items-end" : "items-start"}`}
-                    >
-                      <div className="flex items-center gap-2 mb-1 text-[0.7rem] font-mono text-[#888888]">
-                        <span className={isLawyer ? "text-emerald-300 font-medium" : "text-white font-medium"}>
-                          {msg.senderName}
-                        </span>
-                        <span className="text-[0.65rem] uppercase px-1 border border-[#333333] text-[#777777]">
-                          {isLawyer ? "Advocate Counsel" : "Citizen Client"}
-                        </span>
-                        <span>{msg.timestamp}</span>
-                      </div>
-
-                      <div
-                        className={`max-w-md p-3.5 rounded text-xs md:text-sm leading-relaxed border ${
-                          isLawyer
-                            ? "bg-[#171717] border-emerald-500/30 text-[#F0F0F0]"
-                            : "bg-[#1F1F1F] border-[#383838] text-[#F0F0F0]"
-                        }`}
-                      >
-                        {renderMaskedText(msg.text)}
-                      </div>
-                    </div>
-                  );
-                })}
+                  })
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Footer info bar */}
+              {/* Footer Audit Notice */}
               <div className="border-t border-[#222222] bg-[#111111] p-3 text-[0.7rem] font-mono text-[#777777] flex items-center justify-between">
                 <span>
-                  Supervisory View Only • Client-Lawyer privileged audit channel
+                  Supervisory Console • Confidential database-backed audit channel
                 </span>
-                <span className="text-emerald-400">
-                  Total Messages: {activeMessages.length}
+                <span className="text-neutral-300 font-bold">
+                  {activeSession.messages.length} Total Messages
                 </span>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center p-8 text-center text-xs text-[#777777] font-mono">
-              Select a chat session from the left to view the supervisory transcript.
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-xs text-[#777777] font-mono gap-2">
+              <MessageSquare className="h-8 w-8 text-[#333333]" />
+              <span className="text-[#AAAAAA] font-medium">Select a chat session from the left</span>
+              <span className="text-[#666666] text-[0.65rem]">All platform inquiries and consultation channels are listed live.</span>
             </div>
           )}
         </div>
@@ -819,4 +815,3 @@ function FoundersChatsPage() {
     </div>
   );
 }
-

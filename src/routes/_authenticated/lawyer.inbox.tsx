@@ -36,82 +36,6 @@ type CaseItem = {
   lastMessage?: string;
 };
 
-const fallbackBenchmarkCases: CaseItem[] = [
-  {
-    id: "REF-2026-089",
-    client: "Rahul Verma",
-    matterType: "Anticipatory Bail Application — Section 482 BNSS",
-    section: "Section 482 BNSS & Sec 318 BNS",
-    consultationType: "Call",
-    status: "Confirmed",
-    date: "24 Oct 2026",
-    lastMessage: "I have prepared the commercial invoice reconciliations for bail hearing.",
-    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
-Matter: Anticipatory Bail Application — Pre-Arrest Protection
-Client: Rahul Verma • Verified Account (Managing Director, Logistics Enterprise)
-Target Counsel: Advocate Counsel
-Date: 24 Oct 2026
-Mode: Telephonic Consultation Relay
-Applicable Statutes: Section 482 Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) & Section 318 Bharatiya Nyaya Sanhita, 2023 (BNS)
-Bail / Custody Outlook: Non-Bailable Cognizable Allegation; Urgent pre-arrest protective orders required prior to police custody.
-
-1. Factual Matrix & Procedural Background
-Client Rahul Verma is the Managing Director of a registered logistics corporation operating in the National Capital Region. A commercial trade supplier has filed a criminal complaint at the local police station alleging cheating and criminal breach of trust regarding invoices totaling ₹18.5 Lakhs. The dispute strictly concerns damaged transit consignments and ongoing contractual quality reconciliation. There was zero fraudulent inducement at the inception of the commercial contract. The Investigating Officer has issued verbal summons and threatened imminent arrest without issuing statutory Section 35(3) BNSS notice.
-
-2. Statutory Provisions & Offence Breakdown
-• Section 318 BNS (Cheating): The sine qua non of cheating requires dishonest intention existing at the very inception of the transaction. The Supreme Court of India in landmark precedents (Hridaya Ranjan Prasad Verma v. State of Bihar and Dalip Kaur v. Jagnar Singh) has definitively ruled that a mere failure to keep a promise, breach of contract, or delay in settlement does not constitute criminal cheating.
-• Section 316 BNS (Criminal Breach of Trust): Commercial credit disputes do not satisfy entrustment of dominion over property in a fiduciary capacity.
-• Apprehension of Arrest: The informal threats by the IO satisfy the jurisdictional threshold of reasonable belief of imminent arrest required under Section 482 BNSS.
-
-3. Custodial Assessment & Bail Jurisprudence
-• Custodial interrogation is legally uncalled for as the transaction is thoroughly documented through GST invoices, bilties, e-way bills, and bank transfers.
-• Landmark Supreme Court guidelines in Satender Kumar Antil v. CBI and Arnesh Kumar v. State of Bihar mandate that police officers must not routinely effect arrests in disputes of a commercial nature or offences punishable with imprisonment of seven years or less.
-• Client has clean antecedent records, deep roots in society, and zero flight risk.
-
-4. Constitutional & Procedural Safeguards
-• Section 35(3) BNSS mandates issuance of formal notice of appearance in all cases where arrest is not immediately necessary.
-• Article 20(3) and 21 of the Constitution protect the client against coerced confessions and deprivation of personal liberty without procedure established by law.
-• Section 41D / Section 37 BNSS guarantees right of accused to consult counsel during interrogation.
-
-5. Strategic Legal Action Plan
-• File urgent Anticipatory Bail Application under Section 482 BNSS before the Principal District & Sessions Judge.
-• Annex all purchase orders, inspection rejection notes, and WhatsApp/Email reconciliation exchanges demonstrating bona fide civil dispute.
-• Seek ad-interim protection against coercive police action pending formal notice to the Public Prosecutor.
-• Submit formal representation to the Deputy Commissioner of Police highlighting civil nature of the transaction.`,
-  },
-  {
-    id: "REF-2026-084",
-    client: "Priya Sharma",
-    matterType: "Commercial Contract Breach Notice",
-    section: "Indian Contract Act & Specific Relief Act",
-    consultationType: "Chat",
-    status: "Confirmed",
-    date: "23 Oct 2026",
-    lastMessage: "Kindly review the 15-day statutory cure notice draft.",
-    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
-Matter: Commercial Software Breach & Statutory Restitution Notice
-Client: Priya Sharma • Mumbai (Enterprise Commercial Principal)
-Target Counsel: Advocate Counsel
-Date: 23 Oct 2026
-Mode: Secure In-App Chat
-Applicable Statutes: Sections 39, 73 & 74 Indian Contract Act, 1872; Section 12A Commercial Courts Act, 2015
-Bail / Custody Outlook: Civil Commercial Proceeding; Zero custodial risk.
-
-1. Factual Matrix & Background
-Client contracted a commercial software enterprise developer under a Master Services Agreement (MSA) for proprietary logistics management software, paying ₹7.2 Lakhs as an advance deposit (70% of total contract value). The vendor missed multiple milestone deadlines, failed to deploy beta builds, refused access to the source code repository, and abruptly ceased communication after receipt of informal default notices.
-
-2. Statutory Assessment & Legal Framework
-• Section 39 Contract Act: Vendor's refusal or disabling of performance constitutes repudiatory breach, entitling client to terminate and claim restitution.
-• Section 73 Contract Act: Entitlement to compensation for direct loss naturally arising in the usual course of things from the breach.
-• Section 74 Contract Act: Enforcement of pre-estimated liquidated damages stipulated under Clause 14 of the executed MSA.
-
-3. Strategic Legal Action Plan
-• Issue formal 15-day statutory legal notice demanding immediate refund of ₹7.2 Lakhs along with 18% p.a. commercial interest and compensation for business disruption.
-• Initiate pre-institution mediation proceedings under Section 12A of the Commercial Courts Act, 2015 before the District Legal Services Authority (DLSA).
-• Preserve all timestamped git commits, Slack communications, and bank transfer receipts for commercial suit filing upon non-compliance.`,
-  },
-];
-
 function LawyerCaseInboxPage() {
   const { data: lawyer } = useLawyerAuth();
   const qc = useQueryClient();
@@ -215,13 +139,6 @@ function LawyerCaseInboxPage() {
           : "Today",
         intakeBrief: briefText,
       });
-    });
-
-    // 3. Append benchmark cases
-    fallbackBenchmarkCases.forEach((b) => {
-      if (!list.some((existing) => existing.id === b.id)) {
-        list.push(b);
-      }
     });
 
     return list;
@@ -450,7 +367,12 @@ function LawyerCaseInboxPage() {
 
           {/* Cases Feed */}
           <div className="flex-1 overflow-y-auto divide-y divide-[#202020]">
-            {filteredCases.map((c) => {
+            {filteredCases.length === 0 ? (
+              <div className="p-8 text-center text-xs text-[#777777] font-mono">
+                No client consultation matters found.
+              </div>
+            ) : (
+              filteredCases.map((c) => {
               const isSelected = c.id === activeCase?.id;
               const isConfirmed = c.status === "Confirmed";
               const isDenied = c.status === "Denied";
@@ -505,7 +427,8 @@ function LawyerCaseInboxPage() {
                   </div>
                 </button>
               );
-            })}
+            })
+          )}
           </div>
         </div>
 
