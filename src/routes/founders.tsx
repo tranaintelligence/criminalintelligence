@@ -187,7 +187,6 @@ function FoundersLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<{ id: string; email: string; name?: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -260,7 +259,6 @@ function FoundersLayout() {
 
   // Keep pill positioned over active item when route changes or on mount
   useEffect(() => {
-    // Delay slightly to ensure DOM has rendered
     const t = setTimeout(() => {
       if (activeRouteIndex !== -1) {
         updatePill(activeRouteIndex, true);
@@ -269,7 +267,7 @@ function FoundersLayout() {
       }
     }, 50);
     return () => clearTimeout(t);
-  }, [location.pathname, activeRouteIndex, sidebarCollapsed]);
+  }, [location.pathname, activeRouteIndex]);
 
   const logout = async () => {
     if (typeof window !== "undefined") {
@@ -285,8 +283,8 @@ function FoundersLayout() {
   // 1. Loading verification state
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-[#08070b] flex flex-col items-center justify-center text-white font-mono gap-3 p-4">
-        <div className="w-7 h-7 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#08080a] flex flex-col items-center justify-center text-white font-mono gap-3 p-4">
+        <div className="w-7 h-7 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
         <span className="text-xs uppercase tracking-widest text-[#888888]">
           Verifying Founder Access...
         </span>
@@ -297,7 +295,7 @@ function FoundersLayout() {
   // 2. Unauthenticated user -> redirect to auth
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#08070b] flex flex-col items-center justify-center text-white font-mono gap-4 p-4 text-center">
+      <div className="min-h-screen bg-[#08080a] flex flex-col items-center justify-center text-white font-mono gap-4 p-4 text-center">
         <p className="text-sm text-[#888888]">Authentication required to access the Founders Console.</p>
         <Link
           to="/auth"
@@ -313,7 +311,7 @@ function FoundersLayout() {
   // 3. Authenticated user who is NOT an admin -> Access Denied Screen
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-[#08070b] text-[#F0F0F0] flex flex-col items-center justify-center p-6 font-mono selection:bg-white selection:text-black">
+      <div className="min-h-screen bg-[#08080a] text-[#F0F0F0] flex flex-col items-center justify-center p-6 font-mono selection:bg-white selection:text-black">
         <Toaster />
         <div className="max-w-md w-full border border-red-500/30 bg-[#121212]/90 backdrop-blur-2xl p-8 rounded-2xl space-y-6 text-center shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-amber-500 to-red-600" />
@@ -335,7 +333,7 @@ function FoundersLayout() {
           <div className="bg-[#181818]/80 border border-[#282828] p-3.5 rounded-xl text-left text-xs space-y-1">
             <span className="text-[#666666] block text-[10px] uppercase tracking-wider">Signed in as:</span>
             <span className="text-white font-medium break-all">{currentUser.email}</span>
-            <span className="text-[10px] text-amber-200/70 block mt-1">Role: Citizen / Standard User (Non-Admin)</span>
+            <span className="text-[10px] text-neutral-400 block mt-1">Role: Citizen / Standard User (Non-Admin)</span>
           </div>
 
           <div className="flex flex-col gap-2 pt-2">
@@ -373,74 +371,53 @@ function FoundersLayout() {
 
   const sidebarContent = (
     <div className="flex h-full flex-col text-[#F0F0F0] relative overflow-hidden select-none">
-      {/* Specular Top Edge Reflection */}
-      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-white/80 to-transparent pointer-events-none z-20" />
-
-      {/* Brand Header — Matching Vertix floating workspace aesthetic */}
+      {/* Brand Header */}
       <div className="p-4 pb-3 flex items-center justify-between relative border-b border-white/[0.08]">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Glowing Squircle Brand Logo */}
+          {/* Subtle Frosted Squircle Brand Logo */}
           <Link
             to="/"
-            className="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 flex items-center justify-center shadow-[0_4px_16px_rgba(245,158,11,0.4),inset_0_1.5px_2px_rgba(255,255,255,0.7)] text-black font-bold font-display text-lg shrink-0 hover:scale-105 transition-transform"
+            className="w-9 h-9 rounded-2xl bg-white/[0.12] hover:bg-white/[0.18] border border-white/25 flex items-center justify-center shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.6),0_4px_16px_rgba(0,0,0,0.4),0_0_12px_rgba(255,255,255,0.08)] text-white font-bold font-display text-lg shrink-0 hover:scale-105 transition-all"
             title="TRANA Home"
           >
             T
           </Link>
           
-          {!sidebarCollapsed && (
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <Link
-                  to="/"
-                  className="font-display font-bold text-base text-white tracking-wide hover:text-amber-200 transition-colors truncate"
-                >
-                  TRANA
-                </Link>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                  ADMIN
-                </span>
-              </div>
-              <div className="text-[11px] text-neutral-400/90 font-sans truncate leading-none mt-0.5">
-                Founders workspace
-              </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/"
+                className="font-display font-bold text-base text-white tracking-wide hover:text-neutral-200 transition-colors truncate"
+              >
+                TRANA
+              </Link>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-white/10 text-neutral-300 border border-white/20">
+                ADMIN
+              </span>
             </div>
-          )}
-        </div>
-
-        {/* Circular Frosted Collapse Button */}
-        <button
-          type="button"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="w-7 h-7 rounded-full bg-white/[0.08] hover:bg-white/[0.18] border border-white/20 flex items-center justify-center text-white/80 hover:text-white transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] cursor-pointer shrink-0"
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <ChevronLeft
-            className={`h-3.5 w-3.5 transition-transform duration-300 ${
-              sidebarCollapsed ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-      </div>
-
-      {/* Pill Search Bar (Vertix-style full-rounded input) */}
-      {!sidebarCollapsed && (
-        <div className="px-3 pt-3 pb-1">
-          <div className="relative flex items-center">
-            <Search className="absolute left-3.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search pages..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-12 py-1.5 text-xs text-white placeholder-neutral-400/60 bg-white/[0.07] hover:bg-white/[0.12] focus:bg-white/[0.14] border border-white/15 focus:border-white/40 rounded-full shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-all outline-none"
-            />
-            <span className="absolute right-2.5 px-1.5 py-0.5 text-[9px] font-mono font-medium rounded-full bg-white/10 border border-white/20 text-neutral-300 pointer-events-none shadow-sm">
-              ⌘K
-            </span>
+            <div className="text-[11px] text-neutral-400 font-sans truncate leading-none mt-0.5">
+              Founders workspace
+            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Pill Search Bar */}
+      <div className="px-3 pt-3 pb-1">
+        <div className="relative flex items-center">
+          <Search className="absolute left-3.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search pages..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-12 py-1.5 text-xs text-white placeholder-neutral-400/60 bg-white/[0.07] hover:bg-white/[0.12] focus:bg-white/[0.14] border border-white/15 focus:border-white/40 rounded-full shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-all outline-none"
+          />
+          <span className="absolute right-2.5 px-1.5 py-0.5 text-[9px] font-mono font-medium rounded-full bg-white/10 border border-white/20 text-neutral-300 pointer-events-none shadow-sm">
+            ⌘K
+          </span>
+        </div>
+      </div>
 
       {/* Navigation Area with Apple Smooth Gliding Frosted Glass Pill */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3">
@@ -462,11 +439,9 @@ function FoundersLayout() {
           {/* MAIN SECTION */}
           {mainItems.length > 0 && (
             <div className="mb-3">
-              {!sidebarCollapsed && (
-                <div className="px-3.5 pt-1 pb-1 text-[10px] font-mono font-semibold tracking-wider text-neutral-400/70 uppercase">
-                  MAIN
-                </div>
-              )}
+              <div className="px-3.5 pt-1 pb-1 text-[10px] font-mono font-semibold tracking-wider text-neutral-400/70 uppercase">
+                MAIN
+              </div>
               <div className="space-y-0.5">
                 {mainItems.map((item) => {
                   const globalIdx = navItems.findIndex((n) => n.to === item.to);
@@ -482,29 +457,26 @@ function FoundersLayout() {
                       }}
                       onMouseEnter={() => updatePill(globalIdx, true)}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`apple-nav-item flex items-center ${
-                        sidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
-                      } my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
+                      className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
                         isActive ? "text-white active" : "text-neutral-300 hover:text-white"
                       }`}
-                      title={sidebarCollapsed ? item.label : undefined}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon
                           className={`h-4 w-4 shrink-0 transition-colors ${
-                            isActive ? "text-amber-300 drop-shadow-[0_0_8px_rgba(252,211,77,0.5)]" : "text-neutral-400 group-hover:text-white"
+                            isActive ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" : "text-neutral-400 group-hover:text-white"
                           }`}
                         />
-                        {!sidebarCollapsed && <span className="tracking-normal truncate">{item.label}</span>}
+                        <span className="tracking-normal truncate">{item.label}</span>
                       </div>
 
-                      {!sidebarCollapsed && item.badge && (
-                        <span className="px-2 py-0.2 text-[9px] font-mono font-semibold rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                      {item.badge && (
+                        <span className="px-2 py-0.2 text-[9px] font-mono font-medium rounded-full bg-white/10 text-neutral-200 border border-white/20">
                           {item.badge}
                         </span>
                       )}
-                      {!sidebarCollapsed && isActive && !item.badge && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.9)] animate-pulse" />
+                      {isActive && !item.badge && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
                       )}
                     </Link>
                   );
@@ -516,11 +488,9 @@ function FoundersLayout() {
           {/* WORKSPACE SECTION */}
           {workspaceItems.length > 0 && (
             <div>
-              {!sidebarCollapsed && (
-                <div className="px-3.5 pt-2 pb-1 text-[10px] font-mono font-semibold tracking-wider text-neutral-400/70 uppercase">
-                  WORKSPACE
-                </div>
-              )}
+              <div className="px-3.5 pt-2 pb-1 text-[10px] font-mono font-semibold tracking-wider text-neutral-400/70 uppercase">
+                WORKSPACE
+              </div>
               <div className="space-y-0.5">
                 {workspaceItems.map((item) => {
                   const globalIdx = navItems.findIndex((n) => n.to === item.to);
@@ -536,29 +506,26 @@ function FoundersLayout() {
                       }}
                       onMouseEnter={() => updatePill(globalIdx, true)}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`apple-nav-item flex items-center ${
-                        sidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-between px-3.5 py-2"
-                      } my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
+                      className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
                         isActive ? "text-white active" : "text-neutral-300 hover:text-white"
                       }`}
-                      title={sidebarCollapsed ? item.label : undefined}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon
                           className={`h-4 w-4 shrink-0 transition-colors ${
-                            isActive ? "text-amber-300 drop-shadow-[0_0_8px_rgba(252,211,77,0.5)]" : "text-neutral-400 group-hover:text-white"
+                            isActive ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" : "text-neutral-400 group-hover:text-white"
                           }`}
                         />
-                        {!sidebarCollapsed && <span className="tracking-normal truncate">{item.label}</span>}
+                        <span className="tracking-normal truncate">{item.label}</span>
                       </div>
 
-                      {!sidebarCollapsed && item.badge && (
-                        <span className="w-5 h-5 flex items-center justify-center text-[10px] font-mono font-bold rounded-full bg-orange-500 text-white shadow-[0_2px_8px_rgba(249,115,22,0.6)]">
+                      {item.badge && (
+                        <span className="px-2 py-0.2 text-[10px] font-mono font-medium rounded-full bg-white/15 text-white border border-white/20 shadow-sm">
                           {item.badge}
                         </span>
                       )}
-                      {!sidebarCollapsed && isActive && !item.badge && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.9)] animate-pulse" />
+                      {isActive && !item.badge && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
                       )}
                     </Link>
                   );
@@ -569,54 +536,50 @@ function FoundersLayout() {
         </nav>
       </div>
 
-      {/* Floating User Profile Capsule at Bottom (Vertix aesthetic) */}
+      {/* Floating User Profile Capsule at Bottom */}
       <div className="p-3 border-t border-white/[0.08] bg-black/25 backdrop-blur-xl mt-auto">
-        <div className={`relative overflow-hidden rounded-2xl bg-white/[0.07] hover:bg-white/[0.12] border border-white/15 p-2 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.4),0_8px_20px_rgba(0,0,0,0.35)] transition-all flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between gap-2"}`}>
+        <div className="relative overflow-hidden rounded-2xl bg-white/[0.07] hover:bg-white/[0.12] border border-white/15 p-2 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.3),0_8px_20px_rgba(0,0,0,0.35)] transition-all flex items-center justify-between gap-2">
           {/* Avatar with Status Dot */}
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative shrink-0">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-yellow-200 p-[1px] shadow-sm">
-                <div className="w-full h-full rounded-full bg-[#121018] flex items-center justify-center text-xs font-semibold text-amber-200">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-white/25 via-white/50 to-white/20 p-[1px] shadow-sm">
+                <div className="w-full h-full rounded-full bg-[#121216] flex items-center justify-center text-xs font-semibold text-white">
                   {founderEmail[0]?.toUpperCase() || "F"}
                 </div>
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#121018] shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#121216] shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
             </div>
 
-            {!sidebarCollapsed && (
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-white truncate leading-tight">
-                  {currentUser.name || "Founder Admin"}
-                </div>
-                <div
-                  className="text-[10px] text-neutral-400 truncate leading-tight mt-0.5 font-mono"
-                  title={founderEmail}
-                >
-                  {founderEmail}
-                </div>
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-white truncate leading-tight">
+                {currentUser.name || "Founder Admin"}
               </div>
-            )}
+              <div
+                className="text-[10px] text-neutral-400 truncate leading-tight mt-0.5 font-mono"
+                title={founderEmail}
+              >
+                {founderEmail}
+              </div>
+            </div>
           </div>
 
           {/* Quick Action Icons */}
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-1 shrink-0">
-              <Link
-                to="/"
-                className="w-7 h-7 rounded-full bg-white/[0.08] hover:bg-white/[0.2] border border-white/20 flex items-center justify-center text-neutral-300 hover:text-white transition-all cursor-pointer"
-                title="Return to Main Site"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-              <button
-                onClick={logout}
-                className="w-7 h-7 rounded-full bg-white/[0.08] hover:bg-red-500/20 hover:border-red-400/40 border border-white/20 flex items-center justify-center text-neutral-300 hover:text-red-300 transition-all cursor-pointer"
-                title="Sign out of founder session"
-              >
-                <LogOut className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            <Link
+              to="/"
+              className="w-7 h-7 rounded-full bg-white/[0.08] hover:bg-white/[0.2] border border-white/20 flex items-center justify-center text-neutral-300 hover:text-white transition-all cursor-pointer"
+              title="Return to Main Site"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+            <button
+              onClick={logout}
+              className="w-7 h-7 rounded-full bg-white/[0.08] hover:bg-red-500/20 hover:border-red-400/40 border border-white/20 flex items-center justify-center text-neutral-300 hover:text-red-300 transition-all cursor-pointer"
+              title="Sign out of founder session"
+            >
+              <LogOut className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -624,24 +587,20 @@ function FoundersLayout() {
 
   return (
     <FounderContext.Provider value={{ founderEmail, isLoggedIn: true, isAdmin: true, logout }}>
-      <div className="founders-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black flex flex-col md:flex-row overflow-x-hidden">
+      <div className="founders-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black">
         <Toaster />
 
-        {/* Ambient background refraction orbs — warm amber, bronze, indigo and emerald */}
+        {/* Ambient background subtle monochrome white glow */}
         <div
-          className="fixed top-[-100px] left-[5%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-amber-500/25 via-orange-500/15 to-transparent blur-[140px] pointer-events-none -z-10 animate-pulse"
-          style={{ animationDuration: "10s" }}
+          className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.025] blur-[140px] pointer-events-none -z-10"
         />
-        <div className="fixed top-[28%] right-[-100px] w-[700px] h-[700px] rounded-full bg-gradient-to-br from-indigo-600/20 via-purple-600/10 to-transparent blur-[150px] pointer-events-none -z-10" />
-        <div className="fixed bottom-[-100px] left-[20%] w-[650px] h-[650px] rounded-full bg-gradient-to-tr from-emerald-500/15 via-teal-500/10 to-transparent blur-[140px] pointer-events-none -z-10" />
+        <div
+          className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10"
+        />
 
-        {/* Desktop Left Sidebar: Floating Frosted Glass Capsule (Apple Vision Aesthetic) */}
-        <aside
-          className={`hidden md:flex flex-col shrink-0 sticky top-0 h-screen p-3 lg:p-4 z-40 transition-all duration-300 ${
-            sidebarCollapsed ? "w-[84px]" : "w-[290px] lg:w-[310px]"
-          }`}
-        >
-          <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden select-none">
+        {/* Desktop Left Sidebar: Completely FIXED to viewport — impossible to scroll away */}
+        <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[280px] p-3 lg:p-4 z-40 select-none">
+          <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden">
             {sidebarContent}
           </div>
         </aside>
@@ -649,11 +608,11 @@ function FoundersLayout() {
         {/* Mobile Header */}
         <header className="flex items-center justify-between border-b border-white/10 bg-[#0d0b14]/80 backdrop-blur-2xl px-4 py-3 md:hidden sticky top-0 z-40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 flex items-center justify-center shadow-md text-black font-bold font-display text-sm">
+            <div className="w-7 h-7 rounded-xl bg-white/[0.12] border border-white/25 flex items-center justify-center shadow-md text-white font-bold font-display text-sm">
               T
             </div>
             <span className="font-display text-base tracking-[0.15em] text-[#F0F0F0]">TRANA</span>
-            <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-amber-300 font-mono">FOUNDERS</span>
+            <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">FOUNDERS</span>
           </div>
           <button
             aria-label="Open navigation menu"
@@ -667,7 +626,7 @@ function FoundersLayout() {
         {/* Mobile Menu Drawer */}
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md md:hidden flex p-3">
-            <div className="apple-floating-sidebar w-[290px] h-full flex flex-col relative overflow-hidden shadow-2xl">
+            <div className="apple-floating-sidebar w-[280px] h-full flex flex-col relative overflow-hidden shadow-2xl">
               <button
                 aria-label="Close menu"
                 className="absolute right-3.5 top-3.5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-neutral-300 hover:text-white z-50 transition-all cursor-pointer"
@@ -680,8 +639,8 @@ function FoundersLayout() {
           </div>
         )}
 
-        {/* Main Content Area: Placed side-by-side with sidebar via flex-row */}
-        <main className="flex-1 min-w-0 min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
+        {/* Main Content Area: Offset by sidebar width on desktop */}
+        <main className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
           <div className="max-w-7xl mx-auto space-y-6">
             <Outlet />
           </div>

@@ -162,7 +162,7 @@ function FoundersOverview() {
             <span className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
               Total Users
             </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300 group-hover:scale-110 transition-transform">
+            <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
               <Users className="h-4 w-4" />
             </div>
           </div>
@@ -229,7 +229,7 @@ function FoundersOverview() {
             <span className="text-xs uppercase tracking-wider text-neutral-400 font-medium">
               Verified Lawyers
             </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300 group-hover:scale-110 transition-transform">
+            <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
               <Scale className="h-4 w-4" />
             </div>
           </div>
@@ -293,7 +293,7 @@ function FoundersOverview() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-white/[0.08] pb-5">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-widest text-amber-200/90 font-medium">
+              <span className="text-xs uppercase tracking-widest text-neutral-300 font-medium">
                 STATUTORY COMPLIANCE · AUDIT TRAIL
               </span>
               <span className="apple-glass-pill px-2.5 py-0.5 text-[0.68rem] text-emerald-400 font-semibold border-emerald-500/30">
@@ -301,7 +301,7 @@ function FoundersOverview() {
               </span>
             </div>
             <h2 className="font-display text-2xl font-medium text-white mt-1.5 flex items-center gap-2">
-              <CheckSquare className="h-5 w-5 text-amber-300" />
+              <CheckSquare className="h-5 w-5 text-white" />
               <span>Advocate Notice Acknowledgements</span>
             </h2>
             <p className="text-xs text-neutral-400 mt-1 max-w-2xl leading-relaxed">
