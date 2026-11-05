@@ -8,14 +8,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { API_URL } from "@/lib/trana-backend";
 
 export const DEFAULT_ADMIN_EMAILS = [
-  "ckhraiushh1@gmail.com",
+  "ckhraiushh1@gmail.com", "swastik2007mishra@gmail.com", "tranaintelliegence@gmail.com", "tranaintelligence@gmail.com", "founder@trana.in", "admin@trana.in", "team@trana.in",
 ];
 
 export function checkIsAdmin(email?: string | null): boolean {
   if (!email) return false;
   const normalized = email.trim().toLowerCase();
   // Primary founder instant check
-  if (normalized === "ckhraiushh1@gmail.com") return true;
+  if (["ckhraiushh1@gmail.com", "swastik2007mishra@gmail.com", "tranaintelliegence@gmail.com", "tranaintelligence@gmail.com"].includes(normalized)) return true;
 
   // Check cached authorized founders from encrypted backend table
   try {

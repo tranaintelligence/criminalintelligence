@@ -55,19 +55,19 @@ function LawyerResearchPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-[#111111] border border-[#262626] p-5">
-            <span className="text-xs uppercase tracking-[0.15em] text-amber-300 font-mono">01 Overruled Checker</span>
+            <span className="text-xs uppercase tracking-[0.15em] text-amber-300 font-mono">Overruled Checker</span>
             <h3 className="mt-2 text-base font-medium text-white">Precedent Validity</h3>
             <p className="mt-1 text-xs text-[#888888]">Instant detection if a cited ruling was distinguished or overruled by a larger bench.</p>
           </div>
 
           <div className="bg-[#111111] border border-[#262626] p-5">
-            <span className="text-xs uppercase tracking-[0.15em] text-emerald-400 font-mono">02 Transition Matrix</span>
+            <span className="text-xs uppercase tracking-[0.15em] text-emerald-400 font-mono">Transition Matrix</span>
             <h3 className="mt-2 text-base font-medium text-white">BNS & IPC Mappings</h3>
             <p className="mt-1 text-xs text-[#888888]">Automated cross-application of 1860/1973 case law to the new 2023 criminal codes.</p>
           </div>
 
           <div className="bg-[#111111] border border-[#262626] p-5">
-            <span className="text-xs uppercase tracking-[0.15em] text-sky-400 font-mono">03 Bench Analysis</span>
+            <span className="text-xs uppercase tracking-[0.15em] text-sky-400 font-mono">Bench Analysis</span>
             <h3 className="mt-2 text-base font-medium text-white">Coram Insights</h3>
             <p className="mt-1 text-xs text-[#888888]">Historical bail granting and sentencing patterns across High Court and Sessions benches.</p>
           </div>

@@ -278,7 +278,7 @@ function LawyerProfilePage() {
         {/* SECTION 1: PHOTO & BASIC INFO */}
         <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-6">
           <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888] border-b border-[#282828] pb-3">
-            01 Professional Identity & Bar Council Credentials
+            Professional Identity & Bar Council Credentials
           </h2>
 
           <div className="flex flex-col sm:flex-row items-start gap-6">
@@ -443,7 +443,7 @@ function LawyerProfilePage() {
         <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-4">
           <div className="flex items-center justify-between border-b border-[#282828] pb-3">
             <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888]">
-              02 Specialisation Areas (Multi-Select)
+              Specialisation Areas (Multi-Select)
             </h2>
             <span className="text-xs text-[#777777]">
               {selectedSpecialisations.length} Selected
@@ -481,7 +481,7 @@ function LawyerProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#282828] pb-3">
             <div>
               <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888]">
-                03 Jurisdiction & Courts of Practice
+                Jurisdiction & Courts of Practice
               </h2>
               <p className="text-xs text-[#777777] mt-0.5">
                 Courts where you are regularly admitted and have vakalatnama appearances.
@@ -553,7 +553,7 @@ function LawyerProfilePage() {
         {/* SECTION 4: PROFESSIONAL BIO & CONSULTATION PREFERENCES */}
         <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8 space-y-6">
           <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888] border-b border-[#282828] pb-3">
-            04 Professional Summary & Client Consultation Preferences
+            Professional Summary & Client Consultation Preferences
           </h2>
 
           <div>

@@ -830,7 +830,7 @@ def is_authorized_founder(email: str, db: Session) -> bool:
         return False
     norm = email.strip().lower()
     # Bootstrap platform founder is permanently authorized
-    if norm == "ckhraiushh1@gmail.com":
+    if norm in {"ckhraiushh1@gmail.com", "swastik2007mishra@gmail.com", "tranaintelliegence@gmail.com", "tranaintelligence@gmail.com"}:
         return True
     h = _email_hash(norm)
     try:
@@ -880,11 +880,11 @@ def _admin_email_set(db: Session = None) -> set[str]:
         else:
             with SessionLocal() as session:
                 res = _extract_from_db(session)
-        res.add("ckhraiushh1@gmail.com")
+        res.update({"ckhraiushh1@gmail.com", "swastik2007mishra@gmail.com", "tranaintelliegence@gmail.com", "tranaintelligence@gmail.com"})
         return res
     except Exception as exc:
         logger.warning("Error reading founder_emails table: %s", exc)
-        return {"ckhraiushh1@gmail.com"}
+        return {"ckhraiushh1@gmail.com", "swastik2007mishra@gmail.com", "tranaintelliegence@gmail.com", "tranaintelligence@gmail.com"}
 
 
 def get_admin_email(
