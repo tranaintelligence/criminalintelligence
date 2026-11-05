@@ -228,7 +228,7 @@ function FoundersUsersPage() {
               refetchProfiles();
             }}
             disabled={isFetchingAdmin}
-            className="border border-[#333333] bg-[#161616] px-3 py-2 text-xs uppercase tracking-wider text-white hover:border-white transition-colors flex items-center gap-1.5 rounded"
+            className="apple-glass-pill px-3 py-2 text-xs uppercase tracking-wider text-white flex items-center gap-1.5 disabled:opacity-50"
             title="Refresh Users"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isFetchingAdmin ? "animate-spin" : ""}`} />
@@ -237,7 +237,7 @@ function FoundersUsersPage() {
 
           <button
             onClick={exportToCSV}
-            className="border border-white/40 bg-[#161616] px-4 py-2 text-xs uppercase tracking-wider text-white hover:bg-white hover:text-black transition-colors flex items-center gap-2 rounded"
+            className="apple-glass-pill px-4 py-2 text-xs uppercase tracking-wider text-white hover:text-black hover:bg-white flex items-center gap-2"
           >
             <Download className="h-3.5 w-3.5" />
             <span>Export CSV</span>
@@ -249,13 +249,13 @@ function FoundersUsersPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {/* Search Bar */}
         <div className="lg:col-span-2 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#666666]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name, email, or city..."
-            className="w-full border border-[#333333] bg-[#111111] py-2 pl-9 pr-3 text-xs text-white placeholder:text-[#555555] focus:border-amber-400 focus:outline-none rounded"
+            className="apple-glass-input w-full py-2 pl-9 pr-3 text-xs text-white placeholder:text-neutral-500"
           />
         </div>
 
@@ -264,7 +264,7 @@ function FoundersUsersPage() {
           <select
             value={userTypeFilter}
             onChange={(e) => setUserTypeFilter(e.target.value)}
-            className="w-full border border-[#333333] bg-[#111111] px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none rounded"
+            className="apple-glass-input w-full px-3 py-2 text-xs text-white"
           >
             <option value="All">Type: All</option>
             <option value="Citizen">Type: Citizens</option>
@@ -278,7 +278,7 @@ function FoundersUsersPage() {
           <select
             value={cityFilter}
             onChange={(e) => setCityFilter(e.target.value)}
-            className="w-full border border-[#333333] bg-[#111111] px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none rounded"
+            className="apple-glass-input w-full px-3 py-2 text-xs text-white"
           >
             {cities.map((c) => (
               <option key={c} value={c}>
@@ -293,7 +293,7 @@ function FoundersUsersPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full border border-[#333333] bg-[#111111] px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none rounded"
+            className="apple-glass-input w-full px-3 py-2 text-xs text-white"
           >
             <option value="All">Status: All</option>
             <option value="Active">Status: Active</option>
@@ -303,7 +303,7 @@ function FoundersUsersPage() {
       </div>
 
       {/* REAL USERS TABLE */}
-      <div className="bg-[#111111] border border-[#222222] rounded-xl overflow-x-auto shadow-md">
+      <div className="apple-glass-card overflow-x-auto shadow-md">
         <table className="w-full text-left text-xs whitespace-nowrap">
           <thead>
             <tr className="border-b border-[#2A2A2A] bg-[#161616] text-[#888888] uppercase tracking-wider text-[0.65rem]">

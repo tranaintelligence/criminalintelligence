@@ -367,49 +367,50 @@ function FoundersLawyersPage() {
       </div>
 
       {/* Metric Cards */}
+      {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="border border-[#252525] bg-[#141414] p-5">
-          <p className="text-xs uppercase tracking-[0.15em] text-[#777777]">Total Registered</p>
+        <div className="apple-glass-card p-5">
+          <p className="text-xs uppercase tracking-[0.15em] text-neutral-400 font-mono">Total Registered</p>
           <p className="font-display text-3xl font-semibold text-white mt-1">{lawyers.length}</p>
-          <p className="text-[11px] text-[#666666] mt-1">Advocates on platform</p>
+          <p className="text-[11px] text-neutral-400 font-mono mt-1">Advocates on platform</p>
         </div>
-        <div className="border border-emerald-500/30 bg-emerald-950/10 p-5">
+        <div className="apple-glass-card border-emerald-500/30 p-5">
           <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.15em] text-emerald-400 font-semibold">Active & Verified</p>
+            <p className="text-xs uppercase tracking-[0.15em] text-emerald-400 font-semibold font-mono">Active & Verified</p>
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
           </div>
           <p className="font-display text-3xl font-semibold text-white mt-1">{verifiedCount}</p>
-          <p className="text-[11px] text-emerald-400/80 mt-1">Sanad verified & receiving referrals</p>
+          <p className="text-[11px] text-emerald-400/80 font-mono mt-1">Sanad verified & receiving referrals</p>
         </div>
-        <div className="border border-amber-500/30 bg-amber-950/10 p-5">
+        <div className="apple-glass-card border-amber-500/30 p-5">
           <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.15em] text-amber-400 font-semibold">Pending Verification</p>
+            <p className="text-xs uppercase tracking-[0.15em] text-amber-400 font-semibold font-mono">Pending Verification</p>
             <Clock className="h-4 w-4 text-amber-400" />
           </div>
           <p className="font-display text-3xl font-semibold text-white mt-1">{pendingCount}</p>
-          <p className="text-[11px] text-amber-400/80 mt-1">Awaiting Sanad / BCI roll check</p>
+          <p className="text-[11px] text-amber-400/80 font-mono mt-1">Awaiting Sanad / BCI roll check</p>
         </div>
       </div>
 
       {/* Tabs and Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#252525] pb-4">
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <div className="flex gap-2 font-mono">
           <button
             onClick={() => setActiveTab("active")}
-            className={`px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-colors ${
+            className={`apple-glass-pill px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-all ${
               activeTab === "active"
-                ? "bg-white text-black"
-                : "border border-[#333333] text-[#888888] hover:text-white"
+                ? "bg-white text-black shadow-md border-white"
+                : "text-neutral-400 hover:text-white"
             }`}
           >
             Active Advocates ({verifiedCount})
           </button>
           <button
             onClick={() => setActiveTab("pending")}
-            className={`px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-colors ${
+            className={`apple-glass-pill px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-all ${
               activeTab === "pending"
-                ? "bg-amber-400 text-black"
-                : "border border-[#333333] text-[#888888] hover:text-white"
+                ? "bg-amber-400 text-black shadow-md border-amber-400"
+                : "text-neutral-400 hover:text-white"
             }`}
           >
             Pending Sanad Verification ({pendingCount})
@@ -417,24 +418,24 @@ function FoundersLawyersPage() {
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search className="h-4 w-4 text-[#666666] absolute left-3 top-3" />
+          <Search className="h-4 w-4 text-neutral-400 absolute left-3 top-3" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name, Sanad, city..."
-            className="w-full border border-[#333333] bg-[#111111] pl-9 pr-4 py-2 text-xs text-white placeholder:text-[#666666] focus:border-white focus:outline-none"
+            className="apple-glass-input w-full pl-9 pr-4 py-2 text-xs text-white placeholder:text-neutral-500"
           />
         </div>
       </div>
 
       {/* Lawyers List */}
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-[#777777]">Loading advocates...</div>
+        <div className="py-12 text-center text-sm text-neutral-400 font-mono">Loading advocates...</div>
       ) : filteredLawyers.length === 0 ? (
-        <div className="border border-[#252525] bg-[#141414] p-8 text-center space-y-2">
+        <div className="apple-glass-card p-8 text-center space-y-2">
           <p className="font-display text-xl text-white">No advocates found</p>
-          <p className="text-xs text-[#777777]">
+          <p className="text-xs text-neutral-400 font-mono">
             {activeTab === "pending" ? "No applications pending review." : "No active advocates match this search."}
           </p>
         </div>
@@ -446,7 +447,7 @@ function FoundersLawyersPage() {
             return (
               <div
                 key={l.id}
-                className="border border-[#252525] bg-[#141414] p-5 hover:border-white/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-5"
+                className="apple-glass-card p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-5"
               >
                 <div className="space-y-1.5 flex-1">
                   <div className="flex flex-wrap items-center gap-2">

@@ -302,19 +302,27 @@ function FoundersLayout() {
   const founderEmail = currentUser.email;
 
   const sidebar = (
-    <div className="flex h-full flex-col bg-[#111111] text-[#F0F0F0]">
+    <div className="flex h-full flex-col text-[#F0F0F0] relative overflow-hidden select-none">
+      {/* Ambient soft glow at top corner of sidebar */}
+      <div className="absolute -top-12 -left-12 w-36 h-36 rounded-full bg-amber-400/[0.07] blur-2xl pointer-events-none" />
+
       {/* Brand Header */}
-      <div className="p-6 border-b border-[#222222]">
-        <Link to="/" className="font-display text-2xl font-semibold tracking-[0.2em] text-[#F0F0F0] block">
-          TRANA
-        </Link>
-        <span className="text-xs text-[#888888] font-mono tracking-wider mt-1 block">
-          Founders Dashboard
+      <div className="p-6 border-b border-white/[0.08] relative">
+        <div className="flex items-center justify-between">
+          <Link to="/" className="font-display text-2xl font-semibold tracking-[0.2em] text-[#F0F0F0] hover:text-white transition-colors block">
+            TRANA
+          </Link>
+          <span className="apple-glass-pill px-2 py-0.5 text-[9px] font-mono tracking-widest text-amber-300 font-medium">
+            EXECUTIVE
+          </span>
+        </div>
+        <span className="text-[11px] text-neutral-400 font-mono tracking-wider mt-1.5 block">
+          Founders Console
         </span>
       </div>
 
       {/* Navigation: Overview, Users, Lawyers, Client Lawyer Chat, API Keys & Admin, Settings */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 font-mono text-xs">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 font-mono text-xs">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.exact
@@ -326,41 +334,47 @@ function FoundersLayout() {
               key={item.to}
               to={item.to}
               onClick={() => setMobileMenuOpen(false)}
-              className={`group flex items-center justify-between px-3 py-2.5 text-xs transition-colors border-l-2 ${
-                isActive
-                  ? "border-white bg-[#1A1A1A] text-[#F0F0F0] font-medium"
-                  : "border-transparent text-[#999999] hover:text-[#F0F0F0] hover:bg-[#161616]"
+              className={`group apple-nav-item flex items-center justify-between px-3.5 py-2.5 text-xs ${
+                isActive ? "active font-medium" : "text-neutral-400"
               }`}
             >
               <div className="flex items-center gap-3">
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#777777] group-hover:text-white"}`} />
-                <span>{item.label}</span>
+                <Icon className={`h-4 w-4 transition-colors ${isActive ? "text-amber-200" : "text-neutral-400 group-hover:text-white"}`} />
+                <span className="tracking-wide">{item.label}</span>
               </div>
-              {isActive && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+              {isActive && (
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.8)] animate-pulse" />
+              )}
             </Link>
           );
         })}
       </nav>
 
       {/* Footer & Admin User Profile */}
-      <div className="p-4 border-t border-[#222222] bg-[#0E0E0E] font-mono text-[0.7rem] text-[#888888] space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[0.6rem] uppercase tracking-wider text-amber-200/80">Founder Admin</span>
-          <span className="text-[0.6rem] border border-emerald-500/40 text-emerald-400 px-1.5 py-0.2 rounded">VERIFIED</span>
-        </div>
-        <p className="text-white truncate text-[11px] font-sans font-medium">{founderEmail}</p>
-        <div className="flex items-center justify-between pt-1 text-[11px]">
-          <Link to="/" className="hover:text-[#F0F0F0] transition-colors">
-            ← Main Site
-          </Link>
-          <button
-            onClick={logout}
-            className="hover:text-red-400 text-neutral-400 transition-colors inline-flex items-center gap-1"
-            title="Sign out of founder session"
-          >
-            <LogOut className="h-3 w-3" />
-            <span>Sign Out</span>
-          </button>
+      <div className="p-3.5 border-t border-white/[0.08] bg-black/20 backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-xl bg-white/[0.04] border border-white/[0.08] p-3 shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.18)] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-mono tracking-wider text-amber-300/90 font-medium">Founder Access</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              VERIFIED
+            </span>
+          </div>
+          <p className="text-white truncate text-[11px] font-sans font-medium tracking-tight" title={founderEmail}>
+            {founderEmail}
+          </p>
+          <div className="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[11px] font-mono">
+            <Link to="/" className="text-neutral-400 hover:text-white transition-colors flex items-center gap-1">
+              <span>← Main Site</span>
+            </Link>
+            <button
+              onClick={logout}
+              className="hover:text-red-300 text-neutral-400 transition-colors inline-flex items-center gap-1 hover:bg-red-500/10 px-1.5 py-0.5 rounded"
+              title="Sign out of founder session"
+            >
+              <LogOut className="h-3 w-3" />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -368,24 +382,29 @@ function FoundersLayout() {
 
   return (
     <FounderContext.Provider value={{ founderEmail, isLoggedIn: true, isAdmin: true, logout }}>
-      <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0] selection:bg-white selection:text-black">
+      <div className="founders-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black">
         <Toaster />
 
-        {/* Desktop Left Sidebar (#111111) */}
-        <aside className="fixed inset-y-0 left-0 hidden w-[250px] border-r border-[#222222] bg-[#111111] md:block z-30">
+        {/* Ambient background refraction orbs */}
+        <div className="fixed top-[-80px] left-[220px] w-[500px] h-[500px] rounded-full bg-amber-500/[0.05] blur-[140px] pointer-events-none -z-10" />
+        <div className="fixed top-[20%] right-[-100px] w-[650px] h-[650px] rounded-full bg-indigo-600/[0.05] blur-[160px] pointer-events-none -z-10" />
+        <div className="fixed bottom-[-100px] left-[320px] w-[450px] h-[450px] rounded-full bg-emerald-500/[0.03] blur-[140px] pointer-events-none -z-10" />
+
+        {/* Desktop Left Sidebar (Apple Glassmorphism) */}
+        <aside className="fixed inset-y-0 left-0 hidden w-[260px] apple-glass-sidebar md:block z-30">
           {sidebar}
         </aside>
 
         {/* Mobile Header */}
-        <header className="flex items-center justify-between border-b border-[#222222] bg-[#111111] px-4 py-3 md:hidden sticky top-0 z-40">
+        <header className="flex items-center justify-between border-b border-white/[0.08] bg-[#0c0c10]/80 backdrop-blur-2xl px-4 py-3 md:hidden sticky top-0 z-40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-2">
             <span className="font-display text-lg tracking-[0.2em] text-[#F0F0F0]">TRANA</span>
-            <span className="text-[0.65rem] border border-white/20 px-1 py-0.5 text-[#999999] font-mono">FOUNDERS</span>
+            <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">FOUNDERS</span>
           </div>
           <button
             aria-label="Open navigation menu"
             onClick={() => setMobileMenuOpen(true)}
-            className="p-1 border border-[#333333] text-[#F0F0F0]"
+            className="p-1.5 apple-glass-pill text-[#F0F0F0]"
           >
             <Menu className="h-4 w-4" />
           </button>
@@ -393,11 +412,11 @@ function FoundersLayout() {
 
         {/* Mobile Menu Drawer */}
         {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm md:hidden">
-            <div className="fixed inset-y-0 left-0 w-[260px] bg-[#111111] shadow-2xl">
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md md:hidden">
+            <div className="fixed inset-y-0 left-0 w-[270px] apple-glass-sidebar shadow-2xl">
               <button
                 aria-label="Close menu"
-                className="absolute right-3 top-3 p-1 text-[#F0F0F0] border border-[#333333]"
+                className="absolute right-3 top-3 p-1.5 text-neutral-300 hover:text-white apple-glass-pill z-50"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <X className="h-4 w-4" />
@@ -408,7 +427,7 @@ function FoundersLayout() {
         )}
 
         {/* Main Content Area */}
-        <main className="md:ml-[250px] min-h-screen bg-[#0A0A0A] text-[#F0F0F0]">
+        <main className="md:ml-[260px] min-h-screen text-[#F0F0F0]">
           <div className="p-4 md:p-8 space-y-6 max-w-7xl">
             <Outlet />
           </div>
