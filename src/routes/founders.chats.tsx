@@ -273,6 +273,63 @@ function FoundersChatsPage() {
       });
     });
 
+    // 3. Fallback merge from local referrals index for complete coverage
+    if (typeof window !== "undefined") {
+      try {
+        const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+        (localReferrals || []).forEach((r: any) => {
+          if (!r || !r.id) return;
+          const rId = r.id;
+          const bareRId = rId.replace(/^REF-/, "");
+          if (list.some((existing) => existing.id === rId || existing.id.replace(/^REF-/, "").startsWith(bareRId))) return;
+
+          const rawStored = localStorage.getItem(`trana_consult_chat_${rId}`) || localStorage.getItem(`trana_consult_chat_${bareRId}`);
+          let msgs: RealChatMessage[] = [];
+          if (rawStored) {
+            try {
+              const parsed = JSON.parse(rawStored);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                msgs = parsed.map((m: any, idx: number) => ({
+                  id: m.id || `msg-local-${idx}`,
+                  sender: m.sender === "lawyer" ? "lawyer" : m.sender === "system" ? "system" : "citizen",
+                  senderName: m.senderName || r.client || "Citizen",
+                  text: m.text || "",
+                  timestamp: m.timestamp || "",
+                }));
+              }
+            } catch {}
+          }
+
+          if (msgs.length === 0) {
+            msgs.push({
+              id: `msg-init-${rId}`,
+              sender: "system",
+              senderName: "TRANA Secure Relay",
+              text: `Consultation session for ${r.client || "Citizen"} with ${r.lawyerName || "Advocate"}.`,
+              timestamp: r.date || "Today",
+            });
+          }
+
+          list.push({
+            id: rId,
+            category: "advocate",
+            title: r.matterType || `Consultation with ${r.lawyerName || "Advocate"}`,
+            participantPrimary: r.client || "Citizen Client",
+            participantSecondary: r.lawyerName || "Advocate Counsel",
+            mode: r.consultationType === "Call" ? "Call" : "Chat",
+            status: r.status === "New Request" ? "Requested" : r.status || "Confirmed",
+            lastMessage: msgs[msgs.length - 1]?.text || r.summary || "Channel active",
+            lastUpdated: r.date || "Today",
+            timestampSort: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+            messageCount: msgs.length,
+            maskingInterceptions: msgs.reduce((acc, m) => acc + ((m.text || "").match(/XXXXX/g) || []).length, 0),
+            messages: msgs,
+            intakeBrief: r.intakeBrief || null,
+          });
+        });
+      } catch {}
+    }
+
     // Sort newest first
     return list.sort((a, b) => b.timestampSort - a.timestampSort);
   }, [adminChats, dbConsults]);

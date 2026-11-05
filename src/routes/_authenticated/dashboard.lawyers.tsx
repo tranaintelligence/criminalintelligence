@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { Phone, MessageSquare, Lock, X, ShieldCheck, Scale, Award, MapPin } from "lucide-react";
@@ -40,6 +40,7 @@ type Lawyer = {
 function Lawyers() {
   const { user } = Route.useRouteContext();
   const { credential } = useTranaCredential();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [area, setArea] = useState("");
@@ -54,12 +55,7 @@ function Lawyers() {
   const [selectedMode, setSelectedMode] = useState<"call" | "chat">("call");
 
   // Private Masked Consultation Chat Modal
-  const [activeChat, setActiveChat] = useState<{
-    consultationId: string;
-    lawyerName: string;
-    clientName: string;
-    consultType: string;
-  } | null>(null);
+  // Handled via /dashboard/consultations
 
   // Fetch verified advocates from Backend API & Supabase database
   const { data: dbLawyers = [], isLoading } = useQuery({
@@ -236,24 +232,30 @@ function Lawyers() {
   }
 
   function handleOpenExistingChat(l: Lawyer) {
-    const clientName = (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
-    let consultId = `REF-${l.id}`;
     const match = userConsultations.find(
       (c) => c.lawyer_id === l.id || c.lawyer_name?.toLowerCase().trim() === l.full_name.toLowerCase().trim()
     );
-    if (match) {
-      consultId = `REF-${match.id.slice(0, 8).toUpperCase()}`;
-    }
-
-    setActiveChat({
-      consultationId: consultId,
-      lawyerName: l.full_name,
-      clientName,
-      consultType: l.offers_chat ? "Chat" : "Call",
+    const targetId = match ? match.id : l.id;
+    navigate({
+      to: "/dashboard/consultations",
+      search: { chat: targetId },
     });
   }
 
   async function request(l: Lawyer, chosenMode: "call" | "chat") {
+    // 1. Prevent duplicate consultation with the same lawyer
+    const match = userConsultations.find(
+      (c) => c.lawyer_id === l.id || c.lawyer_name?.toLowerCase().trim() === l.full_name.toLowerCase().trim()
+    );
+    if (match) {
+      toast.info(`Opening existing consultation channel with ${l.full_name}...`);
+      navigate({
+        to: "/dashboard/consultations",
+        search: { chat: match.id },
+      });
+      return;
+    }
+
     setLoadingLawyerId(l.id);
     try {
       const clientName = (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
@@ -268,88 +270,73 @@ function Lawyers() {
 
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(l.id);
 
-      let createdId = `REF-${Date.now().toString(36).toUpperCase()}`;
+      const initialMessages = [
+        {
+          id: `msg-sys-${Date.now()}`,
+          sender: "system",
+          senderName: "TRANA Secure Relay",
+          text: `Confidential consultation channel opened between ${clientName} and ${l.full_name} (Mode: ${chosenMode === "call" ? "Telephonic Relay" : "Secure In-App Chat"}). Contact particulars and phone numbers are strictly masked (XXXXX) for privacy.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ];
 
-      const { data: inserted, error } = await supabase.from("consultations").insert({
-        user_id: user.id,
-        lawyer_id: isUuid ? l.id : null,
-        lawyer_name: l.full_name,
-        consult_type: chosenMode,
-        status: "requested",
-        note: brief.fullBriefMarkdown,
-        intake_brief: brief.fullBriefMarkdown,
-      }).select().maybeSingle();
-
-      if (inserted?.id) {
-        createdId = `REF-${inserted.id.slice(0, 8).toUpperCase()}`;
-      } else if (error) {
-        const retry = await supabase.from("consultations").insert({
-          user_id: user.id,
-          lawyer_id: null,
+      const { data: inserted, error } = await supabase
+        .from("consultations")
+        .insert({
+          user_id: String(user.id),
+          lawyer_id: isUuid ? l.id : null,
           lawyer_name: l.full_name,
           consult_type: chosenMode,
-          status: "requested",
-          note: brief.fullBriefMarkdown,
+          status: "confirmed",
+          note: JSON.stringify(initialMessages),
           intake_brief: brief.fullBriefMarkdown,
-        }).select().maybeSingle();
+        })
+        .select()
+        .maybeSingle();
 
-        if (retry.data?.id) {
-          createdId = `REF-${retry.data.id.slice(0, 8).toUpperCase()}`;
-        }
+      if (error) {
+        console.warn("Consultation insert error:", error);
       }
 
-      // Send to lawyer referrals inbox
+      const finalId = inserted?.id || `REF-${l.id}`;
+
+      // Update central chat index
       try {
-        const newReferral = {
-          id: createdId,
-          date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-          client: clientName,
-          phone: "+91 (Verified Account)",
-          matterType: brief.matterType || "Legal Consultation Request",
-          section: brief.sectionsSummary || "Applicable Statutes",
-          consultationType: (chosenMode === "call" ? "Call" : "Chat") as "Call" | "Chat",
-          status: "New Request" as const,
-          summary: brief.summary || brief.facts || "Client requested consultation with counsel.",
-          intakeBrief: brief.fullBriefMarkdown,
+        localStorage.setItem(`trana_consult_chat_${finalId}`, JSON.stringify(initialMessages));
+        const chatIndex = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
+        chatIndex[finalId] = {
+          consultationId: finalId,
+          clientName,
           lawyerName: l.full_name,
-          lawyerId: l.id,
-          created_at: new Date().toISOString(),
+          consultationType: chosenMode === "call" ? "Call" : "Chat",
+          status: "Confirmed",
+          lastMessage: initialMessages[0].text,
+          lastUpdated: new Date().toISOString(),
         };
-
-        const existingReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
-        existingReferrals.unshift(newReferral);
-        localStorage.setItem("trana_client_referrals", JSON.stringify(existingReferrals));
-      } catch (err) {
-        console.warn("Could not save to client referrals:", err);
-      }
+        localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
+      } catch {}
 
       // Lock state
       try {
         const stored = JSON.parse(localStorage.getItem(`trana_requested_lawyers_${user.id}`) || "[]");
         stored.push({ id: l.id, name: l.full_name });
         localStorage.setItem(`trana_requested_lawyers_${user.id}`, JSON.stringify(stored));
-      } catch {
-        // ignore
-      }
+      } catch {}
 
       setRequested((r) => ({ ...r, [l.id]: true }));
       qc.invalidateQueries({ queryKey: ["consultations"] });
       qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
       qc.invalidateQueries({ queryKey: ["lawyer-referrals-consultations"] });
       qc.invalidateQueries({ queryKey: ["lawyer-overview-consultations"] });
+      window.dispatchEvent(new Event("trana_consult_chat_update"));
 
-      setActiveChat({
-        consultationId: createdId,
-        lawyerName: l.full_name,
-        clientName,
-        consultType: chosenMode === "call" ? "Call" : "Chat",
+      toast.success(`Consultation channel opened with ${l.full_name}.`);
+
+      // Immediately navigate to My Consultations with the new chat open!
+      navigate({
+        to: "/dashboard/consultations",
+        search: { chat: finalId },
       });
-
-      if (brief.hasConversation) {
-        toast.success(`Consultation requested with ${l.full_name}. Channel opened with counsel.`);
-      } else {
-        toast.success(`Consultation requested with ${l.full_name}. Details forwarded to counsel.`);
-      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to request consultation.");
@@ -603,18 +590,6 @@ function Lawyers() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Private Masked Consultation Chat Modal */}
-      {activeChat && (
-        <ConsultationChatModal
-          isOpen={true}
-          onClose={() => setActiveChat(null)}
-          consultationId={activeChat.consultationId}
-          lawyerName={activeChat.lawyerName}
-          clientName={activeChat.clientName}
-          consultType={activeChat.consultType}
-        />
       )}
     </div>
   );

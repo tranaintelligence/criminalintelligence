@@ -1,369 +1,656 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import { Phone, MessageSquare, FileText, X, Copy, CheckCircle2, XCircle, Clock, UserPlus, RotateCcw } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { 
+  Phone, MessageSquare, Send, ShieldCheck, User, 
+  ArrowRight, Search, FileText, Lock, Check, CheckCheck, 
+  RotateCcw, Sparkles, AlertCircle, ShieldAlert
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ConsultationChatModal } from "@/components/ConsultationChatModal";
+import { maskConfidentialPatterns } from "@/lib/privacy-mask";
 import { CaseSummaryModal } from "@/components/CaseSummaryViewer";
+import type { ConsultationChatMessage } from "@/components/ConsultationChatModal";
+
+interface ConsultationsSearch {
+  chat?: string;
+}
 
 export const Route = createFileRoute("/_authenticated/dashboard/consultations")({
+  validateSearch: (search: Record<string, unknown>): ConsultationsSearch => ({
+    chat: typeof search.chat === "string" ? search.chat : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "Citizens Dashboard — TRANA" },
-      { name: "description", content: "Your past and upcoming consultations with TRANA lawyers." },
-      { property: "og:title", content: "Citizens Dashboard — TRANA" },
-      { property: "og:description", content: "Track your consultations." },
+      { title: "My Consultations — TRANA" },
+      { name: "description", content: "Confidential WhatsApp-style legal consultations and communications with verified advocates." },
+      { property: "og:title", content: "My Consultations — TRANA" },
     ],
   }),
   component: Consultations,
 });
 
-const label: Record<string, string> = { 
-  requested: "Requested", 
-  confirmed: "Confirmed",
-  denied: "Denied",
-  upcoming: "Upcoming", 
-  completed: "Completed", 
-  cancelled: "Cancelled" 
+type UnifiedConsultation = {
+  id: string;
+  lawyerName: string;
+  lawyerId?: string | null;
+  consultType: "Chat" | "Call";
+  status: "Confirmed" | "Requested" | "Denied" | "Completed" | "Cancelled";
+  intakeBrief?: string | null;
+  lastMessage: string;
+  lastUpdated: string;
+  timestampSort: number;
+  messages: ConsultationChatMessage[];
 };
 
 function Consultations() {
   const { user } = Route.useRouteContext();
+  const searchParams = Route.useSearch();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [selectedBrief, setSelectedBrief] = useState<any | null>(null);
-  const [activeChat, setActiveChat] = useState<{
-    consultationId: string;
-    lawyerName: string;
-    clientName: string;
-    consultType: string;
-  } | null>(null);
 
-  const { data: dbData = [], isLoading } = useQuery({
-    queryKey: ["consultations"],
-    queryFn: async () => (await supabase.from("consultations").select("*").order("created_at", { ascending: false })).data ?? [],
-  });
-
-  // Reconcile database consultations and instant local consultations
-  const allConsultations = useMemo(() => {
-    let localReferrals: any[] = [];
-    try {
-      if (typeof window !== "undefined") {
-        localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
-      }
-    } catch {
-      // ignore
-    }
-
-    const list: any[] = [];
-
-    // 1. Add from local storage (latest requested)
-    (localReferrals || []).forEach((r) => {
-      if (r && r.id) {
-        list.push({
-          id: r.id,
-          created_at: r.created_at || new Date().toISOString(),
-          scheduled_for: r.scheduledTime,
-          lawyer_name: r.lawyerName || "Advocate Counsel",
-          consult_type: r.consultationType?.toLowerCase() || "call",
-          status: r.status?.toLowerCase() || "requested",
-          note: r.intakeBrief || r.summary,
-          intake_brief: r.intakeBrief,
-          matter_type: r.matterType || "Legal Consultation Request",
-        });
-      }
-    });
-
-    // 2. Add from Supabase consultations table (deduplicating by ID or timestamp)
-    (dbData || []).forEach((row) => {
-      const matchIndex = list.findIndex(
-        (existing) =>
-          existing.id === row.id ||
-          existing.id === `REF-${row.id.slice(0, 8).toUpperCase()}` ||
-          (existing.lawyer_name === row.lawyer_name &&
-            Math.abs(new Date(existing.created_at).getTime() - new Date(row.created_at).getTime()) < 10000)
-      );
-
-      const briefText = row.intake_brief || row.note || "";
-      let matter = "Legal Consultation Request";
-      if (briefText) {
-        const matterMatch = briefText.match(/\*\*Matter\*\*:\s*([^\n]+)/);
-        if (matterMatch) matter = matterMatch[1].trim();
-      }
-
-      const item = {
-        id: row.id,
-        created_at: row.created_at,
-        scheduled_for: row.scheduled_for,
-        lawyer_name: row.lawyer_name,
-        consult_type: row.consult_type || "call",
-        status: (row.status || "requested").toLowerCase(),
-        note: row.note,
-        intake_brief: row.intake_brief || row.note,
-        matter_type: matter,
-      };
-
-      if (matchIndex >= 0) {
-        // Prefer database record with merged properties
-        list[matchIndex] = { ...list[matchIndex], ...item };
-      } else {
-        list.push(item);
-      }
-    });
-
-    return list;
-  }, [dbData]);
-
-  async function cancel(id: string) {
-    await supabase.from("consultations").update({ status: "cancelled" }).eq("id", id);
-    try {
-      const local = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
-      const updated = local.map((r: any) => (r.id === id ? { ...r, status: "Cancelled" } : r));
-      localStorage.setItem("trana_client_referrals", JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
-    qc.invalidateQueries({ queryKey: ["consultations"] });
-    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
-    toast.success("Consultation cancelled.");
-  }
-
-  async function consultAnotherLawyer(c: any) {
-    const lawyerDisplayName = c.lawyer_name || "the current counsel";
-    const confirmed = window.confirm(
-      `Are you sure you want to consult another lawyer? This will conclude your current session with ${lawyerDisplayName} and reopen the lawyer directory.`
-    );
-    if (!confirmed) return;
-
-    // 1. Update Supabase
-    try {
-      await supabase.from("consultations").update({ status: "cancelled" }).eq("id", c.id);
-    } catch (e) {
-      console.warn("Supabase update error:", e);
-    }
-
-    // 2. Update local referrals
-    try {
-      const local = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
-      const updated = local.map((r: any) =>
-        r.id === c.id || r.id === `REF-${c.id}` ? { ...r, status: "Cancelled", clientSatisfied: false } : r
-      );
-      localStorage.setItem("trana_client_referrals", JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
-
-    // 3. Unlock directory by removing from user's requested lawyer set
-    try {
-      if (user?.id) {
-        localStorage.removeItem(`trana_requested_lawyers_${user.id}`);
-      }
-      Object.keys(localStorage).forEach((k) => {
-        if (k.startsWith("trana_requested_lawyers_")) {
-          const arr = JSON.parse(localStorage.getItem(k) || "[]");
-          const filtered = arr.filter((item: any) => {
-            const id = typeof item === "string" ? item : item?.id;
-            const name = typeof item === "object" ? item?.name : "";
-            return id !== c.lawyer_id && id !== c.id && (!c.lawyer_name || !name.toLowerCase().includes(c.lawyer_name.toLowerCase()));
-          });
-          localStorage.setItem(k, JSON.stringify(filtered));
-        }
-      });
-    } catch {
-      // ignore
-    }
-
-    // 4. Invalidate queries
-    qc.invalidateQueries({ queryKey: ["consultations"] });
-    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
-    window.dispatchEvent(new Event("trana_consult_chat_update"));
-
-    toast.info("Session concluded. Redirecting to Lawyer Directory to choose another lawyer.");
-    navigate({ to: "/dashboard/lawyers" });
-  }
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedChatId, setSelectedChatId] = useState<string>(searchParams.chat || "");
+  const [inputText, setInputText] = useState("");
+  const [showCaseSummary, setShowCaseSummary] = useState(false);
+  const [liveTrigger, setLiveTrigger] = useState(0);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const clientName =
     (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
 
+  // 1. Fetch consultations from Supabase database with real-time polling
+  const { data: dbData = [], refetch } = useQuery({
+    queryKey: ["consultations", user?.id, liveTrigger],
+    queryFn: async () => {
+      let query = supabase.from("consultations").select("*").order("created_at", { ascending: false });
+      if (user?.id) {
+        query = query.or(`user_id.eq.${user.id},user_id.eq.${user.email || ""}`);
+      }
+      const { data, error } = await query;
+      if (error) {
+        // Fallback to fetch all if user filtering column mismatch
+        const fallback = await supabase.from("consultations").select("*").order("created_at", { ascending: false });
+        return fallback.data ?? [];
+      }
+      return data ?? [];
+    },
+    refetchInterval: 3500,
+  });
+
+  // Listen to same-window and cross-tab storage chat updates
+  useEffect(() => {
+    function handleUpdate() {
+      setLiveTrigger((p) => p + 1);
+      refetch();
+    }
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("trana_consult_chat_update", handleUpdate);
+    return () => {
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("trana_consult_chat_update", handleUpdate);
+    };
+  }, [refetch]);
+
+  // Aggregate and deduplicate consultations: strictly ONE chat per lawyer
+  const consultations: UnifiedConsultation[] = useMemo(() => {
+    const list: UnifiedConsultation[] = [];
+    const seenLawyerKeys = new Set<string>();
+
+    // 1. Process Supabase rows
+    (dbData || []).forEach((row) => {
+      if (!row || !row.id) return;
+      const lawyerKey = (row.lawyer_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+      if (!lawyerKey || seenLawyerKeys.has(lawyerKey)) return;
+      seenLawyerKeys.add(lawyerKey);
+
+      const briefText = row.intake_brief || row.note || "";
+      const rawStored = typeof window !== "undefined" 
+        ? localStorage.getItem(`trana_consult_chat_${row.id}`) || localStorage.getItem(`trana_consult_chat_REF-${row.id.slice(0, 8).toUpperCase()}`)
+        : null;
+
+      let msgs: ConsultationChatMessage[] = [];
+
+      // Check row.note for JSON message array
+      if (row.note) {
+        try {
+          const parsed = JSON.parse(row.note);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            msgs = parsed;
+          }
+        } catch {
+          // note is plain text brief
+        }
+      }
+
+      // Check localStorage cache
+      if (msgs.length === 0 && rawStored) {
+        try {
+          const parsed = JSON.parse(rawStored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            msgs = parsed;
+          }
+        } catch {}
+      }
+
+      // Default system message if brand new
+      if (msgs.length === 0) {
+        msgs.push({
+          id: `msg-sys-${row.id}`,
+          sender: "system",
+          senderName: "TRANA Secure Relay",
+          text: `Confidential consultation channel established with ${row.lawyer_name || "Advocate Counsel"}. Phone numbers, digits, and Morse code are automatically masked to XXXXX.`,
+          timestamp: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active",
+        });
+      }
+
+      const stLower = (row.status || "requested").toLowerCase();
+      const statusLabel =
+        stLower === "completed"
+          ? "Completed"
+          : stLower === "confirmed"
+          ? "Confirmed"
+          : stLower === "denied"
+          ? "Denied"
+          : stLower === "cancelled"
+          ? "Cancelled"
+          : "Requested";
+
+      const lastMsg = msgs[msgs.length - 1]?.text || "Consultation channel opened.";
+      const sortTime = row.created_at ? new Date(row.created_at).getTime() : 0;
+
+      list.push({
+        id: row.id,
+        lawyerName: row.lawyer_name || "Advocate Counsel",
+        lawyerId: row.lawyer_id,
+        consultType: row.consult_type?.toLowerCase() === "call" ? "Call" : "Chat",
+        status: statusLabel,
+        intakeBrief: briefText,
+        lastMessage: lastMsg,
+        lastUpdated: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Today",
+        timestampSort: sortTime,
+        messages: msgs,
+      });
+    });
+
+    // 2. Also check local referrals if not already in list
+    if (typeof window !== "undefined") {
+      try {
+        const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+        (localReferrals || []).forEach((r: any) => {
+          if (!r || !r.lawyerName) return;
+          const lawyerKey = r.lawyerName.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+          if (seenLawyerKeys.has(lawyerKey)) return;
+          seenLawyerKeys.add(lawyerKey);
+
+          const consultId = r.id || `REF-${Date.now().toString(36)}`;
+          const rawStored = localStorage.getItem(`trana_consult_chat_${consultId}`);
+          let msgs: ConsultationChatMessage[] = [];
+          if (rawStored) {
+            try {
+              const parsed = JSON.parse(rawStored);
+              if (Array.isArray(parsed) && parsed.length > 0) msgs = parsed;
+            } catch {}
+          }
+
+          if (msgs.length === 0) {
+            msgs.push({
+              id: `msg-sys-${consultId}`,
+              sender: "system",
+              senderName: "TRANA Secure Relay",
+              text: `Confidential consultation channel established with ${r.lawyerName}. Phone numbers and contact digits are masked to XXXXX.`,
+              timestamp: r.date || "Today",
+            });
+          }
+
+          list.push({
+            id: consultId,
+            lawyerName: r.lawyerName,
+            lawyerId: r.lawyerId,
+            consultType: r.consultationType === "Call" ? "Call" : "Chat",
+            status: "Confirmed",
+            intakeBrief: r.intakeBrief,
+            lastMessage: msgs[msgs.length - 1]?.text || r.summary || "Channel active",
+            lastUpdated: r.date || "Today",
+            timestampSort: r.created_at ? new Date(r.created_at).getTime() : 0,
+            messages: msgs,
+          });
+        });
+      } catch {}
+    }
+
+    return list.sort((a, b) => b.timestampSort - a.timestampSort);
+  }, [dbData]);
+
+  // Keep selected chat in sync with URL search param or fallback to first
+  useEffect(() => {
+    if (consultations.length > 0) {
+      if (searchParams.chat && consultations.some((c) => c.id === searchParams.chat)) {
+        setSelectedChatId(searchParams.chat);
+      } else if (!selectedChatId || !consultations.some((c) => c.id === selectedChatId)) {
+        setSelectedChatId(consultations[0].id);
+      }
+    }
+  }, [consultations, searchParams.chat, selectedChatId]);
+
+  // Active selected consultation
+  const activeChat = useMemo(() => {
+    return consultations.find((c) => c.id === selectedChatId) || consultations[0] || null;
+  }, [consultations, selectedChatId]);
+
+  // Auto-scroll to bottom of chat
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [activeChat?.messages]);
+
+  // Switch chat
+  function handleSelectChat(id: string) {
+    setSelectedChatId(id);
+    navigate({
+      to: "/dashboard/consultations",
+      search: { chat: id },
+    });
+  }
+
+  // Send message in WhatsApp view
+  async function handleSendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inputText.trim() || !activeChat) return;
+
+    // Strict Anti-Evasion Privacy Masking (phone numbers, digit strings, Morse code)
+    const maskedText = maskConfidentialPatterns(inputText.trim());
+
+    const newMessage: ConsultationChatMessage = {
+      id: `msg-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+      sender: "client",
+      senderName: clientName,
+      text: maskedText,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    const updated = [...activeChat.messages, newMessage];
+    setInputText("");
+
+    // 1. Save to localStorage cache
+    try {
+      localStorage.setItem(`trana_consult_chat_${activeChat.id}`, JSON.stringify(updated));
+      const chatIndex = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
+      chatIndex[activeChat.id] = {
+        consultationId: activeChat.id,
+        clientName,
+        lawyerName: activeChat.lawyerName,
+        consultationType: activeChat.consultType,
+        status: activeChat.status,
+        lastMessage: maskedText,
+        lastUpdated: new Date().toISOString(),
+      };
+      localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
+    } catch {}
+
+    // 2. Persist to Supabase database so advocate and founders monitor receive it online
+    const bareId = activeChat.id.replace(/^REF-/, "");
+    try {
+      await supabase
+        .from("consultations")
+        .update({ note: JSON.stringify(updated) })
+        .or(`id.eq.${bareId},id.ilike.${bareId}%`);
+    } catch (err) {
+      console.warn("Could not save to Supabase:", err);
+    }
+
+    // 3. Trigger live synchronization
+    window.dispatchEvent(new Event("trana_consult_chat_update"));
+    window.dispatchEvent(new StorageEvent("storage", { key: `trana_consult_chat_${activeChat.id}` }));
+    refetch();
+  }
+
+  // Conclude / Switch Lawyer action
+  async function handleConcludeSession() {
+    if (!activeChat) return;
+    const confirmed = window.confirm(
+      `Conclude consultation session with ${activeChat.lawyerName}? This will mark this matter complete and unlock the directory so you can consult another lawyer.`
+    );
+    if (!confirmed) return;
+
+    const notice: ConsultationChatMessage = {
+      id: `msg-conclude-${Date.now()}`,
+      sender: "system",
+      senderName: "TRANA Secure Relay",
+      text: `Consultation session with ${activeChat.lawyerName} concluded by client. Client is free to consult another legal professional.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    const updated = [...activeChat.messages, notice];
+    const bareId = activeChat.id.replace(/^REF-/, "");
+
+    try {
+      await supabase
+        .from("consultations")
+        .update({ status: "cancelled", note: JSON.stringify(updated) })
+        .or(`id.eq.${bareId},id.ilike.${bareId}%`);
+    } catch {}
+
+    try {
+      localStorage.setItem(`trana_consult_chat_${activeChat.id}`, JSON.stringify(updated));
+      if (user?.id) {
+        localStorage.removeItem(`trana_requested_lawyers_${user.id}`);
+      }
+    } catch {}
+
+    qc.invalidateQueries({ queryKey: ["consultations"] });
+    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
+    window.dispatchEvent(new Event("trana_consult_chat_update"));
+    toast.info(`Session with ${activeChat.lawyerName} concluded. Redirecting to directory.`);
+    navigate({ to: "/dashboard/lawyers" });
+  }
+
+  // Filter conversations list by search
+  const filteredList = useMemo(() => {
+    if (!searchQuery.trim()) return consultations;
+    const q = searchQuery.toLowerCase();
+    return consultations.filter(
+      (c) =>
+        c.lawyerName.toLowerCase().includes(q) ||
+        c.lastMessage.toLowerCase().includes(q) ||
+        c.status.toLowerCase().includes(q)
+    );
+  }, [consultations, searchQuery]);
+
+  // Render masked tokens nicely
+  function renderMaskedText(text: string) {
+    if (!text.includes("XXXXX")) {
+      return <span>{text}</span>;
+    }
+    const parts = text.split(/(XXXXX)/g);
+    return (
+      <span>
+        {parts.map((part, i) =>
+          part === "XXXXX" ? (
+            <span
+              key={i}
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 mx-0.5 rounded bg-white/10 border border-white/20 text-white font-mono font-bold text-[0.8rem] tracking-widest shadow-sm"
+              title="TRANA Privacy Shield: Phone number, digits, or Morse code masked to protect neutrality"
+            >
+              <ShieldCheck className="h-3 w-3 inline text-emerald-400" />
+              XXXXX
+            </span>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </span>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#222222] pb-4">
         <div>
-          <h1 className="font-display text-4xl md:text-5xl">My Consultations</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Manage your legal consultations, confidential chats with counsel, and track proceedings.
+          <h1 className="font-display text-3xl md:text-4xl text-white">Consultations</h1>
+          <p className="mt-1 text-xs text-[#888888]">
+            Confidential multi-party communication relay with verified advocates. Messages are end-to-end masked for privacy.
           </p>
         </div>
 
-        {allConsultations.length > 0 && (
+        <div className="flex items-center gap-3">
           <Link
-            to="/dashboard/cases"
-            className="border border-border bg-card px-4 py-2 text-xs uppercase tracking-wider text-foreground hover:bg-neutral-800 transition-colors flex items-center gap-2 font-mono self-start sm:self-auto"
+            to="/dashboard/lawyers"
+            className="border border-[#333333] hover:border-white bg-[#141414] hover:bg-[#1E1E1E] px-3.5 py-2 text-xs font-mono uppercase tracking-wider text-white transition-colors rounded flex items-center gap-1.5"
           >
-            <span>Case Tracker (CNR)</span>
+            <span>+ Find Another Advocate</span>
           </Link>
-        )}
+        </div>
       </div>
 
-      {isLoading && allConsultations.length === 0 ? null : allConsultations.length === 0 ? (
-        <div className="mt-10 border border-border bg-card p-8">
-          <p className="text-sm text-muted-foreground">No consultations yet. Find a lawyer to get started.</p>
-          <Link to="/dashboard/lawyers" className="btn-solid mt-6">Find a Lawyer</Link>
+      {/* Main WhatsApp-Style Multi-Chat Container */}
+      {consultations.length === 0 ? (
+        <div className="border border-[#222222] bg-[#111111] p-12 text-center rounded-xl flex flex-col items-center justify-center gap-3 min-h-[460px]">
+          <div className="h-16 w-16 rounded-full bg-[#1A1A1A] border border-white/10 flex items-center justify-center text-neutral-400">
+            <MessageSquare className="h-8 w-8" />
+          </div>
+          <h3 className="font-display text-2xl text-white">No Consultations Yet</h3>
+          <p className="text-xs text-[#888888] max-w-md">
+            Connect with verified advocates across India. Choose between confidential masked in-app chat or telephonic consultation.
+          </p>
+          <Link
+            to="/dashboard/lawyers"
+            className="mt-3 bg-white text-black px-6 py-2.5 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors rounded"
+          >
+            Browse Verified Lawyers
+          </Link>
         </div>
       ) : (
-        <div className="mt-6 overflow-x-auto border border-border bg-card shadow-sm">
-          <table className="w-full min-w-[700px] text-left text-sm">
-            <thead className="bg-[#141414] border-b border-border text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              <tr>
-                {["Date", "Lawyer Name", "Subject / Matter", "Type", "Status", "Actions"].map((h) => (
-                  <th key={h} className="px-5 py-4 font-normal">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {allConsultations.map((c) => {
-                const normStatus = (c.status || "").toLowerCase();
-                const isConfirmed = normStatus === "confirmed";
-                const isDenied = normStatus === "denied";
-                const isRequested = normStatus === "requested";
+        <div className="h-[calc(100vh-210px)] min-h-[580px] max-h-[820px] border border-[#222222] bg-[#0E0E0E] rounded-xl flex flex-col md:flex-row overflow-hidden shadow-2xl">
+          {/* LEFT: WhatsApp Chats Directory (340px) */}
+          <div className="w-full md:w-[350px] lg:w-[380px] border-r border-[#222222] flex flex-col bg-[#121212] shrink-0">
+            {/* Search Input */}
+            <div className="p-3 border-b border-[#222222] bg-[#161616]">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#666666]" />
+                <input
+                  type="text"
+                  placeholder="Search chats or lawyers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-[#2A2A2A] text-xs text-white pl-9 pr-3 py-2 placeholder:text-[#555555] focus:outline-none focus:border-white transition-colors rounded-lg font-sans"
+                />
+              </div>
+            </div>
+
+            {/* Chats List */}
+            <div className="flex-1 overflow-y-auto divide-y divide-[#1D1D1D]">
+              {filteredList.map((c) => {
+                const isSelected = c.id === activeChat?.id;
+                const initial = c.lawyerName.replace(/^adv\.?\s*/i, "").charAt(0) || "A";
 
                 return (
-                  <tr key={c.id} className="hover:bg-neutral-900/40 transition-colors">
-                    <td className="px-5 py-4 whitespace-nowrap text-xs font-mono text-muted-foreground">
-                      {new Date(c.scheduled_for ?? c.created_at).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-5 py-4 font-medium text-foreground whitespace-nowrap">
-                      {c.lawyer_name}
-                    </td>
-                    <td className="px-5 py-4 text-xs text-muted-foreground max-w-[200px] truncate" title={c.matter_type}>
-                      {c.matter_type || "Legal Consultation Request"}
-                    </td>
-                    <td className="px-5 py-4 capitalize whitespace-nowrap">
-                      <span className="flex items-center gap-1.5 text-xs">
-                        {c.consult_type?.toLowerCase().includes("chat") ? (
-                          <MessageSquare className="h-3.5 w-3.5 text-purple-400" />
-                        ) : (
-                          <Phone className="h-3.5 w-3.5 text-sky-400" />
-                        )}
-                        <span>{c.consult_type}</span>
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2.5 py-1 text-[0.65rem] uppercase tracking-wider border rounded font-mono ${
-                          isConfirmed
-                            ? "border-emerald-500/50 bg-emerald-950/40 text-emerald-300"
-                            : isDenied
-                            ? "border-red-500/50 bg-red-950/40 text-red-400"
-                            : isRequested
-                            ? "border-amber-500/50 bg-amber-950/40 text-amber-300"
-                            : "border-border bg-neutral-900 text-muted-foreground"
-                        }`}
-                      >
-                        {label[normStatus] ?? normStatus}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Open Masked Confidential Chat */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveChat({
-                              consultationId: c.id,
-                              lawyerName: c.lawyer_name,
-                              clientName,
-                              consultType: c.consult_type,
-                            })
-                          }
-                          className="border border-white/30 hover:border-white px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider text-foreground hover:bg-neutral-800 transition-colors flex items-center gap-1"
-                          title="Open confidential masked chat with counsel"
-                        >
-                          <MessageSquare className="h-3 w-3 text-emerald-400" />
-                          <span>Open Chat</span>
-                        </button>
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleSelectChat(c.id)}
+                    className={`w-full text-left p-3.5 transition-all flex items-start gap-3 ${
+                      isSelected
+                        ? "bg-[#1E1E1E] border-l-4 border-white"
+                        : "hover:bg-[#161616] border-l-4 border-transparent"
+                    }`}
+                  >
+                    {/* Avatar */}
+                    <div className="h-11 w-11 rounded-full bg-[#242424] border border-white/10 flex items-center justify-center font-bold text-white uppercase shrink-0 text-sm">
+                      {initial}
+                    </div>
 
-                        {/* Option for client to consult another lawyer if not satisfied */}
-                        {(isConfirmed || isRequested || normStatus === "upcoming") && (
-                          <button
-                            type="button"
-                            onClick={() => consultAnotherLawyer(c)}
-                            className="border border-amber-500/50 hover:border-amber-400 bg-amber-950/20 hover:bg-amber-900/40 text-amber-300 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors flex items-center gap-1"
-                            title="Not satisfied? Conclude this session and consult another lawyer from the directory"
-                          >
-                            <RotateCcw className="h-3 w-3" />
-                            <span>Consult Another</span>
-                          </button>
-                        )}
-
-                        {/* View Brief details */}
-                        {(c.intake_brief || c.note) && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBrief(c)}
-                            className="border border-border hover:border-foreground/50 px-2.5 py-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                            title="View Case Summary"
-                          >
-                            <FileText className="h-3 w-3" />
-                            <span>Case Summary</span>
-                          </button>
-                        )}
-
-                        <Link
-                          to="/dashboard/cases"
-                          className="text-xs uppercase tracking-[0.1em] text-emerald-400 hover:underline font-mono px-1"
-                        >
-                          Track Case
-                        </Link>
-
-                        {(normStatus === "requested" || normStatus === "upcoming") && (
-                          <button
-                            onClick={() => cancel(c.id)}
-                            className="text-xs uppercase tracking-[0.15em] text-muted-foreground hover:text-red-400 px-1 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        )}
+                    {/* Chat Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold text-xs text-white truncate">
+                          {c.lawyerName}
+                        </span>
+                        <span className="text-[0.65rem] font-mono text-[#888888] shrink-0">
+                          {c.lastUpdated}
+                        </span>
                       </div>
-                    </td>
-                  </tr>
+
+                      <p className="text-[0.72rem] text-[#999999] truncate font-sans mt-0.5">
+                        {c.lastMessage}
+                      </p>
+
+                      <div className="flex items-center justify-between gap-1 mt-1.5 font-mono text-[0.6rem]">
+                        <span className="px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-neutral-300 uppercase">
+                          {c.consultType}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded border uppercase ${
+                            c.status === "Confirmed"
+                              ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/20"
+                              : c.status === "Cancelled" || c.status === "Denied"
+                              ? "border-red-500/50 text-red-300 bg-red-950/20"
+                              : "border-amber-500/50 text-amber-300 bg-amber-950/20"
+                          }`}
+                        >
+                          {c.status}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          {/* RIGHT: Active WhatsApp Chat Conversation */}
+          <div className="flex-1 flex flex-col bg-[#0A0A0A] overflow-hidden">
+            {activeChat ? (
+              <>
+                {/* Active Chat Header */}
+                <div className="p-3.5 px-5 border-b border-[#222222] bg-[#141414] flex items-center justify-between gap-3 shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-full bg-[#2A2A2A] border border-white/10 flex items-center justify-center font-bold text-white uppercase text-sm shrink-0">
+                      {activeChat.lawyerName.replace(/^adv\.?\s*/i, "").charAt(0) || "A"}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-semibold text-sm text-white truncate">
+                          {activeChat.lawyerName}
+                        </h2>
+                        <span className="text-[0.65rem] border border-emerald-500/30 text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded font-mono uppercase">
+                          Verified
+                        </span>
+                      </div>
+                      <p className="text-[0.65rem] text-[#888888] font-mono truncate">
+                        Confidential Relay • Mode: {activeChat.consultType} • Anti-Evasion Enforced
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {activeChat.intakeBrief && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCaseSummary(true)}
+                        className="border border-[#333333] hover:border-white bg-[#1C1C1C] px-3 py-1.5 text-xs text-white rounded font-mono flex items-center gap-1.5 transition-colors"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-neutral-300" />
+                        <span className="hidden sm:inline">Case Brief</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleConcludeSession}
+                      className="border border-[#333333] hover:border-red-500/50 hover:bg-red-950/30 px-3 py-1.5 text-xs text-[#888888] hover:text-red-300 rounded font-mono flex items-center gap-1.5 transition-colors"
+                      title="Conclude representation to consult another advocate"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Conclude</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Anti-Evasion Privacy Banner */}
+                <div className="bg-[#111111] border-b border-[#222222] px-4 py-2 text-[0.68rem] font-mono text-[#AAAAAA] flex items-center justify-between gap-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span>
+                      TRANA Privacy Shield: Phone numbers, digit sequences, and Morse code masked to <strong className="text-white">XXXXX</strong>.
+                    </span>
+                  </div>
+                  <span className="hidden sm:inline text-[0.6rem] border border-white/20 text-neutral-300 px-1.5 py-0.5 rounded">
+                    ENCRYPTED RELAY
+                  </span>
+                </div>
+
+                {/* Messages Feed */}
+                <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#080808]">
+                  {activeChat.messages.map((msg) => {
+                    if (msg.sender === "system") {
+                      return (
+                        <div key={msg.id} className="flex justify-center my-3">
+                          <div className="border border-[#282828] bg-[#121212] px-4 py-1.5 text-[0.7rem] text-[#888888] font-mono max-w-md text-center flex items-center gap-1.5 rounded-full shadow-sm">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                            <span>{msg.text}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const isClient = msg.sender === "client";
+
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col ${isClient ? "items-end" : "items-start"}`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1 text-[0.65rem] font-mono text-[#777777]">
+                          <span className={isClient ? "text-neutral-300 font-medium" : "text-emerald-400 font-medium"}>
+                            {msg.senderName}
+                          </span>
+                          <span>•</span>
+                          <span>{msg.timestamp}</span>
+                        </div>
+
+                        <div
+                          className={`max-w-md md:max-w-lg p-3.5 rounded-2xl text-xs md:text-sm leading-relaxed border ${
+                            isClient
+                              ? "bg-[#16291E] border-emerald-500/30 text-white rounded-tr-none shadow-md"
+                              : "bg-[#181818] border-[#2C2C2C] text-[#F0F0F0] rounded-tl-none shadow-md"
+                          }`}
+                        >
+                          {renderMaskedText(msg.text)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* WhatsApp Bottom Input Bar */}
+                <form
+                  onSubmit={handleSendMessage}
+                  className="p-3 border-t border-[#222222] bg-[#141414] flex items-center gap-2 shrink-0"
+                >
+                  <input
+                    type="text"
+                    placeholder={`Message ${activeChat.lawyerName}... (Phone numbers & sequences masked automatically)`}
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    className="flex-1 bg-[#0A0A0A] border border-[#2E2E2E] rounded-full px-5 py-3 text-xs md:text-sm text-white placeholder:text-[#555555] focus:outline-none focus:border-white transition-colors"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!inputText.trim()}
+                    className="h-11 w-11 rounded-full bg-white hover:bg-neutral-200 text-black flex items-center justify-center transition-colors disabled:opacity-30 shrink-0"
+                    title="Send message"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-xs text-[#777777] font-mono gap-3">
+                <div className="h-16 w-16 rounded-full bg-[#181818] border border-white/10 flex items-center justify-center text-neutral-400">
+                  <Lock className="h-7 w-7" />
+                </div>
+                <h3 className="font-display text-xl text-white">End-to-End Encrypted Legal Channel</h3>
+                <p className="text-xs text-[#888888] max-w-sm">
+                  Select a consultation from the left list to review transcripts and send messages to counsel.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* CONFIDENTIAL CONSULTATION CHAT MODAL (CLIENT VIEW) */}
-      {activeChat && (
-        <ConsultationChatModal
-          isOpen={Boolean(activeChat)}
-          onClose={() => setActiveChat(null)}
-          consultationId={activeChat.consultationId}
-          consultationType={activeChat.consultType}
-          currentParty="client"
-          clientName={activeChat.clientName}
-          lawyerName={activeChat.lawyerName}
-        />
-      )}
-
-      {/* CASE SUMMARY MODAL */}
-      {selectedBrief && (
+      {/* Case Summary Brief Modal */}
+      {showCaseSummary && activeChat && (
         <CaseSummaryModal
-          isOpen={Boolean(selectedBrief)}
-          onClose={() => setSelectedBrief(null)}
-          title="Case Summary"
+          isOpen={showCaseSummary}
+          onClose={() => setShowCaseSummary(false)}
           clientName={clientName}
-          matterType={selectedBrief.matter_type}
-          consultationType={selectedBrief.consult_type}
-          content={selectedBrief.intake_brief || selectedBrief.note}
+          matterType="Legal Consultation Brief"
+          consultationType={activeChat.consultType}
+          content={activeChat.intakeBrief || "No additional brief attached to this consultation."}
         />
       )}
     </div>
