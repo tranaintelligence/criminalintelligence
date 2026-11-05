@@ -161,16 +161,42 @@ function LawyerCaseInboxPage() {
   useEffect(() => {
     if (!activeCase || !storageKey) return;
 
-    function loadMessages() {
+    async function loadMessages() {
       try {
+        let initialList: ConsultationChatMessage[] | null = null;
         const raw = localStorage.getItem(storageKey);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) {
+            initialList = parsed;
             setMessages(parsed);
-            return;
           }
         }
+
+        // Try syncing from Supabase database note field
+        const bareId = activeCase.id.replace(/^REF-/, "");
+        if (bareId && bareId !== "default") {
+          const { data } = await supabase
+            .from("consultations")
+            .select("id, note")
+            .or(`id.eq.${bareId},id.ilike.${bareId}%`)
+            .maybeSingle();
+
+          if (data?.note) {
+            try {
+              const parsedNote = JSON.parse(data.note);
+              if (Array.isArray(parsedNote) && parsedNote.length > 0) {
+                setMessages(parsedNote);
+                localStorage.setItem(storageKey, JSON.stringify(parsedNote));
+                return;
+              }
+            } catch {
+              // Not stored as JSON messages yet
+            }
+          }
+        }
+
+        if (initialList && initialList.length > 0) return;
 
         // Initialize persistent channel with initial notice
         const initialSystem: ConsultationChatMessage[] = [
@@ -191,6 +217,34 @@ function LawyerCaseInboxPage() {
 
     loadMessages();
 
+    // Poll Supabase consultation note every 4s while case is open
+    const pollInterval = window.setInterval(async () => {
+      const bareId = activeCase.id.replace(/^REF-/, "");
+      if (!bareId || bareId === "default") return;
+      try {
+        const { data } = await supabase
+          .from("consultations")
+          .select("note")
+          .or(`id.eq.${bareId},id.ilike.${bareId}%`)
+          .maybeSingle();
+
+        if (data?.note) {
+          try {
+            const parsedNote = JSON.parse(data.note);
+            if (Array.isArray(parsedNote) && parsedNote.length > 0) {
+              setMessages((prev) => {
+                if (prev.length !== parsedNote.length || JSON.stringify(prev) !== JSON.stringify(parsedNote)) {
+                  localStorage.setItem(storageKey, JSON.stringify(parsedNote));
+                  return parsedNote;
+                }
+                return prev;
+              });
+            }
+          } catch {}
+        }
+      } catch {}
+    }, 4000);
+
     function handleChatUpdate() {
       try {
         const raw = localStorage.getItem(storageKey);
@@ -206,6 +260,7 @@ function LawyerCaseInboxPage() {
     window.addEventListener("trana_consult_chat_update", handleChatUpdate);
 
     return () => {
+      window.clearInterval(pollInterval);
       window.removeEventListener("storage", handleChatUpdate);
       window.removeEventListener("trana_consult_chat_update", handleChatUpdate);
     };
@@ -249,6 +304,18 @@ function LawyerCaseInboxPage() {
       localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
       window.dispatchEvent(new Event("trana_consult_chat_update"));
       window.dispatchEvent(new StorageEvent("storage", { key: storageKey }));
+
+      // Persist to Supabase database so client and founders monitor receive it online
+      const bareId = activeCase.id.replace(/^REF-/, "");
+      if (bareId && bareId !== "default") {
+        supabase
+          .from("consultations")
+          .update({ note: JSON.stringify(updated) })
+          .or(`id.eq.${bareId},id.ilike.${bareId}%`)
+          .then(({ error }) => {
+            if (error) console.warn("Supabase chat update notice:", error);
+          });
+      }
     } catch (err) {
       console.warn("Failed to save message:", err);
     }
