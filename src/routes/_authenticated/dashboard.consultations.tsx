@@ -64,8 +64,12 @@ function Consultations() {
     queryKey: ["consultations", user?.id, liveTrigger],
     queryFn: async () => {
       let query = supabase.from("consultations").select("*").order("created_at", { ascending: false });
-      if (user?.id) {
-        query = query.or(`user_id.eq.${user.id},user_id.eq.${user.email || ""}`);
+      if (user?.id && user?.email) {
+        query = query.or(`user_id.eq.${user.id},user_id.eq.${user.email}`);
+      } else if (user?.id) {
+        query = query.eq("user_id", String(user.id));
+      } else if (user?.email) {
+        query = query.eq("user_id", String(user.email));
       }
       const { data, error } = await query;
       if (error) {
@@ -288,12 +292,37 @@ function Consultations() {
     } catch {}
 
     // 2. Persist to Supabase database so advocate and founders monitor receive it online
-    const bareId = activeChat.id.replace(/^REF-/, "");
     try {
-      await supabase
+      // First update by exact consultation id
+      const { data: updatedRows } = await supabase
         .from("consultations")
         .update({ note: JSON.stringify(updated) })
-        .or(`id.eq.${bareId},id.ilike.${bareId}%`);
+        .eq("id", activeChat.id)
+        .select("id");
+
+      // If no row updated, try updating by lawyer name / user id or insert new
+      if (!updatedRows || updatedRows.length === 0) {
+        const bareId = activeChat.id.replace(/^REF-/, "");
+        const { data: altRows } = await supabase
+          .from("consultations")
+          .update({ note: JSON.stringify(updated) })
+          .or(`id.eq.${bareId},lawyer_name.ilike.%${activeChat.lawyerName}%`)
+          .select("id");
+
+        if (!altRows || altRows.length === 0) {
+          // Row does not exist yet in database, insert it now so it is permanently stored online
+          await supabase.from("consultations").insert({
+            id: activeChat.id,
+            user_id: user?.id ? String(user.id) : (user?.email || "anonymous"),
+            lawyer_id: activeChat.lawyerId || null,
+            lawyer_name: activeChat.lawyerName,
+            consult_type: activeChat.consultType.toLowerCase(),
+            status: "confirmed",
+            note: JSON.stringify(updated),
+            intake_brief: activeChat.intakeBrief || "",
+          });
+        }
+      }
     } catch (err) {
       console.warn("Could not save to Supabase:", err);
     }
@@ -321,13 +350,12 @@ function Consultations() {
     };
 
     const updated = [...activeChat.messages, notice];
-    const bareId = activeChat.id.replace(/^REF-/, "");
 
     try {
       await supabase
         .from("consultations")
         .update({ status: "cancelled", note: JSON.stringify(updated) })
-        .or(`id.eq.${bareId},id.ilike.${bareId}%`);
+        .eq("id", activeChat.id);
     } catch {}
 
     try {

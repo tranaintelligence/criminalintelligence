@@ -85,14 +85,19 @@ function Lawyers() {
   const { data: userConsultations = [] } = useQuery({
     queryKey: ["citizen-consultations-lock", user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
-      const { data } = await supabase
-        .from("consultations")
-        .select("id, lawyer_id, lawyer_name, status, consult_type")
-        .eq("user_id", user.id);
+      if (!user?.id && !user?.email) return [];
+      let q = supabase.from("consultations").select("id, lawyer_id, lawyer_name, status, consult_type");
+      if (user?.id && user?.email) {
+        q = q.or(`user_id.eq.${user.id},user_id.eq.${user.email}`);
+      } else if (user?.id) {
+        q = q.eq("user_id", String(user.id));
+      } else if (user?.email) {
+        q = q.eq("user_id", String(user.email));
+      }
+      const { data } = await q;
       return data || [];
     },
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id || user?.email),
   });
 
   const { lockedIds, lockedNames } = useMemo(() => {
@@ -232,10 +237,23 @@ function Lawyers() {
   }
 
   function handleOpenExistingChat(l: Lawyer) {
+    const normName = l.full_name.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
     const match = userConsultations.find(
-      (c) => c.lawyer_id === l.id || c.lawyer_name?.toLowerCase().trim() === l.full_name.toLowerCase().trim()
+      (c) => (c.lawyer_id && c.lawyer_id === l.id) || (c.lawyer_name && c.lawyer_name.toLowerCase().replace(/^adv\.?\s*/i, "").trim() === normName)
     );
-    const targetId = match ? match.id : l.id;
+    let targetId = match ? match.id : null;
+
+    if (!targetId && typeof window !== "undefined") {
+      try {
+        const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+        const found = (localReferrals || []).find(
+          (r: any) => (r.lawyerId && r.lawyerId === l.id) || (r.lawyerName && r.lawyerName.toLowerCase().replace(/^adv\.?\s*/i, "").trim() === normName)
+        );
+        if (found) targetId = found.id;
+      } catch {}
+    }
+
+    if (!targetId) targetId = `REF-${l.id}`;
     navigate({
       to: "/dashboard/consultations",
       search: { chat: targetId },
@@ -244,14 +262,27 @@ function Lawyers() {
 
   async function request(l: Lawyer, chosenMode: "call" | "chat") {
     // 1. Prevent duplicate consultation with the same lawyer
+    const normName = l.full_name.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
     const match = userConsultations.find(
-      (c) => c.lawyer_id === l.id || c.lawyer_name?.toLowerCase().trim() === l.full_name.toLowerCase().trim()
+      (c) => (c.lawyer_id && c.lawyer_id === l.id) || (c.lawyer_name && c.lawyer_name.toLowerCase().replace(/^adv\.?\s*/i, "").trim() === normName)
     );
-    if (match) {
+    let existingChatId = match ? match.id : null;
+
+    if (!existingChatId && typeof window !== "undefined") {
+      try {
+        const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+        const found = (localReferrals || []).find(
+          (r: any) => (r.lawyerId && r.lawyerId === l.id) || (r.lawyerName && r.lawyerName.toLowerCase().replace(/^adv\.?\s*/i, "").trim() === normName)
+        );
+        if (found) existingChatId = found.id;
+      } catch {}
+    }
+
+    if (existingChatId) {
       toast.info(`Opening existing consultation channel with ${l.full_name}...`);
       navigate({
         to: "/dashboard/consultations",
-        search: { chat: match.id },
+        search: { chat: existingChatId },
       });
       return;
     }
@@ -268,8 +299,6 @@ function Lawyers() {
         credential,
       });
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(l.id);
-
       const initialMessages = [
         {
           id: `msg-sys-${Date.now()}`,
@@ -283,8 +312,8 @@ function Lawyers() {
       const { data: inserted, error } = await supabase
         .from("consultations")
         .insert({
-          user_id: String(user.id),
-          lawyer_id: isUuid ? l.id : null,
+          user_id: user?.id ? String(user.id) : (user?.email || "anonymous"),
+          lawyer_id: l.id,
           lawyer_name: l.full_name,
           consult_type: chosenMode,
           status: "confirmed",
@@ -300,7 +329,7 @@ function Lawyers() {
 
       const finalId = inserted?.id || `REF-${l.id}`;
 
-      // Update central chat index
+      // Update central chat index and local referrals
       try {
         localStorage.setItem(`trana_consult_chat_${finalId}`, JSON.stringify(initialMessages));
         const chatIndex = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
@@ -314,6 +343,20 @@ function Lawyers() {
           lastUpdated: new Date().toISOString(),
         };
         localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
+
+        const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+        localReferrals.unshift({
+          id: finalId,
+          client: clientName,
+          lawyerId: l.id,
+          lawyerName: l.full_name,
+          consultationType: chosenMode === "call" ? "Call" : "Chat",
+          status: "Confirmed",
+          date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+          intakeBrief: brief.fullBriefMarkdown,
+          summary: initialMessages[0].text,
+        });
+        localStorage.setItem("trana_client_referrals", JSON.stringify(localReferrals));
       } catch {}
 
       // Lock state

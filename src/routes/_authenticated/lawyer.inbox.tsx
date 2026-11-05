@@ -90,7 +90,7 @@ function LawyerCaseInboxPage() {
 
     // 2. Add from Supabase consultations table
     (dbConsults || []).forEach((row) => {
-      const rowId = `REF-${row.id.slice(0, 8).toUpperCase()}`;
+      const rowId = row.id;
       if (list.some((existing) => existing.id === rowId)) return;
 
       const briefText = row.intake_brief || row.note || "";
@@ -174,13 +174,15 @@ function LawyerCaseInboxPage() {
         }
 
         // Try syncing from Supabase database note field
-        const bareId = activeCase.id.replace(/^REF-/, "");
-        if (bareId && bareId !== "default") {
-          const { data } = await supabase
-            .from("consultations")
-            .select("id, note")
-            .or(`id.eq.${bareId},id.ilike.${bareId}%`)
-            .maybeSingle();
+        if (activeCase.id && activeCase.id !== "default") {
+          const bareId = activeCase.id.replace(/^REF-/, "");
+          let q = supabase.from("consultations").select("id, note");
+          if (activeCase.id.startsWith("REF-")) {
+            q = q.or(`id.eq.${activeCase.id},id.eq.${bareId}`);
+          } else {
+            q = q.eq("id", activeCase.id);
+          }
+          const { data } = await q.maybeSingle();
 
           if (data?.note) {
             try {
@@ -219,14 +221,16 @@ function LawyerCaseInboxPage() {
 
     // Poll Supabase consultation note every 4s while case is open
     const pollInterval = window.setInterval(async () => {
-      const bareId = activeCase.id.replace(/^REF-/, "");
-      if (!bareId || bareId === "default") return;
+      if (!activeCase?.id || activeCase.id === "default") return;
       try {
-        const { data } = await supabase
-          .from("consultations")
-          .select("note")
-          .or(`id.eq.${bareId},id.ilike.${bareId}%`)
-          .maybeSingle();
+        const bareId = activeCase.id.replace(/^REF-/, "");
+        let q = supabase.from("consultations").select("note");
+        if (activeCase.id.startsWith("REF-")) {
+          q = q.or(`id.eq.${activeCase.id},id.eq.${bareId}`);
+        } else {
+          q = q.eq("id", activeCase.id);
+        }
+        const { data } = await q.maybeSingle();
 
         if (data?.note) {
           try {
@@ -306,15 +310,17 @@ function LawyerCaseInboxPage() {
       window.dispatchEvent(new StorageEvent("storage", { key: storageKey }));
 
       // Persist to Supabase database so client and founders monitor receive it online
-      const bareId = activeCase.id.replace(/^REF-/, "");
-      if (bareId && bareId !== "default") {
-        supabase
-          .from("consultations")
-          .update({ note: JSON.stringify(updated) })
-          .or(`id.eq.${bareId},id.ilike.${bareId}%`)
-          .then(({ error }) => {
-            if (error) console.warn("Supabase chat update notice:", error);
-          });
+      if (activeCase.id && activeCase.id !== "default") {
+        const bareId = activeCase.id.replace(/^REF-/, "");
+        let q = supabase.from("consultations").update({ note: JSON.stringify(updated) });
+        if (activeCase.id.startsWith("REF-")) {
+          q = q.or(`id.eq.${activeCase.id},id.eq.${bareId}`);
+        } else {
+          q = q.eq("id", activeCase.id);
+        }
+        q.then(({ error }) => {
+          if (error) console.warn("Supabase chat update notice:", error);
+        });
       }
     } catch (err) {
       console.warn("Failed to save message:", err);
@@ -357,7 +363,13 @@ function LawyerCaseInboxPage() {
 
     const dbId = activeCase.id.replace(/^REF-/, "");
     try {
-      await supabase.from("consultations").update({ status: "denied" }).or(`id.eq.${dbId},id.ilike.${dbId}%`);
+      let q = supabase.from("consultations").update({ status: "denied" });
+      if (activeCase.id.startsWith("REF-")) {
+        q = q.or(`id.eq.${activeCase.id},id.eq.${dbId}`);
+      } else {
+        q = q.eq("id", activeCase.id);
+      }
+      await q;
     } catch (e) {
       console.warn("Supabase update error:", e);
     }

@@ -174,7 +174,7 @@ function FoundersChatsPage() {
     // --- Process Real Advocate Consultations ---
     (dbConsults || []).forEach((row) => {
       if (!row || !row.id) return;
-      const rowId = `REF-${row.id.slice(0, 8).toUpperCase()}`;
+      const rowId = row.id;
 
       const briefText = row.intake_brief || "";
       let clientName = "Citizen Client";
