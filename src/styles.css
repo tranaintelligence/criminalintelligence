@@ -148,186 +148,157 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 }
 
 /* ==========================================================================
-   APPLE VISION & MACOS GLASSMORPHISM SYSTEM (FOUNDERS DASHBOARD)
+   APPLE VISION & MACOS AUTHENTIC GLASSMORPHISM (FOUNDERS DASHBOARD)
+   Inspired by Apple visionOS & macOS Sonoma floating glass workspaces
    ========================================================================== */
 
-/* Ambient canvas background for authentic glass refraction */
+/* Ambient canvas background: warm amber, bronze and sapphire luminescence */
 .founders-canvas {
-  background-color: #070709;
+  background-color: #08070b !important;
   background-image: 
-    radial-gradient(ellipse 90% 60% at 15% -10%, rgba(212, 175, 55, 0.07), transparent 60%),
-    radial-gradient(ellipse 80% 65% at 85% 25%, rgba(99, 102, 241, 0.06), transparent 65%),
-    radial-gradient(ellipse 70% 60% at 50% 85%, rgba(16, 185, 129, 0.04), transparent 70%);
-  background-attachment: fixed;
+    radial-gradient(ellipse 80% 60% at 5% 10%, rgba(245, 158, 11, 0.22), transparent 55%),
+    radial-gradient(ellipse 65% 55% at 15% 50%, rgba(217, 119, 6, 0.18), transparent 50%),
+    radial-gradient(ellipse 85% 65% at 85% 15%, rgba(99, 102, 241, 0.18), transparent 55%),
+    radial-gradient(ellipse 65% 55% at 75% 85%, rgba(236, 72, 153, 0.12), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 40% 60%, rgba(16, 185, 129, 0.1), transparent 55%) !important;
+  background-attachment: fixed !important;
   min-height: 100vh;
 }
 
-/* Apple Frosted Glass Surface */
-.apple-glass {
-  position: relative;
-  background: rgba(18, 18, 24, 0.62) !important;
-  backdrop-filter: blur(30px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(30px) saturate(190%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+/* Floating VisionOS Glass Sidebar Panel */
+.apple-floating-sidebar {
+  background: linear-gradient(155deg, 
+    rgba(255, 255, 255, 0.15) 0%, 
+    rgba(255, 255, 255, 0.03) 45%, 
+    rgba(255, 255, 255, 0.08) 100%
+  ), rgba(16, 14, 22, 0.52) !important;
+  backdrop-filter: blur(48px) saturate(230%) brightness(115%) !important;
+  -webkit-backdrop-filter: blur(48px) saturate(230%) brightness(115%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
   box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.24),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 12px 36px -10px rgba(0, 0, 0, 0.55);
-  border-radius: 1rem;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 1.5px 2.5px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 40px 0 rgba(255, 255, 255, 0.04),
+    0 24px 64px -12px rgba(0, 0, 0, 0.8) !important;
+  border-radius: 30px !important;
+}
+
+/* Nav Item inside Apple Floating Sidebar */
+.apple-nav-item {
+  position: relative;
+  z-index: 2;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 9999px;
+  user-select: none;
+}
+
+.apple-nav-item:hover,
+.apple-nav-item.active {
+  color: #ffffff !important;
+}
+
+.apple-nav-item:active {
+  transform: scale(0.98);
 }
 
 /* Signature Specular Top Edge Reflection */
-.apple-glass::before,
+.apple-floating-sidebar::before,
 .apple-glass-card::before,
-.apple-glass-sidebar::before,
 .apple-glass-panel::before {
   content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 1.5px;
   background: linear-gradient(90deg, 
     rgba(255, 255, 255, 0) 0%, 
-    rgba(255, 255, 255, 0.35) 20%, 
-    rgba(255, 255, 255, 0.65) 50%, 
-    rgba(255, 255, 255, 0.35) 80%, 
+    rgba(255, 255, 255, 0.45) 20%, 
+    rgba(255, 255, 255, 0.85) 50%, 
+    rgba(255, 255, 255, 0.45) 80%, 
     rgba(255, 255, 255, 0) 100%
   );
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
   pointer-events: none;
-  z-index: 2;
-  transition: opacity 0.3s ease;
+  z-index: 10;
 }
 
-/* Apple Glass Card with Hover Lift and Specular Flare */
+/* Sliding Liquid Glass Nav Pill (tracks active/hovered tabs smoothly) */
+.apple-sliding-pill {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
+  backdrop-filter: blur(24px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(220%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.2),
+    0 6px 20px -2px rgba(0, 0, 0, 0.4),
+    0 0 25px 0 rgba(255, 255, 255, 0.18) !important;
+  transition: top 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.2s ease,
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Glass Card with True Translucency & Specular Rim */
 .apple-glass-card {
   position: relative;
-  background: rgba(20, 20, 26, 0.6) !important;
-  backdrop-filter: blur(28px) saturate(185%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(185%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: linear-gradient(145deg, 
+    rgba(255, 255, 255, 0.11) 0%, 
+    rgba(255, 255, 255, 0.02) 50%, 
+    rgba(255, 255, 255, 0.06) 100%
+  ), rgba(18, 16, 24, 0.45) !important;
+  backdrop-filter: blur(40px) saturate(210%) brightness(112%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(210%) brightness(112%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
   box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 12px 32px -8px rgba(0, 0, 0, 0.55);
-  border-radius: 1rem;
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 25px 0 rgba(255, 255, 255, 0.03),
+    0 20px 48px -10px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 20px !important;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              background 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+              border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .apple-glass-card:hover {
-  background: rgba(28, 28, 36, 0.72) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  transform: translateY(-2px);
+  transform: translateY(-3px) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
   box-shadow: 
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.38),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 20px 44px -10px rgba(0, 0, 0, 0.7),
-    0 0 24px 0 rgba(255, 255, 255, 0.05) !important;
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.7),
+    0 28px 60px -12px rgba(0, 0, 0, 0.75),
+    0 0 25px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
-.apple-glass-card:hover::before {
-  background: linear-gradient(90deg, 
-    rgba(255, 255, 255, 0) 0%, 
-    rgba(255, 255, 255, 0.5) 20%, 
-    rgba(255, 255, 255, 0.9) 50%, 
-    rgba(255, 255, 255, 0.5) 80%, 
-    rgba(255, 255, 255, 0) 100%
-  );
-}
-
-/* Apple Sidebar Glass */
-.apple-glass-sidebar {
-  position: relative;
-  background: rgba(12, 12, 16, 0.75) !important;
-  backdrop-filter: blur(40px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 
-    inset -1px 0 0 0 rgba(255, 255, 255, 0.05),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.18),
-    12px 0 36px -10px rgba(0, 0, 0, 0.65);
-}
-
-/* Specular right-edge reflection for sidebar */
-.apple-glass-sidebar::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 1px;
-  background: linear-gradient(180deg, 
-    rgba(255, 255, 255, 0.4) 0%, 
-    rgba(255, 255, 255, 0.15) 35%, 
-    rgba(255, 255, 255, 0.06) 70%, 
-    rgba(255, 255, 255, 0.25) 100%
-  );
-  pointer-events: none;
-  z-index: 3;
-}
-
-/* Apple Navigation Item (macOS / visionOS glass pill) */
-.apple-nav-item {
-  position: relative;
-  border-radius: 0.75rem;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-}
-
-.apple-nav-item:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
-  transform: translateX(3px);
-  color: #ffffff;
-}
-
-.apple-nav-item.active {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 4px 16px -2px rgba(0, 0, 0, 0.4);
-  color: #ffffff;
-}
-
-.apple-nav-item.active::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-  pointer-events: none;
-}
-
-/* Apple Glass Pill Badge / Button */
+/* Apple Rounded Pill Badge / Button */
 .apple-glass-pill {
   position: relative;
-  background: rgba(255, 255, 255, 0.06) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.55), 0 2px 10px rgba(0, 0, 0, 0.25);
   border-radius: 9999px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .apple-glass-pill:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.25) !important;
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  box-shadow: inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.75), 0 4px 16px rgba(0, 0, 0, 0.35);
+  transform: scale(1.02);
 }
 
-/* Apple Glass Input / Search / Select */
+/* Apple Frosted Input / Search */
 .apple-glass-input,
 .founders-canvas input[type="text"],
 .founders-canvas input[type="email"],
@@ -336,15 +307,15 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas input[type="number"],
 .founders-canvas select,
 .founders-canvas textarea {
-  background: rgba(14, 14, 18, 0.6) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(24px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
   box-shadow: 
-    inset 0 1px 2px 0 rgba(0, 0, 0, 0.5), 
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03) !important;
-  border-radius: 0.625rem;
-  color: #f5f5f7 !important;
+    inset 0 1px 2px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  border-radius: 9999px;
+  color: #ffffff !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -352,38 +323,51 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas input:focus,
 .founders-canvas select:focus,
 .founders-canvas textarea:focus {
-  background: rgba(20, 20, 26, 0.8) !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.55) !important;
   box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.2),
-    0 0 0 3px rgba(255, 255, 255, 0.1) !important;
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 3px rgba(255, 255, 255, 0.15) !important;
   outline: none !important;
 }
 
-/* Automatic Glassification of all boxes, panels & cards in founders-canvas */
+/* Glassify all containers in founders-canvas to rich translucent glass */
+.founders-canvas .border-\[\#222222\],
+.founders-canvas .border-\[\#333333\],
+.founders-canvas .border-\[\#282828\],
+.founders-canvas .border-\[\#1e1e1e\],
+.founders-canvas .border-\[\#181818\] {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
 .founders-canvas .bg-\[\#141414\],
 .founders-canvas .bg-\[\#111111\],
 .founders-canvas .bg-\[\#121212\],
 .founders-canvas .bg-\[\#161616\],
 .founders-canvas .bg-\[\#181818\],
 .founders-canvas .bg-\[\#1A1A1A\],
+.founders-canvas .bg-\[\#1e1e1e\],
 .founders-canvas .admin-counter,
 .founders-canvas .admin-usage-model,
 .founders-canvas .admin-key-row {
   position: relative;
-  background: rgba(20, 20, 26, 0.58) !important;
-  backdrop-filter: blur(26px) saturate(185%) !important;
-  -webkit-backdrop-filter: blur(26px) saturate(185%) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: linear-gradient(145deg, 
+    rgba(255, 255, 255, 0.12) 0%, 
+    rgba(255, 255, 255, 0.02) 50%, 
+    rgba(255, 255, 255, 0.06) 100%
+  ), rgba(16, 14, 22, 0.5) !important;
+  backdrop-filter: blur(40px) saturate(220%) brightness(112%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(112%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
   box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 12px 36px -8px rgba(0, 0, 0, 0.55) !important;
-  border-radius: 0.875rem;
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.5),
+    0 16px 40px -10px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 20px !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* Top specular reflection edge for all founders boxes */
+/* Top specular reflection edge */
 .founders-canvas .bg-\[\#141414\]::before,
 .founders-canvas .bg-\[\#111111\]::before,
 .founders-canvas .bg-\[\#121212\]::before,
@@ -397,46 +381,44 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
   top: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 1.5px;
   background: linear-gradient(90deg, 
     transparent 0%, 
-    rgba(255, 255, 255, 0.35) 15%, 
-    rgba(255, 255, 255, 0.65) 50%, 
-    rgba(255, 255, 255, 0.35) 85%, 
+    rgba(255, 255, 255, 0.4) 15%, 
+    rgba(255, 255, 255, 0.8) 50%, 
+    rgba(255, 255, 255, 0.4) 85%, 
     transparent 100%
   );
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
   pointer-events: none;
   z-index: 2;
-  transition: opacity 0.25s ease;
 }
 
-/* Hover reflection brightening and subtle micro-lift on founders boxes */
+/* Hover lift and glow */
 .founders-canvas .bg-\[\#141414\]:hover,
 .founders-canvas .bg-\[\#111111\]:hover,
 .founders-canvas .bg-\[\#121212\]:hover,
 .founders-canvas .bg-\[\#161616\]:hover,
 .founders-canvas .admin-counter:hover,
 .founders-canvas .admin-key-row:hover {
-  background: rgba(26, 26, 34, 0.7) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
   transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.35) !important;
   box-shadow: 
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 20px 48px -10px rgba(0, 0, 0, 0.72),
-    0 0 20px 0 rgba(255, 255, 255, 0.04) !important;
+    0 0 0 1px rgba(255, 255, 255, 0.15),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.65),
+    0 24px 50px -10px rgba(0, 0, 0, 0.7),
+    0 0 20px 0 rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Nested sub-boxes (e.g. inner dark rows/cards) */
 .founders-canvas .bg-\[\#0A0A0A\],
 .founders-canvas .bg-\[\#0E0E0E\] {
-  background: rgba(10, 10, 14, 0.65) !important;
-  backdrop-filter: blur(18px) !important;
-  -webkit-backdrop-filter: blur(18px) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  border-radius: 0.75rem;
+  background: rgba(14, 12, 18, 0.5) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 14px;
 }
 
 /* Glass tables within founders-canvas */
@@ -445,25 +427,25 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 }
 
 .founders-canvas table thead tr {
-  background: rgba(255, 255, 255, 0.04) !important;
-  backdrop-filter: blur(12px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16) !important;
 }
 
 .founders-canvas table tbody tr {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .founders-canvas table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
 /* Smooth Apple scrollbar for founders */
 .founders-canvas ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 .founders-canvas ::-webkit-scrollbar-track {
@@ -471,11 +453,11 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 }
 
 .founders-canvas ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 9999px;
   backdrop-filter: blur(8px);
 }
 
 .founders-canvas ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.45);
 }
