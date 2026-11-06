@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Scale, Check, X, Star, FileText, Eye, ShieldAlert, 
   ExternalLink, Search, RefreshCw, MessageSquare, AlertCircle,
-  Plus, Trash2, Phone, Mail, Award, Building2, MapPin, ShieldCheck, Clock, Sparkles
+  Plus, Trash2, Phone, Mail, Award, Building2, MapPin, ShieldCheck, Clock, Sparkles, Lock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -41,6 +41,61 @@ function FoundersLawyersPage() {
   const [activeTab, setActiveTab] = useState<"active" | "pending">("active");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLawyer, setSelectedLawyer] = useState<LawyerRecord | null>(null);
+
+  // Advocate Personal Vault Headings state (Admin View - Headings Only)
+  const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
+  const [selectedVaultHeading, setSelectedVaultHeading] = useState<any | null>(null);
+  const [vaultHeadings, setVaultHeadings] = useState<any[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem("trana_lawyer_vault_admin_index");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: "pdoc-1",
+        lawyer_name: "Adv. Siddharth K. Rao",
+        lawyer_bar_reg_no: "D/2104/2021",
+        title: "High Court Jurisprudence: Section 482 CrPC vs Section 528 BNSS Quashing Petitions",
+        category: "Research Work",
+        date: "2026-11-04",
+        is_private: true,
+        content_restricted: true,
+      },
+      {
+        id: "pdoc-2",
+        lawyer_name: "Adv. Siddharth K. Rao",
+        lawyer_bar_reg_no: "D/2104/2021",
+        title: "Client Case Strategy & Deposition Notes: Anticipatory Bail Assessment",
+        category: "Private Case Files",
+        date: "2026-11-05",
+        is_private: true,
+        content_restricted: true,
+      },
+    ];
+  });
+
+  useEffect(() => {
+    function loadVaultIndex() {
+      try {
+        const stored = localStorage.getItem("trana_lawyer_vault_admin_index");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setVaultHeadings(parsed);
+        }
+      } catch {}
+    }
+    loadVaultIndex();
+    window.addEventListener("trana_lawyer_vault_updated", loadVaultIndex);
+    window.addEventListener("storage", loadVaultIndex);
+    return () => {
+      window.removeEventListener("trana_lawyer_vault_updated", loadVaultIndex);
+      window.removeEventListener("storage", loadVaultIndex);
+    };
+  }, []);
 
   // Add Lawyer modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -467,6 +522,14 @@ function FoundersLawyersPage() {
           >
             Pending Sanad Verification ({pendingCount})
           </button>
+          <button
+            onClick={() => setIsVaultModalOpen(true)}
+            className="apple-glass-pill px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-all border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 flex items-center gap-1.5 cursor-pointer"
+            title="Inspect Advocate Personal Vault Document Headings (Content Restricted under Advocate Privilege)"
+          >
+            <Lock className="h-3 w-3 text-amber-400" />
+            <span>Vault Headings ({vaultHeadings.length})</span>
+          </button>
         </div>
 
         <div className="relative w-full sm:w-72">
@@ -856,6 +919,135 @@ function FoundersLawyersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal: Advocate Personal Vault Headings (Admin View - Content Restricted) */}
+      {isVaultModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="w-full max-w-4xl bg-[#141414] border border-amber-500/30 rounded-2xl p-6 md:p-8 shadow-2xl max-h-[85vh] flex flex-col relative">
+            <div className="flex items-center justify-between border-b border-[#252525] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-2xl font-medium text-white">
+                    Advocate Personal Vault Registry
+                  </h3>
+                  <p className="text-xs text-neutral-400">
+                    Compliance audit index showing document headings. File contents are strictly restricted.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsVaultModalOpen(false)}
+                className="p-1 rounded text-neutral-400 hover:text-white cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Privilege Disclaimer */}
+            <div className="mt-4 p-3.5 rounded-xl bg-amber-500/[0.05] border border-amber-500/30 flex items-start gap-3 text-xs text-amber-300/90 leading-relaxed">
+              <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+              <div>
+                <strong>ADVOCATE-CLIENT PRIVILEGE & DATA PRIVACY COMPLIANCE:</strong>
+                <span className="text-neutral-300 ml-1">
+                  Platform administrators are strictly prohibited from viewing or accessing the contents of documents stored in an advocate's personal folder. Only the document heading, category, and date are shown below for compliance indexing.
+                </span>
+              </div>
+            </div>
+
+            {/* Headings List */}
+            <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1">
+              {vaultHeadings.length === 0 ? (
+                <div className="p-8 text-center text-xs text-neutral-500 font-mono">
+                  No advocate personal documents recorded in index.
+                </div>
+              ) : (
+                vaultHeadings.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-4 rounded-xl bg-[#0f0f0f] border border-[#222222] hover:border-amber-500/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 border border-white/10 text-neutral-300">
+                          {doc.category || "Research Work"}
+                        </span>
+                        <span className="text-xs text-neutral-500 font-mono">• {doc.date}</span>
+                        <span className="text-xs text-amber-300 font-mono">• {doc.lawyer_name || "Advocate"}</span>
+                        {doc.lawyer_bar_reg_no && (
+                          <span className="text-[10px] text-neutral-500 font-mono">({doc.lawyer_bar_reg_no})</span>
+                        )}
+                      </div>
+                      <h4 className="font-display text-base font-medium text-white">
+                        {doc.title}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setSelectedVaultHeading(doc)}
+                        className="px-3 py-1.5 rounded-lg border border-white/20 hover:border-amber-400 text-xs font-mono text-neutral-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Lock className="h-3 w-3 text-amber-400" />
+                        <span>Inspect Heading</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Restricted Detail View Modal */}
+            {selectedVaultHeading && (
+              <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
+                <div className="w-full max-w-lg bg-[#141414] border border-red-500/40 rounded-2xl p-6 shadow-2xl relative space-y-4">
+                  <div className="flex items-center gap-3 border-b border-[#252525] pb-3">
+                    <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
+                      <Lock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-semibold text-white">Confidential Lawyer Document</h4>
+                      <p className="text-[11px] text-neutral-400">Content Access Prohibited</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 text-xs">
+                    <div className="p-3 rounded-lg bg-black/60 border border-[#222222] space-y-1">
+                      <span className="text-[10px] text-neutral-500 uppercase tracking-wider block font-mono">Document Heading:</span>
+                      <p className="text-sm font-semibold text-white">{selectedVaultHeading.title}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded bg-black/40 border border-[#222222]">
+                        <span className="text-[10px] text-neutral-500 block font-mono">Advocate:</span>
+                        <p className="text-neutral-200 font-medium">{selectedVaultHeading.lawyer_name || "Advocate"}</p>
+                      </div>
+                      <div className="p-2.5 rounded bg-black/40 border border-[#222222]">
+                        <span className="text-[10px] text-neutral-500 block font-mono">Category:</span>
+                        <p className="text-neutral-200 font-medium">{selectedVaultHeading.category || "Research Work"}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-red-950/20 border border-red-500/30 text-red-300 text-[11px] leading-relaxed">
+                      🔒 <strong>Restricted by Architecture:</strong> The content and files of this document are private to the advocate under Advocate-Client Privilege. Platform administrators cannot open, inspect, or decrypt these files.
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-[#252525]">
+                    <button
+                      onClick={() => setSelectedVaultHeading(null)}
+                      className="px-4 py-2 rounded-lg bg-white text-black text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

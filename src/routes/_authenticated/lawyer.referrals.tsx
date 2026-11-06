@@ -394,7 +394,7 @@ function LawyerReferralsPage() {
                       className="border border-emerald-500/40 bg-emerald-950/20 hover:bg-emerald-900/40 text-emerald-300 px-3 py-1.5 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
-                      <span>Case Inbox</span>
+                      <span>Inbox</span>
                     </Link>
                   </>
                 )}

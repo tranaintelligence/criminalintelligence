@@ -580,7 +580,7 @@ function LawyerCaseInboxPage() {
       <div className="border-b border-[#222222] pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-[0.65rem] uppercase tracking-widest text-[#888888] font-mono block">
-            CONFIDENTIAL CASE & PEER NETWORK INBOX
+            CONFIDENTIAL INBOX & PEER NETWORK
           </span>
           <h1 className="font-display text-4xl md:text-5xl font-medium text-white mt-1">
             Inbox

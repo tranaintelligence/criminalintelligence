@@ -207,7 +207,7 @@ function LawyerLayout() {
     document.title = "Legal Professional Workspace — TRANA";
   }, [location.pathname]);
 
-  // Track unread messages count for Case Inbox tab badge
+  // Track unread messages count for Inbox tab badge
   useEffect(() => {
     function computeUnread() {
       try {
@@ -702,10 +702,10 @@ function LawyerLayout() {
         <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/"
-            className="w-9 h-9 rounded-2xl bg-white/[0.12] hover:bg-white/[0.18] border border-white/25 flex items-center justify-center shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.6),0_4px_16px_rgba(0,0,0,0.4),0_0_12px_rgba(255,255,255,0.08)] text-white font-bold font-display text-lg shrink-0 hover:scale-105 transition-all"
+            className="w-9 h-9 rounded-xl bg-black border border-white/20 flex items-center justify-center shadow-md text-white font-bold font-serif text-lg shrink-0 hover:scale-105 hover:border-white/40 transition-all overflow-hidden"
             title="TRANA Home"
           >
-            T
+            <img src="/favicon.svg" alt="TRANA" className="w-full h-full object-cover" />
           </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
@@ -860,8 +860,8 @@ function LawyerLayout() {
       {/* Mobile Header */}
       <header className="flex items-center justify-between border-b border-white/10 bg-[#0d0b14]/80 backdrop-blur-2xl px-4 py-3 md:hidden sticky top-0 z-40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-xl bg-white/[0.12] border border-white/25 flex items-center justify-center shadow-md text-white font-bold font-display text-sm">
-            T
+          <div className="w-7 h-7 rounded-lg bg-black border border-white/20 flex items-center justify-center shadow-md overflow-hidden shrink-0">
+            <img src="/favicon.svg" alt="TRANA" className="w-full h-full object-cover" />
           </div>
           <span className="font-display text-base tracking-[0.15em] text-[#F0F0F0]">TRANA</span>
           <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">LAWYER</span>
