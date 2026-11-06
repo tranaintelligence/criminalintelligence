@@ -5,15 +5,15 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "TRANA Legal Guidance, Within Reach" },
-      { name: "description", content: "TRANA makes Indian legal information easier to understand and connects you with the right lawyer." },
+      { name: "description", content: "TRANA makes Indian legal information easier to understand and connects you with the right legal professional." },
       { property: "og:title", content: "TRANA Legal Guidance, Within Reach" },
-      { property: "og:description", content: "Legal first aid for India. Understand your situation and reach a qualified lawyer." },
+      { property: "og:description", content: "Legal first aid for India. Understand your situation and reach a qualified legal professional." },
     ],
   }),
   component: Index,
 });
 
-const Disclaimer = "TRANA provides legal information and first aid not legal advice. Always consult a qualified lawyer.";
+const Disclaimer = "TRANA provides legal information and first aid not legal advice. Always consult a qualified legal professional.";
 
 function Eyebrow({ children, light }: { children: React.ReactNode; light?: boolean }) {
   return <p className={`mb-3 md:mb-6 text-xs uppercase tracking-[0.3em] ${light ? "text-ink-muted" : "text-muted-foreground"}`}>{children}</p>;
@@ -78,7 +78,7 @@ function Index() {
           <div className="reveal"><Eyebrow light>Who we help</Eyebrow><H2 light>Built for Everyone<br />Who Needs the Law</H2></div>
           <div className="mt-8 md:mt-16 grid grid-cols-1 gap-px bg-paper-border md:grid-cols-3">
             {[
-              ["🧑‍💼", "Citizens", "Facing a Legal Problem?", "Understand your rights, decode legal documents, and get connected to a qualified lawyer quickly and clearly.", "/dashboard", "Explore Citizen Portal →"],
+              ["🧑‍💼", "Citizens", "Facing a Legal Problem?", "Understand your rights, decode legal documents, and get connected to a qualified legal professional quickly and clearly.", "/dashboard", "Explore Citizen Portal →"],
               ["⚖️", "Legal Professionals", "For Legal Professionals", "Research cases, find citations from High Courts and lower courts, draft documents, and connect with other legal professionals in our network.", "/lawyer", "Legal Professional Workspace →"],
               ["📚", "Students", "For Law Students", "Access clinical legal tools, AI moot drafter, statutory citations, and network with peers.", "/student", "Student Workspace →"],
             ].map(([i, k, t, b, linkTo, linkText]) => (
@@ -113,7 +113,7 @@ function Index() {
           <div className="w-px h-6 md:h-7 bg-ink/20 shrink-0 self-center" />
           <div className="flex-1 min-w-0 flex flex-col items-center text-center px-1.5 sm:px-3 md:px-6">
             <span className="font-sans text-[11px] sm:text-xs md:text-sm font-semibold tracking-tight sm:tracking-wide text-ink leading-tight">Free to Start</span>
-            <span className="font-sans text-[9px] sm:text-[11px] md:text-xs font-light text-ink-muted mt-0.5 leading-tight">No Lawyer Fees to Understand Your Rights</span>
+            <span className="font-sans text-[9px] sm:text-[11px] md:text-xs font-light text-ink-muted mt-0.5 leading-tight">No Fees to Understand Your Rights</span>
           </div>
         </div>
       </section>
@@ -125,9 +125,9 @@ function Index() {
           <div className="mt-8 md:mt-16 grid gap-6 md:gap-10 grid-cols-2 md:grid-cols-4">
             {[
               ["Understand Legal Documents", "Upload or describe any legal situation and get a plain-language explanation of what it means and what to do next.", "/dashboard/analyse", "Analyse Situation →"],
-              ["Find the Right Lawyer", "TRANA connects you to verified legal professionals. Arrange a consultation by call or chat directly through the platform.", "/dashboard/lawyers", "Find Lawyers →"],
+              ["Find the Right Legal Professional", "TRANA connects you to verified legal professionals. Arrange a consultation by call or chat directly through the platform.", "/dashboard/lawyers", "Find Legal Professionals →"],
               ["Legal Research & Citations", "Find relevant case law with citations, timelines, and judgments from the Supreme Court, High Courts, and lower courts.", "/student/citations", "Start Research →"],
-              ["Connect With Experts", "Beyond lawyers, connect with legal professionals and experts across different areas of law.", "/dashboard/consultations", "Consultations →"],
+              ["Connect With Experts", "Connect with verified legal professionals and experts across different areas of law.", "/dashboard/consultations", "Consultations →"],
             ].map(([t, b, linkTo, linkText]) => (
               <div key={t} className="reveal border-t border-primary pt-4 md:pt-6 flex flex-col justify-between">
                 <div>
@@ -169,7 +169,7 @@ function Index() {
             ))}
           </div>
           <p className="reveal mt-6 md:mt-10 font-display text-lg md:text-xl italic text-ink-muted">
-            These are AI tools for information only. For legal advice, TRANA will always connect you to a real lawyer.
+            These are AI tools for information only. For legal advice, TRANA will always connect you to a qualified legal professional.
           </p>
         </div>
       </section>
@@ -244,7 +244,7 @@ function Index() {
               <button onClick={() => setModalOpen(false)} className="absolute top-2 right-2 text-white text-xl font-bold">✕</button>
               <h2 className="text-white text-xl mb-4">We're Launching Soon</h2>
               <p className="text-gray-400 mb-4">TRANA is almost ready. Leave your email and we will notify you the moment we go live.</p>
-              <p className="text-gray-400 mb-4">Our team of verified lawyers are ready to assist you.</p>
+              <p className="text-gray-400 mb-4">Our team of verified legal professionals are ready to assist you.</p>
               <input type="email" placeholder="Your email" className="w-full p-2 mb-4 bg-white text-black border border-black" />
               <button className="w-full bg-white text-black py-2">Notify Me</button>
             </div>
