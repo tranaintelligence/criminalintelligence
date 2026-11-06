@@ -136,7 +136,7 @@ function Home() {
             title: "Case Law Search",
             text: r.query,
             at: r.created_at,
-            link: "/dashboard/research",
+            link: "/student",
             message_count: 0,
           })),
         ].sort((x, y) => (y.at || "").localeCompare(x.at || "")).slice(0, 8);

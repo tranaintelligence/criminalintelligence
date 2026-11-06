@@ -88,7 +88,7 @@ function Index() {
             {[
               ["🧑‍💼", "Citizens", "Facing a Legal Problem?", "Understand your rights, decode legal documents, and get connected to a qualified lawyer quickly and clearly.", "/dashboard", "Explore Citizen Portal →"],
               ["⚖️", "Lawyers", "For Legal Professionals", "Research cases, find citations from High Courts and lower courts, draft documents, and connect with other lawyers in our professional network.", "/lawyer", "Lawyer Workspace →"],
-              ["📚", "Students", "For Law Students", "Access legal research with case citations, judgment timelines, and practical legal tools to support your studies.", "/dashboard/research", "Access Legal Research →"],
+              ["📚", "Students", "For Law Students", "Access clinical legal tools, AI moot drafter, case tracker, statutory citations, and network with peers.", "/student", "Student Workspace →"],
             ].map(([i, k, t, b, linkTo, linkText]) => (
               <div key={t} className="reveal bg-paper p-5 md:p-10 flex flex-col justify-between">
                 <div>
@@ -134,7 +134,7 @@ function Index() {
             {[
               ["Understand Legal Documents", "Upload or describe any legal situation and get a plain-language explanation of what it means and what to do next.", "/dashboard/analyse", "Analyse Situation →"],
               ["Find the Right Lawyer", "TRANA connects you to verified legal professionals. Arrange a consultation by call or chat directly through the platform.", "/dashboard/lawyers", "Find Lawyers →"],
-              ["Legal Research & Citations", "Find relevant case law with citations, timelines, and judgments from the Supreme Court, High Courts, and lower courts.", "/dashboard/research", "Start Research →"],
+              ["Legal Research & Citations", "Find relevant case law with citations, timelines, and judgments from the Supreme Court, High Courts, and lower courts.", "/student/citations", "Start Research →"],
               ["Connect With Experts", "Beyond lawyers, connect with legal professionals and experts across different areas of law.", "/dashboard/consultations", "Consultations →"],
             ].map(([t, b, linkTo, linkText]) => (
               <div key={t} className="reveal border-t border-primary pt-4 md:pt-6 flex flex-col justify-between">
@@ -268,13 +268,13 @@ function Index() {
               <p className="mt-1 md:mt-2 font-display italic text-muted-foreground">त्राणा — Protection.</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground md:text-sm">
-              {["For Citizens", "For Lawyers", "Legal Research", "About", "Privacy Policy", "Contact", "Bar Council Disclaimer", "Team Login"].map((l) => {
+              {["For Citizens", "For Lawyers", "For Students", "About", "Privacy Policy", "Contact", "Bar Council Disclaimer", "Team Login"].map((l) => {
                 if (l === "For Citizens") {
                   return <Link key={l} to="/dashboard" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "For Lawyers") {
                   return <Link key={l} to="/lawyer" className="hover:text-foreground">{l}</Link>;
-                } else if (l === "Legal Research") {
-                  return <Link key={l} to="/dashboard/research" className="hover:text-foreground">{l}</Link>;
+                } else if (l === "For Students") {
+                  return <Link key={l} to="/student" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "About") {
                   return <Link key={l} to="/about" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Privacy Policy") {
