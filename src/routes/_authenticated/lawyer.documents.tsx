@@ -26,35 +26,8 @@ type SavedDoc = {
   date: string;
 };
 
-const sampleDocs: SavedDoc[] = [
-  {
-    id: "DOC-001",
-    title: "Bail Application - Section 482 BNSS",
-    type: "Bail Application",
-    section: "Section 482 BNSS",
-    content: "IN THE COURT OF THE PRINCIPAL SESSIONS JUDGE AT NEW DELHI\nCRIMINAL MISC. (BAIL) APPLICATION NO. 142 OF 2026\nIN THE MATTER OF: Rahul Verma v. State (NCT of Delhi)...",
-    date: "24 Oct 2026",
-  },
-  {
-    id: "DOC-002",
-    title: "Statutory Demand Notice - Sec 138 NI Act",
-    type: "Legal Notice",
-    section: "Section 138 Negotiable Instruments Act",
-    content: "LEGAL DEMAND NOTICE\nTO: M/s Alpha Logistics Pvt Ltd\nUNDER INSTRUCTIONS FROM: Our Client Mr. Ananya Roy...",
-    date: "20 Oct 2026",
-  },
-  {
-    id: "DOC-003",
-    title: "Vakalatnama - High Court of Delhi",
-    type: "Vakalatnama",
-    section: "High Court Rules",
-    content: "IN THE HIGH COURT OF DELHI AT NEW DELHI\nVAKALATNAMA\nI/We do hereby appoint and constitute Advocate...",
-    date: "18 Oct 2026",
-  },
-];
-
 function LawyerDocumentsPage() {
-  const [docs, setDocs] = useState<SavedDoc[]>(sampleDocs);
+  const [docs, setDocs] = useState<SavedDoc[]>([]);
   const [activeDoc, setActiveDoc] = useState<SavedDoc | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -63,8 +36,8 @@ function LawyerDocumentsPage() {
       const stored = localStorage.getItem("trana_saved_documents");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setDocs([...parsed, ...sampleDocs]);
+        if (Array.isArray(parsed)) {
+          setDocs(parsed);
         }
       }
     } catch {
@@ -115,53 +88,72 @@ function LawyerDocumentsPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {docs.map((doc) => (
-          <div
-            key={doc.id}
-            className="bg-[#1A1A1A] border border-[#2E2E2E] hover:border-white/50 transition-all p-6 flex flex-col justify-between shadow-lg"
-          >
-            <div>
-              <div className="flex items-center justify-between border-b border-[#262626] pb-3 text-xs text-[#888888] font-mono">
-                <span>{doc.type}</span>
-                <span>{doc.date}</span>
-              </div>
-              <h3 className="mt-3 font-display text-xl font-medium text-white line-clamp-1">
-                {doc.title}
-              </h3>
-              <p className="mt-1 text-xs text-amber-300 font-medium">{doc.section}</p>
-              <p className="mt-3 text-xs text-[#888888] line-clamp-3 leading-relaxed font-mono bg-[#111111] p-2.5">
-                {doc.content}
-              </p>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-[#262626] flex items-center justify-between gap-2">
-              <button
-                onClick={() => setActiveDoc(doc)}
-                className="text-xs uppercase tracking-[0.1em] text-white hover:underline"
-              >
-                View Full
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleCopy(doc.content)}
-                  aria-label="Copy document"
-                  className="p-1.5 border border-[#333333] text-[#AAAAAA] hover:text-white"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDelete(doc.id)}
-                  aria-label="Delete document"
-                  className="p-1.5 border border-[#333333] text-[#AAAAAA] hover:text-red-400"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
+      {docs.length === 0 ? (
+        <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-12 text-center space-y-4">
+          <FolderOpen className="h-10 w-10 text-[#555555] mx-auto" />
+          <h3 className="text-white font-medium text-base">No Saved Documents Yet</h3>
+          <p className="text-xs text-[#888888] max-w-md mx-auto">
+            You haven't saved any legal drafts yet. Draft bail applications, legal demand notices, and court petitions in the AI Drafter, and save them directly into this repository.
+          </p>
+          <div className="pt-2">
+            <Link
+              to="/lawyer/drafter"
+              className="inline-flex items-center gap-2 bg-white text-black px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] hover:bg-neutral-200 transition-colors"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Open AI Drafter</span>
+            </Link>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {docs.map((doc) => (
+            <div
+              key={doc.id}
+              className="bg-[#1A1A1A] border border-[#2E2E2E] hover:border-white/50 transition-all p-6 flex flex-col justify-between shadow-lg"
+            >
+              <div>
+                <div className="flex items-center justify-between border-b border-[#262626] pb-3 text-xs text-[#888888] font-mono">
+                  <span>{doc.type}</span>
+                  <span>{doc.date}</span>
+                </div>
+                <h3 className="mt-3 font-display text-xl font-medium text-white line-clamp-1">
+                  {doc.title}
+                </h3>
+                <p className="mt-1 text-xs text-amber-300 font-medium">{doc.section}</p>
+                <p className="mt-3 text-xs text-[#888888] line-clamp-3 leading-relaxed font-mono bg-[#111111] p-2.5">
+                  {doc.content}
+                </p>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-[#262626] flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setActiveDoc(doc)}
+                  className="text-xs uppercase tracking-[0.1em] text-white hover:underline"
+                >
+                  View Full
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleCopy(doc.content)}
+                    aria-label="Copy document"
+                    className="p-1.5 border border-[#333333] text-[#AAAAAA] hover:text-white"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    aria-label="Delete document"
+                    className="p-1.5 border border-[#333333] text-[#AAAAAA] hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal for full document */}
       {activeDoc && (

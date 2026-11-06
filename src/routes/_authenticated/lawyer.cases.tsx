@@ -40,8 +40,8 @@ function LawyerCaseTrackerPage() {
   const [trackedCases, setTrackedCases] = useState<ECourtCaseRecord[]>([]);
 
   // Chamber alert inputs
-  const [smsPhone, setSmsPhone] = useState("+91 98110 42910");
-  const [emailAlert, setEmailAlert] = useState(user.email || "chambers@delhibar.org");
+  const [smsPhone, setSmsPhone] = useState(lawyer?.phone || "");
+  const [emailAlert, setEmailAlert] = useState(lawyer?.email || user.email || "");
   const [isSendingAlert, setIsSendingAlert] = useState(false);
 
   // Load lawyer's chamber tracked cases from server + local storage
@@ -74,21 +74,6 @@ function LawyerCaseTrackerPage() {
         }
       } catch (err) {
         console.warn("Could not retrieve tracked cases from backend, using local cache:", err);
-      }
-
-      // 3. If no matters exist at all, pre-load benchmark case
-      if (local.length === 0 && isMounted) {
-        fetchCnrStatus("DLHC010012342024", {
-          email: user.email || "counsel@delhibar.org",
-          phone: "+91 98110 42910",
-          lawyerName: lawyer?.full_name || "Senior Advocate",
-        }).then((initial) => {
-          if (isMounted) {
-            const seeded = saveTrackedCase("lawyer", user.id, initial);
-            setTrackedCases(seeded);
-            setActiveCase(initial);
-          }
-        });
       }
     }
 

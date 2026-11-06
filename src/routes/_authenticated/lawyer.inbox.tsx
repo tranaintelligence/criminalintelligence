@@ -87,6 +87,16 @@ function LawyerCaseInboxPage() {
 
     (localReferrals || []).forEach((r) => {
       if (r && r.id && !list.some((existing) => existing.id === r.id)) {
+        if (myId || myName) {
+          const rLawyerId = (r.lawyerId || r.lawyer_id || "").toLowerCase().trim();
+          const rLawyerName = (r.lawyerName || r.lawyer_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+          const matchesId = myId && rLawyerId === myId;
+          const matchesName = myName && rLawyerName.includes(myName);
+          if (rLawyerId || rLawyerName) {
+            if (!matchesId && !matchesName) return;
+          }
+        }
+
         list.push({
           id: r.id,
           client: r.client || "Citizen Client",
@@ -109,6 +119,20 @@ function LawyerCaseInboxPage() {
       if (list.some((existing) => existing.id === rowId)) return;
 
       const briefText = row.intake_brief || row.note || "";
+
+      // Ensure this consultation is relevant to the logged-in counsel
+      if (myId || myName) {
+        const rowLawyerId = (row.lawyer_id || "").toLowerCase().trim();
+        const rowUserId = (row.user_id || "").toLowerCase().trim();
+        const rowLawyerName = (row.lawyer_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+        const briefLower = (briefText || "").toLowerCase();
+
+        const matchesId = myId && (rowLawyerId === myId || rowUserId === myId);
+        const matchesName = myName && (rowLawyerName.includes(myName) || briefLower.includes(myName));
+
+        if (!matchesId && !matchesName) return;
+      }
+
       const isPeer = row.consult_type === "peer" || 
         briefText.includes("Peer Legal Collaboration") || 
         briefText.includes("Peer Collaboration") ||

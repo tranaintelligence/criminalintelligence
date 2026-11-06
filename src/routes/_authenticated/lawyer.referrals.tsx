@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Briefcase, Search, Phone, MessageSquare, 
   ChevronRight, Calendar, Filter, Sparkles, CheckCircle2,
-  FileText, Copy, X, XCircle, ShieldAlert
+  FileText, Copy, X, XCircle, ShieldAlert, Users
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,162 +36,6 @@ type Referral = {
   scheduledTime?: string;
 };
 
-const initialList: Referral[] = [
-  {
-    id: "REF-2026-089",
-    date: "24 Oct 2026",
-    client: "Rahul Verma",
-    phone: "+91 98110 42910",
-    matterType: "Anticipatory Bail Application",
-    section: "Section 482 BNSS (Old 438 CrPC)",
-    consultationType: "Call",
-    status: "New Request",
-    summary: "Apprehending arrest under Section 318 BNS (Cheating) arising out of commercial invoice dispute. Needs urgent interim protection before Sessions Court.",
-    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
-Matter: Anticipatory Bail Application — Pre-Arrest Protection
-Client: Rahul Verma • Verified Account (Managing Director, Logistics Enterprise)
-Target Counsel: Advocate Counsel
-Date: 24 Oct 2026
-Mode: Telephonic Consultation Relay
-Applicable Statutes: Section 482 Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS) & Section 318 Bharatiya Nyaya Sanhita, 2023 (BNS)
-Bail / Custody Outlook: Non-Bailable Cognizable Allegation; Urgent pre-arrest protective orders required prior to police custody.
-
-1. Factual Matrix & Procedural Background
-Client Rahul Verma is the Managing Director of a registered logistics corporation operating in the National Capital Region. A commercial trade supplier has filed a criminal complaint at the local police station alleging cheating and criminal breach of trust regarding invoices totaling ₹18.5 Lakhs. The dispute strictly concerns damaged transit consignments and ongoing contractual quality reconciliation. There was zero fraudulent inducement at the inception of the commercial contract. The Investigating Officer has issued verbal summons and threatened imminent arrest without issuing statutory Section 35(3) BNSS notice.
-
-2. Statutory Provisions & Offence Breakdown
-• Section 318 BNS (Cheating): The sine qua non of cheating requires dishonest intention existing at the very inception of the transaction. The Supreme Court of India in landmark precedents (Hridaya Ranjan Prasad Verma v. State of Bihar and Dalip Kaur v. Jagnar Singh) has definitively ruled that a mere failure to keep a promise, breach of contract, or delay in settlement does not constitute criminal cheating.
-• Section 316 BNS (Criminal Breach of Trust): Commercial credit disputes do not satisfy entrustment of dominion over property in a fiduciary capacity.
-• Apprehension of Arrest: The informal threats by the IO satisfy the jurisdictional threshold of reasonable belief of imminent arrest required under Section 482 BNSS.
-
-3. Custodial Assessment & Bail Jurisprudence
-• Custodial interrogation is legally uncalled for as the transaction is thoroughly documented through GST invoices, bilties, e-way bills, and bank transfers.
-• Landmark Supreme Court guidelines in Satender Kumar Antil v. CBI and Arnesh Kumar v. State of Bihar mandate that police officers must not routinely effect arrests in disputes of a commercial nature or offences punishable with imprisonment of seven years or less.
-• Client has clean antecedent records, deep roots in society, and zero flight risk.
-
-4. Constitutional & Procedural Safeguards
-• Section 35(3) BNSS mandates issuance of formal notice of appearance in all cases where arrest is not immediately necessary.
-• Article 20(3) and 21 of the Constitution protect the client against coerced confessions and deprivation of personal liberty without procedure established by law.
-• Section 41D / Section 37 BNSS guarantees right of accused to consult counsel during interrogation.
-
-5. Strategic Legal Action Plan
-• File urgent Anticipatory Bail Application under Section 482 BNSS before the Principal District & Sessions Judge.
-• Annex all purchase orders, inspection rejection notes, and WhatsApp/Email reconciliation exchanges demonstrating bona fide civil dispute.
-• Seek ad-interim protection against coercive police action pending formal notice to the Public Prosecutor.
-• Submit formal representation to the Deputy Commissioner of Police highlighting civil nature of the transaction.`,
-    scheduledTime: "Today at 4:30 PM",
-  },
-  {
-    id: "REF-2026-084",
-    date: "23 Oct 2026",
-    client: "Priya Sharma",
-    phone: "+91 98201 55320",
-    matterType: "Commercial Contract Breach Notice",
-    section: "Specific Relief Act & Indian Contract Act",
-    consultationType: "Chat",
-    status: "Confirmed",
-    summary: "Vendor defaulted on service delivery after 70% advance payment. Seeking formal legal demand notice under 15-day cure period.",
-    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
-Matter: Commercial Software Breach & Statutory Restitution Notice
-Client: Priya Sharma • Mumbai (Enterprise Commercial Principal)
-Target Counsel: Advocate Counsel
-Date: 23 Oct 2026
-Mode: Secure In-App Chat
-Applicable Statutes: Sections 39, 73 & 74 Indian Contract Act, 1872; Section 12A Commercial Courts Act, 2015
-Bail / Custody Outlook: Civil Commercial Proceeding; Zero custodial risk.
-
-1. Factual Matrix & Background
-Client contracted a commercial software enterprise developer under a Master Services Agreement (MSA) for proprietary logistics management software, paying ₹7.2 Lakhs as an advance deposit (70% of total contract value). The vendor missed multiple milestone deadlines, failed to deploy beta builds, refused access to the source code repository, and abruptly ceased communication after receipt of informal default notices.
-
-2. Statutory Assessment & Legal Framework
-• Section 39 Contract Act: Vendor's refusal or disabling of performance constitutes repudiatory breach, entitling client to terminate and claim restitution.
-• Section 73 Contract Act: Entitlement to compensation for direct loss naturally arising in the usual course of things from the breach.
-• Section 74 Contract Act: Enforcement of pre-estimated liquidated damages stipulated under Clause 14 of the executed MSA.
-
-3. Strategic Legal Action Plan
-• Issue formal 15-day statutory legal notice demanding immediate refund of ₹7.2 Lakhs along with 18% p.a. commercial interest and compensation for business disruption.
-• Initiate pre-institution mediation proceedings under Section 12A of the Commercial Courts Act, 2015 before the District Legal Services Authority (DLSA).
-• Preserve all timestamped git commits, Slack communications, and bank transfer receipts for commercial suit filing upon non-compliance.`,
-    scheduledTime: "Tomorrow at 11:00 AM",
-  },
-  {
-    id: "REF-2026-078",
-    date: "21 Oct 2026",
-    client: "Vikram Mehta",
-    phone: "+91 97118 90312",
-    matterType: "Cyber Financial Fraud Complaint",
-    section: "Section 66D IT Act & Sec 318 BNS",
-    consultationType: "Call",
-    status: "In Progress",
-    summary: "Unauthorized debit of ₹8.4 Lakhs via spoofed payment gateway. Seeking formal complaint to Cyber Cell and National Cyber Crime Portal.",
-    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
-Matter: Cyber Financial Fraud & Unauthorized Payment Gateway Interception
-Client: Vikram Mehta • New Delhi
-Target Counsel: Advocate Counsel
-Date: 21 Oct 2026
-Mode: Telephonic Consultation Relay
-Applicable Statutes: Section 66D Information Technology Act, 2000; Section 318 & 319 Bharatiya Nyaya Sanhita, 2023
-Bail / Custody Outlook: Complainant Victim Representation; Criminal prosecution against cyber fraudsters.
-
-1. Factual Matrix & Background
-Client suffered an unauthorized debit of ₹8.4 Lakhs through a fraudulent payment gateway spoofing an official merchant terminal. The fraudulent diversion occurred via multi-hop UPI transfers to intermediary mule accounts within a 15-minute window.
-
-2. Statutory Assessment & Offence Breakdown
-• Section 66D IT Act: Cheating by personation by using computer resource (punishable up to 3 years imprisonment).
-• Section 318(4) BNS: Cheating and dishonestly inducing delivery of property.
-• Reserve Bank of India Master Circular on Customer Protection: Limits customer liability to zero when fraud is reported within 3 days of occurrence in third-party breaches.
-
-3. Strategic Legal Action Plan
-• File formal complaint on the National Cyber Crime Reporting Portal (1930) to freeze recipient beneficiary mule accounts.
-• Submit statutory representation to the nodal grievance officer of the beneficiary bank and nodal cyber cell.
-• Move application under Section 497 BNSS before the jurisdictional Magistrate for defreezing and restitution of seized funds.`,
-    scheduledTime: "26 Oct 2026, 2:00 PM",
-  },
-  {
-    id: "REF-2026-071",
-    date: "19 Oct 2026",
-    client: "Ananya Roy",
-    phone: "+91 99302 78104",
-    matterType: "Cheque Dishonour Notice",
-    section: "Section 138 Negotiable Instruments Act",
-    consultationType: "Call",
-    status: "Completed",
-    summary: "Cheque dishonoured with endorsement 'Funds Insufficient'. Statutory 30-day demand notice drafted and dispatched via registered post.",
-    intakeBrief: `CASE SUMMARY (TRANA LEGAL INTELLIGENCE)
-Matter: Cheque Dishonour Statutory Notice & Criminal Complaint
-Client: Ananya Roy • Mumbai
-Target Counsel: Advocate Counsel
-Date: 19 Oct 2026
-Mode: Telephonic Consultation Relay
-Applicable Statutes: Section 138, 141 & 142 Negotiable Instruments Act, 1881; Section 223 BNSS
-Bail / Custody Outlook: Complainant Representation; Bailable statutory offence.
-
-1. Factual Matrix & Background
-Client received a cheque bearing No. 491028 for ₹12.5 Lakhs drawn on HDFC Bank against repayment of friendly loan/commercial supply. Cheque returned dishonoured with bank return memo stating "Funds Insufficient". Return memo received on 15 Oct 2026.
-
-2. Statutory Assessment & Legal Ingredients
-• Cheque drawn for discharge, in whole or in part, of a legally enforceable debt or other liability.
-• Presentation within statutory validity period (3 months).
-• Receipt of bank dishonour memo triggers 30-day statutory window to issue demand notice under Section 138(b) NI Act.
-
-3. Strategic Legal Action Plan
-• Issue statutory demand notice under Section 138 NI Act within 30 days of receiving the return memo via speed post and email.
-• Give drawee 15 days from notice receipt to pay the amount.
-• If payment not made within 15 days, file formal criminal complaint under Section 142 NI Act before the Judicial Magistrate within 30 days thereafter.`,
-  },
-  {
-    id: "REF-2026-065",
-    date: "17 Oct 2026",
-    client: "Rajesh Gupta",
-    phone: "+91 98450 12099",
-    matterType: "Ancestral Property Partition",
-    section: "Hindu Succession Act / Partition Act",
-    consultationType: "Chat",
-    status: "Completed",
-    summary: "Preliminary legal opinion provided on share entitlement in Delhi NCR ancestral estate. Next step: filing civil partition suit.",
-  },
-];
-
 function LawyerReferralsPage() {
   const { data: lawyer } = useLawyerAuth();
   const qc = useQueryClient();
@@ -214,6 +58,9 @@ function LawyerReferralsPage() {
   const mergedList: Referral[] = useMemo(() => {
     const list: Referral[] = [];
 
+    const lawyerIdNorm = lawyer?.id?.toLowerCase().trim();
+    const lawyerNameNorm = lawyer?.full_name?.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+
     // 1. Add live citizen inquiries from localStorage (instant sync from citizen request)
     let localReferrals: any[] = [];
     try {
@@ -226,6 +73,16 @@ function LawyerReferralsPage() {
 
     (localReferrals || []).forEach((r) => {
       if (r && r.id && !list.some((existing) => existing.id === r.id)) {
+        if (lawyerIdNorm || lawyerNameNorm) {
+          const rLawyerId = (r.lawyerId || r.lawyer_id || "").toLowerCase().trim();
+          const rLawyerName = (r.lawyerName || r.lawyer_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+          const matchesId = lawyerIdNorm && rLawyerId === lawyerIdNorm;
+          const matchesName = lawyerNameNorm && rLawyerName.includes(lawyerNameNorm);
+          if (rLawyerId || rLawyerName) {
+            if (!matchesId && !matchesName) return;
+          }
+        }
+
         list.push({
           id: r.id,
           date: r.date || "Today",
@@ -243,7 +100,18 @@ function LawyerReferralsPage() {
     });
 
     // 2. Add live citizen inquiries from consultations table
-    dbConsults.forEach((row, idx) => {
+    (dbConsults || []).forEach((row) => {
+      if (lawyerIdNorm || lawyerNameNorm) {
+        const rowLawyerId = (row.lawyer_id || "").toLowerCase().trim();
+        const rowUserId = (row.user_id || "").toLowerCase().trim();
+        const rowLawyerName = (row.lawyer_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+
+        const matchesId = lawyerIdNorm && (rowLawyerId === lawyerIdNorm || rowUserId === lawyerIdNorm);
+        const matchesName = lawyerNameNorm && rowLawyerName.includes(lawyerNameNorm);
+
+        if (!matchesId && !matchesName) return;
+      }
+
       const rowId = `REF-${row.id.slice(0, 8).toUpperCase()}`;
       if (list.some((existing) => existing.id === rowId)) return;
 
@@ -295,15 +163,8 @@ function LawyerReferralsPage() {
       });
     });
 
-    // 3. Append benchmark matters
-    initialList.forEach((r) => {
-      if (!list.some((existing) => existing.id === r.id)) {
-        list.push(r);
-      }
-    });
-
     return list;
-  }, [dbConsults]);
+  }, [dbConsults, lawyer]);
 
   async function handleConfirmCase(referralId: string, clientName: string) {
     const dbId = referralId.replace(/^REF-/, "");
@@ -416,7 +277,18 @@ function LawyerReferralsPage() {
 
       {/* Referrals Cards List */}
       <div className="space-y-4">
-        {filtered.map((r) => (
+        {filtered.length === 0 ? (
+          <div className="bg-[#1A1A1A] border border-[#2E2E2E] p-12 text-center space-y-3">
+            <Users className="h-8 w-8 text-[#555555] mx-auto" />
+            <h3 className="text-white font-medium text-sm">No Client Inquiries Found</h3>
+            <p className="text-xs text-[#888888] max-w-md mx-auto">
+              {statusFilter === "All"
+                ? "You currently have no incoming client referrals. When citizens request a consultation with you from the advocate directory, their inquiries and AI intake briefs will appear here."
+                : `No referrals found with status "${statusFilter}".`}
+            </p>
+          </div>
+        ) : (
+          filtered.map((r) => (
           <div
             key={r.id}
             className="bg-[#1A1A1A] border border-[#2E2E2E] hover:border-white/50 transition-all p-6 space-y-4"
@@ -537,7 +409,8 @@ function LawyerReferralsPage() {
               </div>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       {/* Case Summary Modal */}
