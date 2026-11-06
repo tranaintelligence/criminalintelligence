@@ -107,7 +107,7 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
     const cookieAccepted = document.cookie.includes("trana_statutory_disclaimer_accepted=true");
     return !localAccepted && !cookieAccepted;
   });
-  const [agreed, setAgreed] = useState(true);
+  const [agreed, setAgreed] = useState(false);
   const [isDeclined, setIsDeclined] = useState(false);
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
     function handleOpenEvent() {
       setIsDeclined(false);
       setIsOpen(true);
-      setAgreed(true);
+      setAgreed(false);
     }
     window.addEventListener("open_statutory_disclaimer", handleOpenEvent);
     return () => window.removeEventListener("open_statutory_disclaimer", handleOpenEvent);
@@ -143,7 +143,7 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
   useEffect(() => {
     if (forceOpen) {
       setIsOpen(true);
-      setAgreed(true);
+      setAgreed(false);
       setIsDeclined(false);
     }
   }, [forceOpen]);
@@ -305,26 +305,7 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
                   </p>
                 </div>
 
-                <div className="border-l-2 border-white/20 pl-3">
-                  <h4 className="font-semibold text-white text-xs uppercase tracking-wider">8. Intellectual Property</h4>
-                  <p className="mt-1 text-neutral-400 font-light">
-                    All contents, software architecture, text, designs, algorithms, and intellectual property on this website are the exclusive intellectual property of TRANA.
-                  </p>
-                </div>
 
-                <div className="border-l-2 border-white/20 pl-3">
-                  <h4 className="font-semibold text-white text-xs uppercase tracking-wider">9. Privacy & Terms of Use</h4>
-                  <p className="mt-1 text-neutral-400 font-light">
-                    We prioritize your privacy. Before proceeding, we encourage you to read our Terms of Use and Privacy Policy to understand how we handle your data:
-                  </p>
-                  <ul className="mt-2 space-y-1 list-disc list-inside text-neutral-400 pl-1 font-light text-xs">
-                    <li>The types of information we collect and why we collect them.</li>
-                    <li>How we use your information to provide a personalized experience.</li>
-                    <li>The measures we take to ensure the security of your data.</li>
-                    <li>Your rights and choices in managing your personal information.</li>
-                    <li>How we may share information with trusted partners for specific purposes.</li>
-                  </ul>
-                </div>
               </div>
             </div>
 
@@ -354,7 +335,8 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
                 <button
                   type="button"
                   onClick={handleAccept}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-xs font-semibold uppercase tracking-wider bg-white text-black hover:bg-neutral-200 shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all duration-200 cursor-pointer active:scale-[0.98]"
+                  disabled={!agreed}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-xs font-semibold uppercase tracking-wider bg-white text-black hover:bg-neutral-200 shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all duration-200 cursor-pointer active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:bg-white"
                 >
                   <span>I Agree & Enter</span>
                   <ArrowRight className="h-3.5 w-3.5" />

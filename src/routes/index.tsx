@@ -49,7 +49,7 @@ function Index() {
             <a href="#who" className="hover:text-foreground">Who we help</a>
             <a href="#features" className="hover:text-foreground">Features</a>
             <Link to="/dashboard" className="hover:text-foreground">For Citizens</Link>
-            <Link to="/lawyer" className="hover:text-foreground">For Lawyers</Link>
+            <Link to="/lawyer" className="hover:text-foreground">For Legal Professionals</Link>
             <a href="#how" className="hover:text-foreground">How it works</a>
           </div>
           <Link to="/dashboard" className="btn-solid !px-3 !py-2 !text-[0.65rem] md:!px-4 md:!py-2.5 md:!text-[0.7rem]">For Citizens</Link>
@@ -63,11 +63,11 @@ function Index() {
           Legal Guidance,<br /><em className="font-normal">Within Reach.</em>
         </h1>
         <p className="reveal mt-6 md:mt-10 max-w-xl text-[14px] md:text-[15px] font-light text-muted-foreground">
-          TRANA makes legal information easier to understand and connects you with the right lawyer when it matters most.
+          TRANA makes legal information easier to understand and connects you with the right legal professional when it matters most.
         </p>
         <div className="reveal mt-6 md:mt-10 flex flex-col gap-3 md:flex-row md:gap-4">
           <Link to="/dashboard/chat" className="btn-solid text-center">Get Legal Guidance</Link>
-          <Link to="/dashboard/lawyers" className="btn-solid text-center">Talk to a Lawyer</Link>
+          <Link to="/dashboard/lawyers" className="btn-solid text-center">Talk to a Legal Professional</Link>
         </div>
         <p className="reveal mt-5 md:mt-8 max-w-md text-xs text-muted-foreground">{Disclaimer}</p>
       </section>
@@ -79,8 +79,8 @@ function Index() {
           <div className="mt-8 md:mt-16 grid grid-cols-1 gap-px bg-paper-border md:grid-cols-3">
             {[
               ["🧑‍💼", "Citizens", "Facing a Legal Problem?", "Understand your rights, decode legal documents, and get connected to a qualified lawyer quickly and clearly.", "/dashboard", "Explore Citizen Portal →"],
-              ["⚖️", "Lawyers", "For Legal Professionals", "Research cases, find citations from High Courts and lower courts, draft documents, and connect with other lawyers in our professional network.", "/lawyer", "Lawyer Workspace →"],
-              ["📚", "Students", "For Law Students", "Access clinical legal tools, AI moot drafter, case tracker, statutory citations, and network with peers.", "/student", "Student Workspace →"],
+              ["⚖️", "Legal Professionals", "For Legal Professionals", "Research cases, find citations from High Courts and lower courts, draft documents, and connect with other legal professionals in our network.", "/lawyer", "Legal Professional Workspace →"],
+              ["📚", "Students", "For Law Students", "Access clinical legal tools, AI moot drafter, statutory citations, and network with peers.", "/student", "Student Workspace →"],
             ].map(([i, k, t, b, linkTo, linkText]) => (
               <div key={t} className="reveal bg-paper p-5 md:p-10 flex flex-col justify-between">
                 <div>
@@ -152,7 +152,7 @@ function Index() {
           <div className="mt-8 md:mt-16 grid gap-4 md:gap-6 md:grid-cols-2">
             {[
               ["Active Tool", "Complaint Analyser", "Describe or upload an FIR or complaint. Our AI will identify the sections invoked, explain what they mean, check bail eligibility, and suggest next steps in plain language.", "/dashboard/analyse", "Launch Complaint Analyser →"],
-              ["Active Tool", "Legal Information Assistant", "A chat assistant that answers your legal questions using verified Indian law and always guides you toward a qualified lawyer when needed.", "/dashboard/chat", "Start Legal Chat →"],
+              ["Active Tool", "Legal Information Assistant", "A chat assistant that answers your legal questions using verified Indian law and always guides you toward a qualified legal professional when needed.", "/dashboard/chat", "Start Legal Chat →"],
             ].map(([badge, t, b, linkTo, linkText]) => (
               <div key={t} className="reveal border border-paper-border bg-paper p-5 md:p-10 flex flex-col justify-between">
                 <div>
@@ -178,20 +178,20 @@ function Index() {
       <section id="lawyers" className="py-10 md:py-28">
         <div className="mx-auto grid max-w-7xl gap-8 md:gap-16 px-4 md:px-6 md:grid-cols-2">
           <div className="reveal">
-            <Eyebrow>For lawyers</Eyebrow>
+            <Eyebrow>For legal professionals</Eyebrow>
             <H2>A Platform Built for Legal Professionals Too</H2>
             <p className="mt-5 md:mt-8 text-base md:text-lg font-light leading-relaxed text-muted-foreground">
-              TRANA isn't just for people seeking help. It's a platform where lawyers and legal professionals can connect with clients, collaborate with peers, and access tools that make their practice more efficient.
+              TRANA isn't just for people seeking help. It's a platform where legal professionals can connect with clients, collaborate with peers, and access tools that make their practice more efficient.
             </p>
           </div>
           <div className="reveal flex flex-col justify-end">
-            {["Receive client referrals directly through the platform", "Access legal research with case citations and timelines", "Connect with other lawyers in our professional network"].map((x) => (
+            {["Access legal research with case citations and timelines", "Connect with other legal professionals in our professional network"].map((x) => (
               <div key={x} className="flex gap-4 md:gap-5 border-t border-border py-3">
                 <span className="font-display text-xl md:text-2xl text-foreground">✓</span>
                 <p className="text-base md:text-lg text-foreground">{x}</p>
               </div>
             ))}
-            <Link to="/lawyer" className="btn-solid mt-6 md:mt-8 self-start">Access Lawyer Workspace</Link>
+            <Link to="/lawyer" className="btn-solid mt-6 md:mt-8 self-start">Access Legal Professional Workspace</Link>
           </div>
         </div>
       </section>
@@ -204,7 +204,7 @@ function Index() {
             {[
               ["Describe Your Situation", "Tell us what's happened in plain language no legal knowledge needed."],
               ["Get Instant Clarity", "TRANA explains your legal situation, your rights, and what your options are."],
-              ["Connect With a Lawyer", "We connect you to a verified lawyer for a consultation by call or chat."],
+              ["Connect With a Legal Professional", "We connect you to a verified legal professional for a consultation by call or chat."],
               ["You're Guided, Not Alone", "TRANA stays with you answering questions and helping you understand every step."],
             ].map(([t, b]) => (
               <div key={t} className="reveal border-t border-ink pt-4 md:pt-6">
@@ -228,10 +228,10 @@ function Index() {
       <section id="cta" className="border-b border-border py-12 md:py-32 text-center bg-background text-foreground md:bg-paper md:text-ink md:border-paper-border">
         <div className="reveal mx-auto max-w-3xl px-4 md:px-6">
           <h2 className="font-display text-4xl md:text-6xl lg:text-8xl font-medium">Don't face it alone.</h2>
-          <p className="mt-4 md:mt-6 text-base md:text-lg font-light text-muted-foreground md:text-ink-muted">Get legal guidance or connect with a lawyer today.</p>
+          <p className="mt-4 md:mt-6 text-base md:text-lg font-light text-muted-foreground md:text-ink-muted">Get legal guidance or connect with a legal professional today.</p>
           <div className="mt-6 md:mt-10 flex flex-col sm:flex-row flex-wrap justify-center gap-3 md:gap-4">
             <Link to="/dashboard/chat" className="btn-solid md:btn-ink">Get Legal Guidance</Link>
-            <Link to="/dashboard/lawyers" className="btn-solid md:btn-ink sm:w-auto w-full">Talk to a Lawyer</Link>
+            <Link to="/dashboard/lawyers" className="btn-solid md:btn-ink sm:w-auto w-full">Talk to a Legal Professional</Link>
           </div>
           <p className="mt-6 md:mt-8 font-display text-lg md:text-xl leading-tight text-muted-foreground md:hidden">
             TRANA is your legal guide <em>not your lawyer.</em><br />We exist to make sure you always reach one.
@@ -260,10 +260,10 @@ function Index() {
               <p className="mt-1 md:mt-2 font-display italic text-muted-foreground">त्राणा — Protection.</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground md:text-sm">
-              {["For Citizens", "For Lawyers", "For Students", "About", "Privacy Policy", "Contact", "Bar Council Disclaimer", "Team Login"].map((l) => {
+              {["For Citizens", "For Legal Professionals", "For Students", "About", "Privacy Policy", "Contact", "Bar Council Disclaimer", "Team Login"].map((l) => {
                 if (l === "For Citizens") {
                   return <Link key={l} to="/dashboard" className="hover:text-foreground">{l}</Link>;
-                } else if (l === "For Lawyers") {
+                } else if (l === "For Legal Professionals") {
                   return <Link key={l} to="/lawyer" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "For Students") {
                   return <Link key={l} to="/student" className="hover:text-foreground">{l}</Link>;
