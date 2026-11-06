@@ -8,18 +8,18 @@ interface StatutoryDisclaimerModalProps {
 }
 
 export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: StatutoryDisclaimerModalProps) {
-  // Always open on initial mount/reload
-  const [isOpen, setIsOpen] = useState(true);
+  // Check if user has previously accepted the statutory acknowledgment
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const localAccepted = localStorage.getItem("trana_statutory_disclaimer_accepted") === "true";
+    const cookieAccepted = document.cookie.includes("trana_statutory_disclaimer_accepted=true");
+    return !localAccepted && !cookieAccepted;
+  });
   const [agreed, setAgreed] = useState(true);
   const [isDeclined, setIsDeclined] = useState(false);
 
   useEffect(() => {
-    // Show acknowledgement modal on every reload / page load
-    setIsOpen(true);
-    setAgreed(true);
-    setIsDeclined(false);
-
-    // Listen to global open event (e.g. from footer link)
+    // Listen to global open event (e.g. from footer link or manual trigger)
     function handleOpenEvent() {
       setIsDeclined(false);
       setIsOpen(true);
@@ -50,6 +50,16 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
   }, [isOpen]);
 
   async function handleAccept() {
+    // Persist acceptance in localStorage and cookie so it never re-prompts on page reload
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("trana_statutory_disclaimer_accepted", "true");
+        document.cookie = "trana_statutory_disclaimer_accepted=true; path=/; max-age=31536000; SameSite=Lax";
+      } catch {
+        // ignore
+      }
+    }
+
     // Attempt to log acceptance in Supabase if a user session exists
     try {
       const { data: { session } } = await supabase.auth.getSession();

@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { 
   Upload, X, FileText, Scale, ShieldCheck, CheckCircle2, 
   AlertTriangle, ArrowRight, ExternalLink, Copy, Check, Sparkles, 
-  MessageSquare, Loader2, RotateCcw
+  MessageSquare, Loader2, RotateCcw, Clock, Trash2, History
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_URL } from "@/lib/trana-backend";
@@ -63,6 +63,15 @@ interface AnalysisResult {
   chatId?: string | null;
 }
 
+interface StoredPastAnalysis {
+  id: string;
+  createdAt: string;
+  summaryTitle: string;
+  originalQuery: string;
+  fileName?: string | null;
+  result: AnalysisResult;
+}
+
 function SectionCard({
   icon: Icon,
   title,
@@ -110,6 +119,7 @@ function SectionCard({
 function Analyse() {
   const navigate = useNavigate();
   const { credential } = useTranaCredential();
+  const [activeTab, setActiveTab] = useState<"new" | "history">("new");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [drag, setDrag] = useState(false);
@@ -117,7 +127,33 @@ function Analyse() {
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pastAnalyses, setPastAnalyses] = useState<StoredPastAnalysis[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem("trana_citizen_past_analyses");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleDeletePastAnalysis = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = pastAnalyses.filter((item) => item.id !== id);
+    setPastAnalyses(updated);
+    try {
+      localStorage.setItem("trana_citizen_past_analyses", JSON.stringify(updated));
+      toast.success("Analysis deleted from history");
+    } catch {}
+  };
+
+  const handleLoadPastAnalysis = (item: StoredPastAnalysis) => {
+    setResult(item.result);
+    setText(item.originalQuery.startsWith("Uploaded Document:") ? "" : item.originalQuery);
+    setActiveTab("new");
+    toast.info("Loaded analysis from history");
+  };
 
   function pick(f: File | undefined) {
     if (!f) return;
@@ -200,12 +236,30 @@ function Analyse() {
       }
 
       const data = await res.json();
-      setResult({
+      const analysisObj: AnalysisResult = {
         analysis: data.analysis,
         sources: data.sources || [],
         processing_time_seconds: data.processing_time_seconds,
         chatId: createdChatId,
-      });
+      };
+      setResult(analysisObj);
+
+      try {
+        const titleSnippet = (data.analysis?.situation_meaning || text.trim() || file?.name || "Statutory Complaint Analysis").slice(0, 80);
+        const record: StoredPastAnalysis = {
+          id: `analysis-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          summaryTitle: titleSnippet,
+          originalQuery: text.trim() || `Uploaded Document: ${file?.name}`,
+          fileName: file?.name || null,
+          result: analysisObj,
+        };
+        const updatedHistory = [record, ...pastAnalyses.filter((p) => p.summaryTitle !== titleSnippet).slice(0, 29)];
+        setPastAnalyses(updatedHistory);
+        localStorage.setItem("trana_citizen_past_analyses", JSON.stringify(updatedHistory));
+      } catch (saveErr) {
+        console.warn("Could not cache past analysis:", saveErr);
+      }
 
       toast.success("Complaint analysis generated successfully.");
     } catch (e) {
@@ -264,7 +318,171 @@ function Analyse() {
         </p>
       </div>
 
-      {/* Input Console */}
+      {/* View Switcher: New Analysis vs Past Analyses */}
+      <div className="flex items-center gap-2 mb-6 p-1.5 rounded-2xl bg-white/[0.04] border border-white/10 w-fit backdrop-blur-xl">
+        <button
+          type="button"
+          onClick={() => setActiveTab("new")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            activeTab === "new"
+              ? "bg-white text-black shadow-md font-semibold"
+              : "text-neutral-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-sky-400" />
+          <span>New Analysis</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("history")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            activeTab === "history"
+              ? "bg-white text-black shadow-md font-semibold"
+              : "text-neutral-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <Clock className="h-3.5 w-3.5 text-sky-400" />
+          <span>Past Analyses ({pastAnalyses.length})</span>
+        </button>
+      </div>
+
+      {activeTab === "history" ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <div>
+              <h2 className="font-display text-xl font-medium text-white">Your Past Statutory Analyses</h2>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Archived complaint evaluations, cited criminal sections, and bail eligibility records.
+              </p>
+            </div>
+            {pastAnalyses.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Clear all past analyses from this device?")) {
+                    setPastAnalyses([]);
+                    localStorage.removeItem("trana_citizen_past_analyses");
+                    toast.info("Past analyses cleared");
+                  }
+                }}
+                className="text-xs text-red-400 hover:text-red-300 font-mono flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-950/20 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Clear History</span>
+              </button>
+            )}
+          </div>
+
+          {pastAnalyses.length === 0 ? (
+            <div className="apple-glass-card rounded-2xl p-12 text-center border border-white/10 bg-white/[0.02]">
+              <History className="h-10 w-10 text-neutral-500 mx-auto mb-3 opacity-60" />
+              <h3 className="text-sm font-medium text-neutral-300">No Past Analyses Recorded</h3>
+              <p className="text-xs text-neutral-500 max-w-sm mx-auto mt-1 leading-relaxed">
+                When you submit a legal situation or upload a complaint, TRANA automatically archives your statutory report here for future reference.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab("new")}
+                className="mt-5 inline-flex items-center gap-2 bg-white text-black px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors cursor-pointer"
+              >
+                <span>Start New Analysis</span>
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pastAnalyses.map((item) => {
+                const lawCount = item.result.analysis?.applicable_laws?.length || 0;
+                const bail = item.result.analysis?.bail_status;
+                const formattedDate = new Date(item.createdAt).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                return (
+                  <div
+                    key={item.id}
+                    className="apple-glass-card rounded-2xl p-5 border border-white/15 bg-white/[0.04] hover:border-white/30 backdrop-blur-xl transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className="text-[11px] font-mono text-neutral-400 flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-sky-400" />
+                          <span>{formattedDate}</span>
+                        </span>
+                        {item.fileName && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-sky-500/30 text-sky-300 bg-sky-950/40">
+                            {item.fileName}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="text-sm font-semibold text-white line-clamp-2 leading-snug">
+                        {item.summaryTitle}
+                      </h3>
+
+                      <p className="mt-2 text-xs text-neutral-400 line-clamp-2 leading-relaxed">
+                        {item.originalQuery}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        {item.result.analysis?.applicable_laws?.slice(0, 3).map((law, idx) => (
+                          <span
+                            key={idx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded border border-white/10 bg-white/5 text-neutral-200"
+                          >
+                            {law.act || law.code || "Sec"} {law.section}
+                          </span>
+                        ))}
+                        {lawCount > 3 && (
+                          <span className="text-[10px] font-mono text-neutral-500">
+                            +{lawCount - 3} more
+                          </span>
+                        )}
+                      </div>
+
+                      {bail && (
+                        <div className="mt-2.5">
+                          <span className="text-[11px] font-sans text-neutral-300">
+                            <strong className="text-amber-300 font-mono text-[10px] uppercase mr-1.5">Bail:</strong>
+                            <span className="line-clamp-1">{bail}</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-5 pt-3.5 border-t border-white/10 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleLoadPastAnalysis(item)}
+                        className="bg-white text-black px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-neutral-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <span>View Analysis</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeletePastAnalysis(item.id, e)}
+                        className="text-neutral-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                        title="Delete from history"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Input Console */}
       <div className="apple-glass-card rounded-2xl p-6 md:p-8 border border-white/15 bg-white/[0.04] backdrop-blur-xl shadow-2xl">
         <div className="flex items-center justify-between gap-4 mb-2">
           <label htmlFor="situation" className="text-xs uppercase tracking-[0.2em] font-mono text-neutral-400">
@@ -644,6 +862,8 @@ function Analyse() {
             This analysis is generated by TRANA Statutory AI for legal education and first-aid only. It does not establish an attorney-client relationship. Always consult a qualified advocate for representation before judicial authorities.
           </p>
         </div>
+      )}
+        </>
       )}
     </div>
   );

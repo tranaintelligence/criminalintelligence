@@ -440,7 +440,18 @@ export function ConsultationChatModal({
               );
             }
 
-            const isMe = m.sender === currentParty;
+            const myNormName = (myName || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+            const senderNormName = (m.senderName || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+            const peerNormName = (peerName || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+
+            let isMe = false;
+            if (senderNormName && myNormName && (senderNormName === myNormName || senderNormName.includes(myNormName) || myNormName.includes(senderNormName))) {
+              isMe = true;
+            } else if (senderNormName && peerNormName && (senderNormName === peerNormName || peerNormName.includes(senderNormName))) {
+              isMe = false;
+            } else {
+              isMe = m.sender === currentParty;
+            }
 
             return (
               <div

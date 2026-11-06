@@ -58,11 +58,7 @@ function DashboardLayout() {
   const [showLawyerModal, setShowLawyerModal] = useState(false);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
-  // VisionOS Sliding Pill Navigation and Search State
-  const [pillState, setPillState] = useState({ top: 0, height: 36, opacity: 0 });
   const [searchQuery, setSearchQuery] = useState("");
-  const navContainerRef = useRef<HTMLDivElement | null>(null);
-  const itemRefs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
     document.title = "Citizens Dashboard — TRANA";
@@ -82,36 +78,6 @@ function DashboardLayout() {
     }
     return location.pathname.startsWith(n.to);
   });
-
-  const updatePill = (idx: number, visible: boolean) => {
-    if (!visible || idx === -1) {
-      setPillState((prev) => ({ ...prev, opacity: 0 }));
-      return;
-    }
-    const container = navContainerRef.current;
-    const target = itemRefs.current[idx];
-    if (container && target) {
-      const containerRect = container.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const topOffset = targetRect.top - containerRect.top;
-      setPillState({
-        top: topOffset,
-        height: targetRect.height,
-        opacity: 1,
-      });
-    }
-  };
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (activeRouteIndex !== -1) {
-        updatePill(activeRouteIndex, true);
-      } else {
-        updatePill(-1, false);
-      }
-    }, 50);
-    return () => clearTimeout(t);
-  }, [location.pathname, activeRouteIndex, filteredNav.length]);
 
   // Check if current logged-in user has already accepted the advocate notice
   const { data: hasAcknowledged } = useQuery({
@@ -193,7 +159,7 @@ function DashboardLayout() {
               >
                 TRANA
               </Link>
-              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-white/10 text-neutral-300 border border-white/20">
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
                 CITIZEN
               </span>
             </div>
@@ -221,23 +187,9 @@ function DashboardLayout() {
         </div>
       </div>
 
-      {/* Navigation Area with Apple Smooth Gliding Frosted Glass Pill */}
+      {/* Navigation Area */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3">
-        <nav
-          ref={navContainerRef}
-          onMouseLeave={() => updatePill(activeRouteIndex, activeRouteIndex !== -1)}
-          className="relative select-none space-y-0.5"
-        >
-          {/* THE FLUID GLIDING FROSTED GLASS PILL */}
-          <div
-            className="apple-sliding-pill"
-            style={{
-              top: `${pillState.top}px`,
-              height: `${pillState.height}px`,
-              opacity: pillState.opacity,
-            }}
-          />
-
+        <nav className="relative select-none space-y-0.5">
           {filteredNav.map((n, idx) => {
             const isActive = idx === activeRouteIndex;
 
@@ -245,18 +197,16 @@ function DashboardLayout() {
               return (
                 <button
                   key={n.to}
-                  ref={(el) => {
-                    itemRefs.current[idx] = el;
-                  }}
-                  onMouseEnter={() => updatePill(idx, true)}
                   type="button"
                   onClick={handleFindLawyerClick}
-                  className={`w-full text-left apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 cursor-pointer ${
-                    isActive ? "text-white active" : "text-neutral-300 hover:text-white"
+                  className={`w-full text-left flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
+                    isActive
+                      ? "text-white font-semibold border border-sky-400/30 bg-sky-500/10 shadow-[0_0_12px_rgba(56,189,248,0.15)]"
+                      : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
                   }`}
                 >
                   <span className="tracking-normal truncate">{n.label}</span>
-                  {isActive && <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+                  {isActive && <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.9)]" />}
                 </button>
               );
             }
@@ -264,19 +214,17 @@ function DashboardLayout() {
             return (
               <Link
                 key={n.to}
-                ref={(el) => {
-                  itemRefs.current[idx] = el;
-                }}
-                onMouseEnter={() => updatePill(idx, true)}
                 to={n.to}
                 activeOptions={{ exact: "exact" in n }}
                 onClick={() => setOpen(false)}
-                className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
-                  isActive ? "text-white active" : "text-neutral-300 hover:text-white"
+                className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
+                  isActive
+                    ? "text-white font-semibold border border-sky-400/30 bg-sky-500/10 shadow-[0_0_12px_rgba(56,189,248,0.15)]"
+                    : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
                 }`}
               >
                 <span className="tracking-normal truncate">{n.label}</span>
-                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.9)]" />}
               </Link>
             );
           })}
@@ -289,12 +237,12 @@ function DashboardLayout() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative shrink-0">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-white/25 via-white/50 to-white/20 p-[1px] shadow-sm">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-400/40 via-white/50 to-sky-400/20 p-[1px] shadow-sm">
                   <div className="w-full h-full rounded-full bg-[#121216] flex items-center justify-center text-xs font-semibold text-white">
                     {profile?.name?.[0]?.toUpperCase() || "C"}
                   </div>
                 </div>
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-[#121216] shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-sky-400 border border-[#121216] shadow-[0_0_6px_rgba(56,189,248,0.9)]" />
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-medium text-white truncate leading-tight">
@@ -399,9 +347,9 @@ function DashboardLayout() {
 
   return (
     <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black">
-      {/* Ambient background subtle monochrome white glow */}
-      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.03] blur-[140px] pointer-events-none -z-10 animate-ambient-pulse" />
-      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-emerald-500/[0.02] blur-[150px] pointer-events-none -z-10 animate-ambient-pulse-reverse" />
+      {/* Ambient background subtle light blue sky glow */}
+      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-sky-500/[0.04] blur-[140px] pointer-events-none -z-10 animate-ambient-pulse" />
+      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-sky-400/[0.03] blur-[150px] pointer-events-none -z-10 animate-ambient-pulse-reverse" />
 
       {/* Desktop Left Sidebar: Fixed Floating Apple Glass */}
       <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[280px] p-3 lg:p-4 z-40 select-none">
@@ -417,7 +365,7 @@ function DashboardLayout() {
             T
           </div>
           <span className="font-display text-base tracking-[0.15em] text-[#F0F0F0]">TRANA</span>
-          <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">CITIZEN</span>
+          <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-sky-300 border border-sky-500/30 bg-sky-500/10 font-mono">CITIZEN</span>
         </div>
         <button
           aria-label="Open menu"

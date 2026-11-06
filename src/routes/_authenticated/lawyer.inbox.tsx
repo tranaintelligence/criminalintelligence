@@ -50,12 +50,19 @@ function LawyerCaseInboxPage() {
   const searchParams = Route.useSearch();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "client" | "peer">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"client" | "peer">("client");
   const [selectedCaseId, setSelectedCaseId] = useState<string>(searchParams.chat || "");
   const [showCaseSummary, setShowCaseSummary] = useState(false);
   const [messages, setMessages] = useState<ConsultationChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
+  const [incomingToast, setIncomingToast] = useState<{
+    chatId: string;
+    senderName: string;
+    text: string;
+    category: "client" | "peer";
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastKnownMessagesCountRef = useRef<number>(0);
 
   // Fetch live consultations from Supabase
   const { data: dbConsults = [] } = useQuery({
@@ -357,9 +364,46 @@ function LawyerCaseInboxPage() {
     };
   }, [activeCase, storageKey, lawyer?.full_name]);
 
+  // Auto-scroll messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Mark active case as read
+  useEffect(() => {
+    if (activeCase?.id) {
+      localStorage.setItem(`trana_last_read_${activeCase.id}`, String(Date.now()));
+      window.dispatchEvent(new Event("trana_unread_count_update"));
+    }
+  }, [activeCase?.id, messages.length]);
+
+  // Check for incoming messages to trigger the top-right notification popup
+  useEffect(() => {
+    if (messages.length > 0) {
+      if (lastKnownMessagesCountRef.current > 0 && messages.length > lastKnownMessagesCountRef.current) {
+        const newest = messages[messages.length - 1];
+        const myNormName = (lawyer?.full_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+        const senderNormName = (newest?.senderName || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+
+        if (newest && newest.sender !== "system" && senderNormName !== myNormName && !myNormName.includes(senderNormName)) {
+          setIncomingToast({
+            chatId: activeCase.id,
+            senderName: newest.senderName,
+            text: newest.text,
+            category: activeCase.category,
+          });
+        }
+      }
+      lastKnownMessagesCountRef.current = messages.length;
+    }
+  }, [messages, lawyer?.full_name, activeCase?.id, activeCase?.category]);
+
+  // Auto-dismiss incoming toast after 6 seconds
+  useEffect(() => {
+    if (!incomingToast) return;
+    const timer = setTimeout(() => setIncomingToast(null), 6000);
+    return () => clearTimeout(timer);
+  }, [incomingToast]);
 
   function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -540,42 +584,40 @@ function LawyerCaseInboxPage() {
               />
             </div>
 
-            {/* Category Filter Tabs */}
-            <div className="flex items-center gap-1.5 mt-2.5 font-mono text-[0.68rem]">
+            {/* Split Citizen Consultations vs Peer Colleague Chats */}
+            <div className="grid grid-cols-2 gap-1.5 mt-3 p-1 rounded-xl bg-black/50 border border-white/10 font-sans text-xs">
               <button
                 type="button"
-                onClick={() => setCategoryFilter("all")}
-                className={`px-2.5 py-1 rounded transition-colors ${
-                  categoryFilter === "all"
-                    ? "bg-white text-black font-semibold shadow-sm"
-                    : "text-[#888888] hover:text-white hover:bg-[#1E1E1E]"
-                }`}
-              >
-                All ({cases.length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCategoryFilter("client")}
-                className={`px-2.5 py-1 rounded transition-colors ${
+                onClick={() => {
+                  setCategoryFilter("client");
+                  const firstClient = cases.find((c) => c.category === "client");
+                  if (firstClient) setSelectedCaseId(firstClient.id);
+                }}
+                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 font-medium transition-all ${
                   categoryFilter === "client"
-                    ? "bg-white text-black font-semibold shadow-sm"
-                    : "text-[#888888] hover:text-white hover:bg-[#1E1E1E]"
+                    ? "bg-white text-black shadow-md font-semibold"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
                 }`}
               >
-                Clients ({clientCasesCount})
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Citizens ({clientCasesCount})</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setCategoryFilter("peer")}
-                className={`px-2.5 py-1 rounded transition-colors ${
+                onClick={() => {
+                  setCategoryFilter("peer");
+                  const firstPeer = cases.find((c) => c.category === "peer");
+                  if (firstPeer) setSelectedCaseId(firstPeer.id);
+                }}
+                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 font-medium transition-all ${
                   categoryFilter === "peer"
-                    ? "bg-white text-black font-semibold shadow-sm"
-                    : "text-[#888888] hover:text-white hover:bg-[#1E1E1E]"
+                    ? "bg-white text-black shadow-md font-semibold"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
                 }`}
               >
-                Colleagues ({peerCasesCount})
+                <Scale className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                <span className="truncate">Colleagues ({peerCasesCount})</span>
               </button>
             </div>
           </div>
@@ -763,7 +805,25 @@ function LawyerCaseInboxPage() {
                   );
                 }
 
-                const isMe = m.sender === "lawyer";
+                const myNormName = (lawyer?.full_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+                const senderNormName = (m.senderName || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+                const otherPartyNormName = (activeCase?.client || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+
+                let isMe = false;
+                if (m.sender === "client") {
+                  // Citizen message is incoming (left)
+                  isMe = false;
+                } else if (senderNormName && myNormName && (senderNormName === myNormName || senderNormName.includes(myNormName) || myNormName.includes(senderNormName))) {
+                  // Matches currently logged-in advocate (right)
+                  isMe = true;
+                } else if (senderNormName && otherPartyNormName && (senderNormName === otherPartyNormName || otherPartyNormName.includes(senderNormName))) {
+                  // Matches the other colleague or citizen (left)
+                  isMe = false;
+                } else if (m.sender === "lawyer" && activeCase?.category !== "peer") {
+                  isMe = true;
+                } else {
+                  isMe = false;
+                }
 
                 return (
                   <div
@@ -771,15 +831,17 @@ function LawyerCaseInboxPage() {
                     className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
                   >
                     <div className="flex items-center gap-1.5 text-[0.65rem] text-[#777777] font-mono mb-1">
-                      <span className="font-semibold text-[#AAAAAA]">{m.senderName}</span>
+                      <span className={`font-semibold ${isMe ? "text-white" : "text-[#AAAAAA]"}`}>
+                        {m.senderName}
+                      </span>
                       <span>•</span>
                       <span>{m.timestamp}</span>
                     </div>
                     <div
-                      className={`max-w-[80%] rounded px-3.5 py-2.5 text-sm leading-relaxed ${
+                      className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
                         isMe
-                          ? "bg-white text-black font-sans shadow-md"
-                          : "bg-[#1C1C1C] text-white border border-[#2B2B2B]"
+                          ? "bg-white text-black font-sans shadow-md rounded-tr-none"
+                          : "bg-[#1C1C1C] text-white border border-[#2B2B2B] rounded-tl-none"
                       }`}
                     >
                       {m.text}
@@ -826,6 +888,48 @@ function LawyerCaseInboxPage() {
           consultationType={activeCase.consultationType}
           content={activeCase.intakeBrief || ""}
         />
+      )}
+
+      {/* Top-Right Incoming Message Popup Toast */}
+      {incomingToast && (
+        <div className="fixed top-5 right-5 z-[9999] max-w-sm w-full bg-[#181818]/95 border border-white/20 rounded-2xl p-4 shadow-[0_20px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+                {incomingToast.category === "peer" ? <Scale className="h-4 w-4 text-sky-400" /> : <ShieldCheck className="h-4 w-4 text-emerald-400" />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{incomingToast.senderName}</p>
+                <p className="text-[10px] text-[#888888] font-mono">
+                  {incomingToast.category === "peer" ? "Colleague Message" : "Citizen Consultation"}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIncomingToast(null)}
+              className="text-[#666666] hover:text-white transition-colors shrink-0 p-1"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <p className="mt-2.5 text-xs text-neutral-300 line-clamp-2 bg-black/40 border border-white/5 rounded-lg p-2 font-sans">
+            "{incomingToast.text}"
+          </p>
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryFilter(incomingToast.category);
+                setSelectedCaseId(incomingToast.chatId);
+                setIncomingToast(null);
+              }}
+              className="bg-white text-black px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <span>Open Chat</span>
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

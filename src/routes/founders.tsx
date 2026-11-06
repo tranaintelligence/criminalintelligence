@@ -192,16 +192,7 @@ function FoundersLayout() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // References and state for sliding liquid glass pill animation
-  const navContainerRef = useRef<HTMLElement>(null);
-  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  const [pillState, setPillState] = useState<{ top: number; height: number; opacity: number }>({
-    top: 0,
-    height: 40,
-    opacity: 0,
-  });
 
   useEffect(() => {
     document.title = "Founders Dashboard — TRANA";
@@ -252,48 +243,6 @@ function FoundersLayout() {
       ? location.pathname === item.to || location.pathname === `${item.to}/`
       : location.pathname.startsWith(item.to)
   );
-
-  // Function to smoothly animate and position the frosted glass pill
-  const updatePill = (idx: number, visible = true) => {
-    if (idx < 0 || !itemRefs.current[idx] || !navContainerRef.current) {
-      if (!visible) {
-        setPillState((prev) => ({ ...prev, opacity: 0 }));
-      }
-      return;
-    }
-    const itemEl = itemRefs.current[idx];
-    const navEl = navContainerRef.current;
-    if (!itemEl || !navEl) return;
-
-    const itemRect = itemEl.getBoundingClientRect();
-    const navRect = navEl.getBoundingClientRect();
-    const top = itemRect.top - navRect.top;
-    const height = itemRect.height;
-    setPillState({ top, height, opacity: 1 });
-  };
-
-  // Keep pill positioned over active item when route changes or on mount
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (activeRouteIndex !== -1) {
-        updatePill(activeRouteIndex, true);
-      } else {
-        updatePill(-1, false);
-      }
-    }, 50);
-    return () => clearTimeout(t);
-  }, [location.pathname, activeRouteIndex]);
-
-  // Recalculate on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (activeRouteIndex !== -1) {
-        updatePill(activeRouteIndex, true);
-      }
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [activeRouteIndex]);
 
   const logout = async () => {
     if (typeof window !== "undefined") {
@@ -447,29 +396,8 @@ function FoundersLayout() {
       </div>
 
       {/* Navigation Area with Apple Smooth Gliding Frosted Glass Pill */}
-      <div
-        className="flex-1 overflow-y-auto px-2.5 py-3"
-        onScroll={() => {
-          if (activeRouteIndex !== -1) {
-            updatePill(activeRouteIndex, true);
-          }
-        }}
-      >
-        <nav
-          ref={navContainerRef}
-          onMouseLeave={() => updatePill(activeRouteIndex, activeRouteIndex !== -1)}
-          className="relative select-none"
-        >
-          {/* THE FLUID GLIDING FROSTED GLASS PILL */}
-          <div
-            className="apple-sliding-pill"
-            style={{
-              top: `${pillState.top}px`,
-              height: `${pillState.height}px`,
-              opacity: pillState.opacity,
-            }}
-          />
-
+      <div className="flex-1 overflow-y-auto px-2.5 py-3">
+        <nav className="relative select-none">
           {/* MAIN SECTION */}
           {mainItems.length > 0 && (
             <div className="mb-3">
@@ -486,19 +414,17 @@ function FoundersLayout() {
                     <Link
                       key={item.to}
                       to={item.to}
-                      ref={(el) => {
-                        itemRefs.current[globalIdx] = el;
-                      }}
-                      onMouseEnter={() => updatePill(globalIdx, true)}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
-                        isActive ? "text-white active" : "text-neutral-300 hover:text-white"
+                      className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
+                        isActive
+                          ? "text-white font-semibold border border-amber-500/30 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                          : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon
                           className={`h-4 w-4 shrink-0 transition-colors ${
-                            isActive ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" : "text-neutral-400 group-hover:text-white"
+                            isActive ? "text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" : "text-neutral-400"
                           }`}
                         />
                         <span className="tracking-normal truncate">{item.label}</span>
@@ -510,7 +436,7 @@ function FoundersLayout() {
                         </span>
                       )}
                       {isActive && !item.badge && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
                       )}
                     </Link>
                   );
@@ -535,19 +461,17 @@ function FoundersLayout() {
                     <Link
                       key={item.to}
                       to={item.to}
-                      ref={(el) => {
-                        itemRefs.current[globalIdx] = el;
-                      }}
-                      onMouseEnter={() => updatePill(globalIdx, true)}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
-                        isActive ? "text-white active" : "text-neutral-300 hover:text-white"
+                      className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
+                        isActive
+                          ? "text-white font-semibold border border-amber-500/30 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                          : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon
                           className={`h-4 w-4 shrink-0 transition-colors ${
-                            isActive ? "text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" : "text-neutral-400 group-hover:text-white"
+                            isActive ? "text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" : "text-neutral-400"
                           }`}
                         />
                         <span className="tracking-normal truncate">{item.label}</span>
@@ -559,7 +483,7 @@ function FoundersLayout() {
                         </span>
                       )}
                       {isActive && !item.badge && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
                       )}
                     </Link>
                   );

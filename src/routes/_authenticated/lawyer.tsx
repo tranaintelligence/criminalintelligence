@@ -199,15 +199,49 @@ function LawyerLayout() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // VisionOS Sliding Pill Navigation and Search State
-  const [pillState, setPillState] = useState({ top: 0, height: 36, opacity: 0 });
+  // Navigation and Search State
   const [searchQuery, setSearchQuery] = useState("");
-  const navContainerRef = useRef<HTMLDivElement | null>(null);
-  const itemRefs = useRef<(HTMLElement | null)[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     document.title = "Legal Professional Workspace — TRANA";
   }, [location.pathname]);
+
+  // Track unread messages count for Case Inbox tab badge
+  useEffect(() => {
+    function computeUnread() {
+      try {
+        const rawIndex = localStorage.getItem("trana_all_consultation_chats_index");
+        if (!rawIndex) return;
+        const index = JSON.parse(rawIndex);
+        let total = 0;
+
+        Object.values(index).forEach((c: any) => {
+          if (!c || !c.consultationId) return;
+          const lastRead = Number(localStorage.getItem(`trana_last_read_${c.consultationId}`)) || 0;
+          const updatedTime = c.lastUpdated ? new Date(c.lastUpdated).getTime() : 0;
+          const lastMsg = c.lastMessage || "";
+          
+          if (updatedTime > lastRead && lastMsg && !lastMsg.includes("Zero Evasion Guard") && !lastMsg.includes("Confidential consultation channel")) {
+            total++;
+          }
+        });
+        setUnreadCount(total);
+      } catch {}
+    }
+
+    computeUnread();
+    window.addEventListener("trana_consult_chat_update", computeUnread);
+    window.addEventListener("trana_unread_count_update", computeUnread);
+    window.addEventListener("storage", computeUnread);
+    const interval = setInterval(computeUnread, 3500);
+    return () => {
+      window.removeEventListener("trana_consult_chat_update", computeUnread);
+      window.removeEventListener("trana_unread_count_update", computeUnread);
+      window.removeEventListener("storage", computeUnread);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Filter items by search query if user types in search
   const filteredNavItems = searchQuery.trim()
@@ -223,36 +257,6 @@ function LawyerLayout() {
     }
     return location.pathname.startsWith(item.to);
   });
-
-  const updatePill = (idx: number, visible: boolean) => {
-    if (!visible || idx === -1) {
-      setPillState((prev) => ({ ...prev, opacity: 0 }));
-      return;
-    }
-    const container = navContainerRef.current;
-    const target = itemRefs.current[idx];
-    if (container && target) {
-      const containerRect = container.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const topOffset = targetRect.top - containerRect.top;
-      setPillState({
-        top: topOffset,
-        height: targetRect.height,
-        opacity: 1,
-      });
-    }
-  };
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (activeRouteIndex !== -1) {
-        updatePill(activeRouteIndex, true);
-      } else {
-        updatePill(-1, false);
-      }
-    }, 50);
-    return () => clearTimeout(t);
-  }, [location.pathname, activeRouteIndex, filteredNavItems.length]);
 
   // Comprehensive Bar Council Registration Form State
   const [isVerifying, setIsVerifying] = useState(false);
@@ -743,23 +747,9 @@ function LawyerLayout() {
         </div>
       </div>
 
-      {/* Navigation Area with Apple Smooth Gliding Frosted Glass Pill */}
+      {/* Navigation Area */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3">
-        <nav
-          ref={navContainerRef}
-          onMouseLeave={() => updatePill(activeRouteIndex, activeRouteIndex !== -1)}
-          className="relative select-none space-y-0.5"
-        >
-          {/* THE FLUID GLIDING FROSTED GLASS PILL */}
-          <div
-            className="apple-sliding-pill"
-            style={{
-              top: `${pillState.top}px`,
-              height: `${pillState.height}px`,
-              opacity: pillState.opacity,
-            }}
-          />
-
+        <nav className="relative select-none space-y-0.5">
           {filteredNavItems.map((item, idx) => {
             const Icon = item.icon;
             const isActive = idx === activeRouteIndex;
@@ -767,34 +757,34 @@ function LawyerLayout() {
             return (
               <Link
                 key={item.to}
-                ref={(el) => {
-                  itemRefs.current[idx] = el;
-                }}
-                onMouseEnter={() => updatePill(idx, true)}
                 to={item.to}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
+                className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
                   isActive 
-                    ? "text-white active" 
-                    : "text-neutral-300 hover:text-white"
+                    ? "text-white font-semibold border border-white/20 bg-white/10 shadow-sm" 
+                    : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? "text-white" : "text-neutral-400"}`} />
                   <span className="tracking-normal truncate">{item.label}</span>
                 </div>
-                {"badge" in item && (
-                  <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full border ${
+
+                {item.to === "/lawyer/inbox" && unreadCount > 0 ? (
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-black shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse shrink-0">
+                    {unreadCount}
+                  </span>
+                ) : "badge" in item ? (
+                  <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full border shrink-0 ${
                     item.badge === "In Development"
                       ? "border-amber-500/40 text-amber-300 bg-amber-500/20"
                       : "border-white/20 text-neutral-400 bg-white/10"
                   }`}>
                     {item.badge}
                   </span>
-                )}
-                {isActive && !("badge" in item) && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-                )}
+                ) : isActive ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] shrink-0" />
+                ) : null}
               </Link>
             );
           })}

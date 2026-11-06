@@ -104,9 +104,20 @@ function LawyerProfilePage() {
         setSelectedSpecialisations(["Criminal Defence & Anticipatory Bail", "BNS & BNSS Criminal Procedure"]);
       }
 
+      if (typeof window !== "undefined" && user?.id) {
+        const cachedPhoto =
+          localStorage.getItem(`trana_lawyer_avatar_${user.id}`) ||
+          localStorage.getItem("trana_lawyer_avatar") ||
+          (lawyer as any)?.avatar_url ||
+          (lawyer as any)?.photo_url;
+        if (cachedPhoto) {
+          setAvatarPreview(cachedPhoto);
+        }
+      }
+
       setHasLoadedProfile(true);
     }
-  }, [lawyer, user.email]);
+  }, [lawyer, user.id, user.email]);
 
   // Persist courts to local session whenever user updates selection
   useEffect(() => {
@@ -148,9 +159,29 @@ function LawyerProfilePage() {
   function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setAvatarPreview(url);
-      toast.success("Profile photo uploaded!");
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Please select a photo under 5MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const base64 = uploadEvent.target?.result as string;
+        if (base64) {
+          setAvatarPreview(base64);
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem(`trana_lawyer_avatar_${user?.id}`, base64);
+              localStorage.setItem("trana_lawyer_avatar", base64);
+              const cleanBar = barRegNo.trim().toUpperCase();
+              if (cleanBar) {
+                localStorage.setItem(`trana_lawyer_avatar_${cleanBar}`, base64);
+              }
+            } catch {}
+          }
+          toast.success("Profile photo uploaded!");
+        }
+      };
+      reader.readAsDataURL(file);
     }
   }
 
@@ -166,6 +197,20 @@ function LawyerProfilePage() {
         localStorage.setItem(`trana_lawyer_bar_${user.id}`, cleanBar);
         localStorage.setItem(`trana_lawyer_courts_${user.id}`, JSON.stringify(selectedCourts));
         localStorage.setItem("trana_lawyer_courts", JSON.stringify(selectedCourts));
+
+        if (avatarPreview) {
+          localStorage.setItem(`trana_lawyer_avatar_${user.id}`, avatarPreview);
+          localStorage.setItem(`trana_lawyer_avatar_${cleanBar}`, avatarPreview);
+          localStorage.setItem(`trana_lawyer_avatar_${fullName.toLowerCase().trim()}`, avatarPreview);
+          localStorage.setItem("trana_lawyer_avatar", avatarPreview);
+
+          const photoMap = JSON.parse(localStorage.getItem("trana_all_lawyer_photos") || "{}");
+          photoMap[user.id] = avatarPreview;
+          photoMap[cleanBar] = avatarPreview;
+          photoMap[fullName.toLowerCase().trim()] = avatarPreview;
+          if (lawyer?.id) photoMap[lawyer.id] = avatarPreview;
+          localStorage.setItem("trana_all_lawyer_photos", JSON.stringify(photoMap));
+        }
       }
 
       // 2. Call Backend API
@@ -210,6 +255,7 @@ function LawyerProfilePage() {
         chamber_address: chamberAddress.trim() || null,
         courts: JSON.stringify(selectedCourts),
         bio: bio,
+        avatar_url: avatarPreview || null,
         specialisation: specString,
         offers_call: offersCall,
         offers_chat: offersChat,

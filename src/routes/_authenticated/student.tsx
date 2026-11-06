@@ -33,11 +33,7 @@ function StudentLayout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // VisionOS Sliding Pill Navigation and Search State
-  const [pillState, setPillState] = useState({ top: 0, height: 36, opacity: 0 });
   const [searchQuery, setSearchQuery] = useState("");
-  const navContainerRef = useRef<HTMLDivElement | null>(null);
-  const itemRefs = useRef<(HTMLElement | null)[]>([]);
 
   // Filter items by search query if user types in search
   const filteredNav = searchQuery.trim()
@@ -53,36 +49,6 @@ function StudentLayout() {
     }
     return location.pathname.startsWith(item.to);
   });
-
-  const updatePill = (idx: number, visible: boolean) => {
-    if (!visible || idx === -1) {
-      setPillState((prev) => ({ ...prev, opacity: 0 }));
-      return;
-    }
-    const container = navContainerRef.current;
-    const target = itemRefs.current[idx];
-    if (container && target) {
-      const containerRect = container.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const topOffset = targetRect.top - containerRect.top;
-      setPillState({
-        top: topOffset,
-        height: targetRect.height,
-        opacity: 1,
-      });
-    }
-  };
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (activeRouteIndex !== -1) {
-        updatePill(activeRouteIndex, true);
-      } else {
-        updatePill(-1, false);
-      }
-    }, 50);
-    return () => clearTimeout(t);
-  }, [location.pathname, activeRouteIndex, filteredNav.length]);
 
   // Student Enrollment Form states
   const [fullName, setFullName] = useState(
@@ -387,23 +353,9 @@ function StudentLayout() {
         </div>
       </div>
 
-      {/* Navigation Area with Apple Smooth Gliding Frosted Glass Pill */}
+      {/* Navigation Area */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3">
-        <nav
-          ref={navContainerRef}
-          onMouseLeave={() => updatePill(activeRouteIndex, activeRouteIndex !== -1)}
-          className="relative select-none space-y-0.5"
-        >
-          {/* THE FLUID GLIDING FROSTED GLASS PILL */}
-          <div
-            className="apple-sliding-pill"
-            style={{
-              top: `${pillState.top}px`,
-              height: `${pillState.height}px`,
-              opacity: pillState.opacity,
-            }}
-          />
-
+        <nav className="relative select-none space-y-0.5">
           {filteredNav.map((item, idx) => {
             const Icon = item.icon;
             const isActive = idx === activeRouteIndex;
@@ -411,16 +363,12 @@ function StudentLayout() {
             return (
               <Link
                 key={item.to}
-                ref={(el) => {
-                  itemRefs.current[idx] = el;
-                }}
-                onMouseEnter={() => updatePill(idx, true)}
                 to={item.to}
                 onClick={() => setMobileOpen(false)}
-                className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
+                className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
                   isActive
-                    ? "text-white active"
-                    : "text-neutral-300 hover:text-white"
+                    ? "text-white font-semibold border border-purple-500/30 bg-purple-500/10 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                    : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -428,7 +376,7 @@ function StudentLayout() {
                   <span className="tracking-normal truncate">{item.label}</span>
                 </div>
                 {isActive && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
                 )}
               </Link>
             );

@@ -35,7 +35,33 @@ type Lawyer = {
   offers_chat: boolean;
   offers_in_person?: boolean;
   approved?: boolean;
+  bio?: string;
+  avatar_url?: string;
+  photo_url?: string;
+  bar_association?: string;
+  chamber_address?: string;
 };
+
+function getLawyerPhoto(l: Lawyer): string | null {
+  if (l.avatar_url) return l.avatar_url;
+  if (l.photo_url) return l.photo_url;
+  if (typeof window !== "undefined") {
+    try {
+      const photoMap = JSON.parse(localStorage.getItem("trana_all_lawyer_photos") || "{}");
+      if (photoMap[l.id]) return photoMap[l.id];
+      if (l.bar_reg_no && photoMap[l.bar_reg_no.trim().toUpperCase()]) return photoMap[l.bar_reg_no.trim().toUpperCase()];
+      const normName = l.full_name.toLowerCase().trim();
+      if (photoMap[normName]) return photoMap[normName];
+      const byUser = localStorage.getItem(`trana_lawyer_avatar_${l.id}`);
+      if (byUser) return byUser;
+      if (l.bar_reg_no) {
+        const byBar = localStorage.getItem(`trana_lawyer_avatar_${l.bar_reg_no.trim().toUpperCase()}`);
+        if (byBar) return byBar;
+      }
+    } catch {}
+  }
+  return null;
+}
 
 function Lawyers() {
   const { user } = Route.useRouteContext();
@@ -48,6 +74,9 @@ function Lawyers() {
   const [type, setType] = useState("");
   const [requested, setRequested] = useState<Record<string, boolean>>({});
   const [loadingLawyerId, setLoadingLawyerId] = useState<string | null>(null);
+
+  // Lawyer Full Profile Modal State
+  const [selectedLawyerProfile, setSelectedLawyerProfile] = useState<Lawyer | null>(null);
 
   // Consultation Mode modal state
   const [consultingLawyer, setConsultingLawyer] = useState<Lawyer | null>(null);
@@ -461,11 +490,13 @@ function Lawyers() {
               lockedIds.has(l.id) ||
               lockedNames.has(l.full_name.toLowerCase().trim())
             );
+            const photoUrl = getLawyerPhoto(l);
 
             return (
               <div
                 key={l.id}
-                className={`flex flex-col justify-between border p-6 transition-all relative ${
+                onClick={() => setSelectedLawyerProfile(l)}
+                className={`flex flex-col justify-between border p-6 transition-all relative cursor-pointer group hover:scale-[1.01] ${
                   isLocked
                     ? "border-emerald-500/60 bg-emerald-950/10 shadow-sm"
                     : "border-white/15 bg-[#141414] hover:border-white/40"
@@ -489,19 +520,35 @@ function Lawyers() {
                     )}
                   </div>
 
-                  <h2 className="font-display text-2xl font-medium text-white">{l.full_name}</h2>
-                  
-                  {l.state_bar_council && (
-                    <p className="text-xs text-[#888888] mt-0.5 flex items-center gap-1">
-                      <Award className="h-3 w-3 text-neutral-400 shrink-0" />
-                      <span>{l.state_bar_council}</span>
-                    </p>
-                  )}
+                  {/* Profile Photo & Name */}
+                  <div className="flex items-center gap-3.5 my-2">
+                    <div className="relative h-12 w-12 rounded-full border border-white/20 bg-neutral-900 overflow-hidden shrink-0 flex items-center justify-center shadow-md">
+                      {photoUrl ? (
+                        <img src={photoUrl} alt={l.full_name} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="font-display text-lg font-semibold text-white">
+                          {l.full_name.charAt(0) || "A"}
+                        </span>
+                      )}
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-black shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-display text-2xl font-medium text-white truncate group-hover:text-emerald-300 transition-colors">
+                        {l.full_name}
+                      </h2>
+                      {l.state_bar_council && (
+                        <p className="text-xs text-[#888888] mt-0.5 flex items-center gap-1 truncate">
+                          <Award className="h-3 w-3 text-neutral-400 shrink-0" />
+                          <span className="truncate">{l.state_bar_council}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                  <p className="mt-3 text-sm text-neutral-200 font-medium">{l.specialisation}</p>
+                  <p className="mt-3 text-sm text-neutral-200 font-medium line-clamp-2">{l.specialisation}</p>
                   
                   {l.courts && (
-                    <p className="mt-1 text-xs text-[#888888]">
+                    <p className="mt-1 text-xs text-[#888888] line-clamp-1">
                       Courts: <span className="text-neutral-300">{l.courts}</span>
                     </p>
                   )}
@@ -528,8 +575,11 @@ function Lawyers() {
                   {isLocked ? (
                     <button
                       type="button"
-                      onClick={() => handleOpenExistingChat(l)}
-                      className="w-full bg-[#1A1A1A] border border-emerald-500/50 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-emerald-400 hover:bg-emerald-950/40 transition-colors flex items-center justify-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenExistingChat(l);
+                      }}
+                      className="w-full bg-[#1A1A1A] border border-emerald-500/50 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-emerald-400 hover:bg-emerald-950/40 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <MessageSquare className="h-4 w-4" />
                       <span>Open Consultation Channel</span>
@@ -537,9 +587,12 @@ function Lawyers() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => handleInitiateRequest(l)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleInitiateRequest(l);
+                      }}
                       disabled={loadingLawyerId === l.id}
-                      className="w-full bg-white py-3 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2"
+                      className="w-full bg-white py-3 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {loadingLawyerId === l.id ? (
                         <span>Routing Request...</span>
@@ -639,6 +692,182 @@ function Lawyers() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lawyer Full Profile Center Modal */}
+      {selectedLawyerProfile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedLawyerProfile(null)}
+        >
+          <div
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/20 bg-[#121212] p-6 sm:p-8 text-neutral-100 shadow-[0_25px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Close Button */}
+            <button
+              onClick={() => setSelectedLawyerProfile(null)}
+              className="absolute right-4 top-4 p-2 text-neutral-400 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+              title="Close Profile"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Profile Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 border-b border-white/10 pb-6">
+              <div className="relative h-20 w-20 sm:h-24 sm:w-24 rounded-2xl border-2 border-white/20 bg-neutral-900 overflow-hidden shrink-0 flex items-center justify-center shadow-xl">
+                {getLawyerPhoto(selectedLawyerProfile) ? (
+                  <img
+                    src={getLawyerPhoto(selectedLawyerProfile)!}
+                    alt={selectedLawyerProfile.full_name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="font-display text-3xl font-semibold text-white">
+                    {selectedLawyerProfile.full_name.charAt(0) || "A"}
+                  </span>
+                )}
+                <span className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#121212] shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-[0.65rem] uppercase tracking-[0.15em] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                    <ShieldCheck className="h-3 w-3" />
+                    <span>Verified Sanad</span>
+                  </span>
+                  {selectedLawyerProfile.bar_reg_no && (
+                    <span className="font-mono text-[10px] text-neutral-300 bg-white/10 px-2 py-0.5 rounded border border-white/15">
+                      {selectedLawyerProfile.bar_reg_no}
+                    </span>
+                  )}
+                  {selectedLawyerProfile.experience_years && (
+                    <span className="text-[10px] font-mono text-neutral-400 bg-neutral-800 px-2 py-0.5 rounded">
+                      {selectedLawyerProfile.experience_years}+ Yrs Practice
+                    </span>
+                  )}
+                </div>
+
+                <h2 className="font-display text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+                  {selectedLawyerProfile.full_name}
+                </h2>
+
+                {selectedLawyerProfile.state_bar_council && (
+                  <p className="text-xs text-neutral-400 mt-1 flex items-center gap-1.5">
+                    <Award className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
+                    <span>{selectedLawyerProfile.state_bar_council}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* About Me / Bio Section */}
+            <div className="mt-6 space-y-6">
+              <div>
+                <h3 className="text-xs uppercase tracking-[0.18em] font-mono text-neutral-400 mb-2.5">
+                  About Me / Professional Background
+                </h3>
+                <p className="text-sm leading-relaxed text-neutral-200 bg-white/[0.03] border border-white/10 p-4 rounded-xl font-sans">
+                  {selectedLawyerProfile.bio ||
+                    "Practicing Advocate with extensive trial and appellate court experience, specializing in criminal defence, anticipatory bail applications under BNSS, constitutional writ petitions, and statutory representation."}
+                </p>
+              </div>
+
+              {/* Specialisations */}
+              <div>
+                <h3 className="text-xs uppercase tracking-[0.18em] font-mono text-neutral-400 mb-2">
+                  Areas of Specialisation
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedLawyerProfile.specialisation.split(",").map((s, idx) => (
+                    <span
+                      key={idx}
+                      className="text-xs font-medium px-3 py-1 rounded-lg border border-white/15 bg-white/5 text-neutral-200"
+                    >
+                      {s.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Courts of Practice */}
+              {selectedLawyerProfile.courts && (
+                <div>
+                  <h3 className="text-xs uppercase tracking-[0.18em] font-mono text-neutral-400 mb-2">
+                    Admitted Courts of Practice
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedLawyerProfile.courts.split(/·|,|\+/).map((c, idx) => {
+                      const trimmed = c.trim();
+                      if (!trimmed || trimmed.match(/^\d+\s*more/i)) return null;
+                      return (
+                        <span
+                          key={idx}
+                          className="text-xs font-mono px-3 py-1 rounded-lg border border-sky-500/20 bg-sky-950/30 text-sky-300"
+                        >
+                          {trimmed}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Location & Contact Particulars */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-neutral-300 pt-2 border-t border-white/10">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-neutral-400 shrink-0" />
+                  <span>{selectedLawyerProfile.city}, {selectedLawyerProfile.state || "India"}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {selectedLawyerProfile.offers_call && (
+                    <span className="flex items-center gap-1.5 text-neutral-300">
+                      <Phone className="h-3.5 w-3.5 text-white" /> Direct Call
+                    </span>
+                  )}
+                  {selectedLawyerProfile.offers_chat && (
+                    <span className="flex items-center gap-1.5 text-neutral-300">
+                      <MessageSquare className="h-3.5 w-3.5 text-white" /> Confidential Chat
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal CTA Button */}
+              <div className="pt-4 border-t border-white/10 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedLawyerProfile(null)}
+                  className="px-4 py-2.5 rounded-xl border border-white/20 text-xs font-semibold uppercase tracking-wider text-neutral-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const l = selectedLawyerProfile;
+                    setSelectedLawyerProfile(null);
+                    const isAlreadyLocked = Boolean(
+                      requested[l.id] ||
+                      lockedIds.has(l.id) ||
+                      lockedNames.has(l.full_name.toLowerCase().trim())
+                    );
+                    if (isAlreadyLocked) {
+                      handleOpenExistingChat(l);
+                    } else {
+                      handleInitiateRequest(l);
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-white text-black text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors flex items-center gap-2 cursor-pointer shadow-lg"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Open Consultation Channel</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
