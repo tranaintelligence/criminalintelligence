@@ -144,55 +144,49 @@ const formatAnalysis = (
   const hasGeneralAnalysis = Boolean(result.general_analysis?.trim());
 
   if (hasGeneralAnalysis) {
-    const text = result.general_analysis.trim();
-    if (!hasSituationMeaning) {
-      // Question inquiry path: render markdown text directly without artificial "## General Legal Analysis"
-      sections.push(text);
-    } else {
-      // Both present: show legal context after or alongside situation
-      sections.push(text.startsWith('#') ? text : `### Legal Context & Analysis\n\n${text}`);
+    // If the model produced a detailed answer to the user's specific question
+    sections.push(result.general_analysis.trim());
+  } else {
+    // 3. Incident Specific Breakdown (for initial emergency reports)
+    if (hasSituationMeaning) {
+      const meaning = result.situation_meaning.trim();
+      sections.push(meaning.startsWith('#') ? meaning : `### What This Situation Means\n\n${meaning}`);
+    }
+
+    // 4. Bail Status
+    if (result.bail_status?.trim()) {
+      const bail = result.bail_status.trim();
+      const isApplicable = !/^(?:not applicable|none|n\/?a|unclear)$/i.test(bail);
+      if (isApplicable) {
+        sections.push(bail.startsWith('#') ? bail : `### Bail Status & Eligibility\n\n${bail}`);
+      }
+    }
+
+    // 5. Next 24 Hours Action Steps
+    if (result.next_24_hours?.length) {
+      const validSteps = result.next_24_hours.filter((item) => item?.trim());
+      if (validSteps.length > 0) {
+        sections.push(`### What To Do Next (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+      }
+    }
+
+    // 6. Rights
+    if (result.rights?.length) {
+      const validRights = result.rights.filter((item) => item?.trim());
+      if (validRights.length > 0) {
+        sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+      }
+    }
+
+    // 7. Handling Authority
+    if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a)$/i.test(result.handling_authority.trim())) {
+      const auth = result.handling_authority.trim();
+      sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
     }
   }
 
-  // 3. Incident Specific Breakdown
-  if (hasSituationMeaning) {
-    const meaning = result.situation_meaning.trim();
-    sections.push(meaning.startsWith('#') ? meaning : `### What This Situation Means\n\n${meaning}`);
-  }
-
-  // 4. Bail Status
-  if (result.bail_status?.trim()) {
-    const bail = result.bail_status.trim();
-    const isApplicable = !/^(?:not applicable|none|n\/?a|unclear)$/i.test(bail);
-    if (isApplicable) {
-      sections.push(bail.startsWith('#') ? bail : `### Bail Status & Eligibility\n\n${bail}`);
-    }
-  }
-
-  // 5. Next 24 Hours Action Steps
-  if (result.next_24_hours?.length) {
-    const validSteps = result.next_24_hours.filter((item) => item?.trim());
-    if (validSteps.length > 0) {
-      sections.push(`### What To Do Next (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
-    }
-  }
-
-  // 6. Rights
-  if (result.rights?.length) {
-    const validRights = result.rights.filter((item) => item?.trim());
-    if (validRights.length > 0) {
-      sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
-    }
-  }
-
-  // 7. Handling Authority
-  if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a)$/i.test(result.handling_authority.trim())) {
-    const auth = result.handling_authority.trim();
-    sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
-  }
-
-  // 8. Legacy Law Summary
-  if (options.includeLegacyLawSummary && result.applicable_laws?.length) {
+  // 8. Legacy Law Summary fallback (only if no interactive sources available)
+  if (options.includeLegacyLawSummary && !hasGeneralAnalysis && result.applicable_laws?.length) {
     const laws = result.applicable_laws.filter((l) => l.act || l.code || l.section).map(formatLegalLaw);
     if (laws.length > 0) {
       sections.push(`### Applicable Laws & Sections\n\n${laws.join('\n\n')}`);
@@ -516,6 +510,7 @@ export function ChatViewContent() {
                   ? formatAnalysis(message.structured_content, { includeLegacyLawSummary: !sources?.length })
                   : message.content,
               sources,
+              structured_content: message.structured_content,
               model_used: message.model_used ?? undefined,
               processing_time_seconds: message.processing_time_seconds ?? undefined,
               created_at: message.created_at,
@@ -670,6 +665,7 @@ export function ChatViewContent() {
           role: 'assistant',
           content: formatAnalysis(data.analysis, { includeLegacyLawSummary: !sources?.length }),
           sources,
+          structured_content: data.analysis,
           model_used: data.model_used,
           processing_time_seconds: data.processing_time_seconds,
           created_at: new Date().toISOString(),
@@ -748,17 +744,17 @@ export function ChatViewContent() {
 
   return (
     <div
-      className="chat-view flex h-[calc(100vh-140px)] min-h-[580px] bg-[#0d0d0d] border border-[#222222] rounded-2xl overflow-hidden relative shadow-2xl"
+      className="chat-view flex h-full w-full bg-[#0a0a0c] overflow-hidden relative"
       onPaste={handleChatPaste}
     >
       {/* ── Sessions Sidebar (History) ─────────────────────────────────── */}
       <aside
         className={`${
           isSidebarOpen ? 'w-64 md:w-72' : 'w-0'
-        } transition-all duration-200 ease-in-out border-r border-[#222222] bg-[#111111] flex flex-col shrink-0 overflow-hidden select-none`}
+        } transition-all duration-200 ease-in-out border-r border-white/[0.08] bg-[#0e0e11] flex flex-col shrink-0 overflow-hidden select-none z-20`}
       >
         {/* Sidebar Header & New Chat button */}
-        <div className="p-4 border-b border-[#1e1e1e] space-y-3 shrink-0">
+        <div className="p-3.5 border-b border-white/[0.08] space-y-3 shrink-0">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400 font-semibold flex items-center gap-1.5">
               <MessageSquare size={13} className="text-amber-300" />
@@ -777,7 +773,7 @@ export function ChatViewContent() {
           <button
             type="button"
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 bg-[#1a1a1a] hover:bg-[#242424] text-neutral-100 hover:text-white border border-[#2a2a2a] px-3.5 py-2.5 rounded-xl transition-all text-xs font-medium shadow-sm active:scale-[0.99]"
+            className="w-full flex items-center justify-center gap-2 bg-white/[0.07] hover:bg-white/[0.12] text-neutral-100 hover:text-white border border-white/10 px-3.5 py-2.5 rounded-xl transition-all text-xs font-medium shadow-sm active:scale-[0.99] cursor-pointer"
           >
             <Plus size={15} className="text-amber-300" />
             <span>New Chat</span>
@@ -793,8 +789,8 @@ export function ChatViewContent() {
                 key={chat.id}
                 className={`group relative flex items-center w-full rounded-xl transition-colors ${
                   isActive
-                    ? 'bg-[#1c1c1c] text-neutral-100 font-medium border border-[#2a2a2a]'
-                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-[#161616]'
+                    ? 'bg-white/[0.1] text-white font-medium border border-white/15'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.04]'
                 }`}
               >
                 <button
@@ -802,7 +798,7 @@ export function ChatViewContent() {
                   onClick={() => {
                     navigate({ to: '/dashboard/chat/$id', params: { id: chat.id }, state: {} as any });
                   }}
-                  className="w-full text-left px-3 py-2.5 pr-8 text-xs truncate"
+                  className="w-full text-left px-3 py-2.5 pr-8 text-xs truncate cursor-pointer"
                   title={chat.title}
                 >
                   {chat.title || 'Untitled Session'}
@@ -810,7 +806,7 @@ export function ChatViewContent() {
                 <button
                   type="button"
                   onClick={(e) => void handleDeleteChat(e, chat)}
-                  className="absolute right-2 p-1 rounded text-neutral-500 hover:text-rose-400 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  className="absolute right-2 p-1 rounded text-neutral-500 hover:text-rose-400 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
                   title="Delete chat"
                   aria-label={`Delete ${chat.title || 'chat'}`}
                 >
@@ -832,7 +828,7 @@ export function ChatViewContent() {
         </div>
 
         {/* System Health Status in Sidebar Footer */}
-        <div className="p-3 border-t border-[#1e1e1e] shrink-0 bg-[#0e0e0e]">
+        <div className="p-3 border-t border-white/[0.08] shrink-0 bg-[#0e0e11]">
           <SystemStatus
             status={health.status}
             sourceRegistryReady={health.sourceRegistryReady}
@@ -853,15 +849,15 @@ export function ChatViewContent() {
       </aside>
 
       {/* ── Main Conversation Area ─────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#0d0d0d]">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#0a0a0c]">
         {/* Header */}
-        <header className="chat-view__header h-14 border-b border-[#222222] flex items-center justify-between px-5 shrink-0 z-10 bg-[#121212]/95 backdrop-blur-md">
+        <header className="chat-view__header h-14 border-b border-white/[0.08] flex items-center justify-between px-5 shrink-0 z-10 bg-[#0e0e11]/80 backdrop-blur-xl">
           <div className="flex items-center gap-3 min-w-0">
             {!isSidebarOpen && (
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(true)}
-                className="text-neutral-400 hover:text-neutral-200 transition-colors p-1"
+                className="text-neutral-400 hover:text-neutral-200 transition-colors p-1.5 rounded-lg hover:bg-white/[0.06] cursor-pointer"
                 title="Open chat sessions"
               >
                 <PanelLeft size={17} />
@@ -896,7 +892,7 @@ export function ChatViewContent() {
                   const targetChat = chats.find((c) => c.id === routeChatId) || ({ id: routeChatId, title: currentChatTitle } as any);
                   void handleDeleteChat(e, targetChat);
                 }}
-                className="text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1 rounded-lg border border-rose-900/40 hover:bg-rose-950/30 transition-colors flex items-center gap-1.5"
+                className="text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1.5 rounded-lg border border-rose-900/40 hover:bg-rose-950/30 transition-colors flex items-center gap-1.5 cursor-pointer"
                 title="Delete this chat session"
               >
                 <Trash2 size={13} />
@@ -906,39 +902,41 @@ export function ChatViewContent() {
             <button
               type="button"
               onClick={handleNewChat}
-              className="text-xs text-neutral-400 hover:text-neutral-200 px-2.5 py-1 rounded-lg border border-[#2a2a2a] hover:bg-[#1c1c1c] transition-colors"
+              className="text-xs text-neutral-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.08] transition-colors cursor-pointer"
             >
               + New
             </button>
           </div>
         </header>
 
-        {/* Messages list */}
-        <div className="chat-view__messages flex-1 overflow-y-auto p-5 space-y-4">
-          {shouldShowChatLoading ? (
-            <ChatLoadingScreen />
-          ) : messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-neutral-500 py-16">
-              <Scale className="w-12 h-12 mb-3 opacity-30 text-amber-200" />
-              <p className="text-sm font-serif">Start a new legal inquiry...</p>
-            </div>
-          ) : null}
-          {messages.map((msg, idx) => (
-            <MessageBubble key={idx} message={msg} />
-          ))}
-          {isLoading && <ThinkingAnimation />}
-          <div ref={messagesEndRef} />
+        {/* Messages list - Center aligned, spacious, comfortable */}
+        <div className="chat-view__messages flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-6">
+          <div className="max-w-4xl mx-auto w-full space-y-5">
+            {shouldShowChatLoading ? (
+              <ChatLoadingScreen />
+            ) : messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-neutral-500 py-24">
+                <Scale className="w-12 h-12 mb-3 opacity-30 text-amber-200" />
+                <p className="text-sm font-serif">Start a new legal inquiry...</p>
+              </div>
+            ) : null}
+            {messages.map((msg, idx) => (
+              <MessageBubble key={idx} message={msg} />
+            ))}
+            {isLoading && <ThinkingAnimation />}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
-        {/* Input Composer */}
-        <div className="chat-view__composer p-4 bg-[#121212] border-t border-[#222222] shrink-0">
+        {/* Input Composer - Pinned cleanly to bottom */}
+        <div className="chat-view__composer p-4 bg-[#0e0e11]/90 backdrop-blur-xl border-t border-white/[0.08] shrink-0">
           <div className="max-w-4xl mx-auto">
             {(chatAttachments.length > 0 || pendingFiles.length > 0) && (
               <div className="mb-3 flex flex-wrap gap-2" aria-label="Chat attachments">
                 {chatAttachments.map((attachment) => (
                   <div
                     key={attachment.id}
-                    className="flex items-center gap-2 bg-[#181818] border border-[#2a2a2a] text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
+                    className="flex items-center gap-2 bg-white/[0.05] border border-white/10 text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
                     title={`${attachment.filename} (saved in this chat)`}
                   >
                     {attachment.content_type.startsWith('image/') ? (
@@ -956,7 +954,7 @@ export function ChatViewContent() {
                   return (
                     <div
                       key={`${key}:${index}`}
-                      className="flex items-center gap-2 bg-[#181818] border border-[#2a2a2a] text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
+                      className="flex items-center gap-2 bg-white/[0.05] border border-white/10 text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
                     >
                       {preview ? (
                         <img src={preview} alt="" className="w-7 h-7 object-cover rounded" />
@@ -983,7 +981,7 @@ export function ChatViewContent() {
               <p role="status" className="mb-2 text-xs text-neutral-400">Saving attachments to this chat…</p>
             )}
 
-            <div className="chat-view__input-shell flex items-center gap-3 bg-[#161616] border border-[#2c2c2c] rounded-xl px-4 py-3 shadow-inner focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
+            <div className="chat-view__input-shell flex items-center gap-3 bg-white/[0.05] border border-white/10 rounded-2xl px-4 py-3 shadow-inner focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1027,7 +1025,7 @@ export function ChatViewContent() {
               />
 
               <button
-                className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-lg disabled:opacity-40 transition-colors"
+                className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-xl disabled:opacity-40 transition-colors cursor-pointer"
                 onClick={handleSend}
                 disabled={isLoading || (!input.trim() && pendingFiles.length === 0)}
                 type="button"

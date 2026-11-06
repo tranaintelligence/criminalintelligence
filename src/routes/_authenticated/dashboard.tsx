@@ -446,7 +446,11 @@ function DashboardLayout() {
 
       {/* Main Content Area */}
       <main
-        className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10"
+        className={`md:ml-[280px] text-[#F0F0F0] relative z-10 ${
+          location.pathname.startsWith("/dashboard/chat")
+            ? "h-screen flex flex-col overflow-hidden p-0"
+            : "min-h-screen p-4 md:p-6 lg:p-8"
+        }`}
         onClickCapture={(e) => {
           const target = (e.target as HTMLElement).closest('a[href="/dashboard/lawyers"]');
           if (target) {
@@ -459,9 +463,13 @@ function DashboardLayout() {
           }
         }}
       >
-        <div className="max-w-7xl mx-auto space-y-6">
+        {location.pathname.startsWith("/dashboard/chat") ? (
           <Outlet />
-        </div>
+        ) : (
+          <div className="max-w-7xl mx-auto space-y-6">
+            <Outlet />
+          </div>
+        )}
       </main>
 
       {showLawyerModal && (

@@ -61,6 +61,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   sources?: SourceChunk[];
+  structured_content?: StructuredAnalysis | null;
   model_used?: string;
   processing_time_seconds?: number;
   created_at?: string;

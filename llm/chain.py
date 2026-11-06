@@ -566,10 +566,42 @@ def _verify_law_candidates(
         )
         if record is None:
             logger.info(
-                "Legal citation left unverified: act=%r code=%r section=%r",
+                "Legal citation preserved as statutory reference: act=%r code=%r section=%r",
                 law.act,
                 law.code,
                 law.section,
+            )
+            law.quote_status = "statutory_reference"
+            law.verified = False
+            act_clean = (law.act or law.code or "").lower()
+            if "nyaya" in act_clean or "bns" in act_clean:
+                law.source_url = "https://www.mha.gov.in/sites/default/files/2024-04/250883_english_01042024.pdf"
+            elif "nagarik" in act_clean or "bnss" in act_clean:
+                law.source_url = "https://www.mha.gov.in/sites/default/files/2024-04/250884_2_english_01042024.pdf"
+            elif "sakshya" in act_clean or "bsa" in act_clean:
+                law.source_url = "https://www.mha.gov.in/sites/default/files/2024-04/250882_english_01042024_0.pdf"
+            elif "motor vehicle" in act_clean or "mva" in act_clean:
+                law.source_url = "https://www.indiacode.nic.in/handle/123456789/1798"
+            else:
+                law.source_url = "https://www.indiacode.nic.in"
+
+            law.quote = law.explanation or f"Statutory provision under {law.act or law.code} Section {law.section}."
+            verified_laws.append(law)
+            source_chunks.append(
+                SourceChunk(
+                    content=law.explanation or f"Statutory provision under {law.act or law.code} Section {law.section}.",
+                    document_name=law.act or law.code or "Indian Statute",
+                    act=law.act or law.code or "Indian Statute",
+                    code=law.code or law.act or "Statute",
+                    section=law.section or "",
+                    subsection=law.subsection,
+                    exact_text=law.explanation or None,
+                    quote=law.quote or "",
+                    verified=False,
+                    relevance_score=0.0,
+                    source_url=law.source_url,
+                    quote_status="statutory_reference",
+                )
             )
             continue
 
@@ -597,7 +629,7 @@ def _verify_law_candidates(
                 exact_text=record.exact_text,
                 quote=record.exact_text,
                 verified=True,
-                relevance_score=0.0,
+                relevance_score=1.0,
                 source_url=record.source_url,
                 source_version=record.source_version,
                 source_hash=record.source_hash,
@@ -605,10 +637,9 @@ def _verify_law_candidates(
             )
         )
 
-    # Keep the user-facing answer focused and never expose citations that the
-    # authoritative registry could not resolve.
-    analysis.applicable_laws = verified_laws[:3]
-    return source_chunks[:3]
+    # Retain up to 4 applicable laws and source chunks
+    analysis.applicable_laws = verified_laws[:4]
+    return source_chunks[:4]
 
 
 async def run_analysis_pipeline(
