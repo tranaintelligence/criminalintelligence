@@ -58,10 +58,12 @@ function StudentOverviewPage() {
     } catch {}
   }, [user?.id]);
 
-  const studentName = user?.name || user?.email?.split("@")[0] || "Law Student";
-  const university = studentProfile?.university || "National Law University, Delhi";
+  const studentName = studentProfile?.fullName || user?.name || user?.email?.split("@")[0] || "Law Student";
+  const university = studentProfile?.university || "Law University";
   const degree = studentProfile?.degree || "5-Year B.A. LL.B. (Hons)";
-  const yearOfStudy = studentProfile?.yearOfStudy || "3rd Year Scholar";
+  const yearOfStudy = studentProfile?.yearOfStudy || "Scholar";
+  const rollNo = studentProfile?.studentIdNumber;
+  const city = studentProfile?.city;
 
   return (
     <div className="space-y-8 md:space-y-10">
@@ -76,14 +78,28 @@ function StudentOverviewPage() {
           <h1 className="mt-2 font-display text-3xl md:text-5xl font-medium text-white">
             Welcome back, {studentName}
           </h1>
-          <p className="mt-2 text-xs md:text-sm text-neutral-400 flex items-center gap-2">
+          <p className="mt-2 text-xs md:text-sm text-neutral-400 flex flex-wrap items-center gap-2">
             <span>{university}</span>
             <span>•</span>
             <span className="text-white/80">{yearOfStudy}</span>
+            {rollNo && (
+              <>
+                <span>•</span>
+                <span className="apple-glass-pill px-2 py-0.5 text-[11px] font-mono text-purple-300">
+                  Roll No: {rollNo}
+                </span>
+              </>
+            )}
+            {city && (
+              <>
+                <span>•</span>
+                <span className="text-neutral-400 font-mono text-xs">{city}</span>
+              </>
+            )}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             to="/student/drafter"
             className="bg-white text-black px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.15em] hover:bg-neutral-200 transition-all flex items-center gap-2 shadow-md hover:shadow-[0_0_20px_rgba(255,255,255,0.25)]"
@@ -97,6 +113,12 @@ function StudentOverviewPage() {
           >
             <Users className="h-3.5 w-3.5" />
             <span>Network</span>
+          </Link>
+          <Link
+            to="/student/profile"
+            className="apple-glass-pill px-4 py-2.5 text-xs font-mono uppercase tracking-[0.1em] text-neutral-300 hover:text-white transition-all shadow-sm"
+          >
+            Edit Profile
           </Link>
         </div>
       </div>

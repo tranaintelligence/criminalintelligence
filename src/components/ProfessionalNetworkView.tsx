@@ -702,6 +702,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
           clientName={activeChatTarget.clientName}
           lawyerName={activeChatTarget.lawyerName}
           currentParty="lawyer"
+          consultationType={activeChatTarget.consultType || "Chat"}
         />
       )}
     </div>

@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tansta
 import { useState, useEffect } from "react";
 import { 
   GraduationCap, BookOpen, Scale, Search, FileText, 
-  Sparkles, Users, ArrowUpRight, LogOut, ChevronRight, Menu, X, Landmark, ShieldCheck
+  Sparkles, Users, ArrowUpRight, LogOut, ChevronRight, Menu, X, Landmark, ShieldCheck, User, Hash, Compass
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ const studentNav = [
   { to: "/student/research", label: "Case Research", icon: Landmark },
   { to: "/student/documents", label: "My Documents", icon: FileText },
   { to: "/student/network", label: "Professional Network", icon: Users },
+  { to: "/student/profile", label: "My Profile", icon: User },
 ];
 
 function StudentLayout() {
@@ -33,19 +34,43 @@ function StudentLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Student Enrollment Form states
-  const [fullName, setFullName] = useState(user?.name || user?.user_metadata?.full_name || "");
-  const [university, setUniversity] = useState("National Law University, Delhi");
-  const [degree, setDegree] = useState("5-Year B.A. LL.B. (Hons)");
-  const [yearOfStudy, setYearOfStudy] = useState("3rd Year Scholar");
-  const [city, setCity] = useState("New Delhi");
-  const [studentId, setStudentId] = useState("");
+  const [fullName, setFullName] = useState(
+    studentProfile?.fullName || user?.name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || ""
+  );
+  const [university, setUniversity] = useState(studentProfile?.university || "");
+  const [degree, setDegree] = useState(studentProfile?.degree || "5-Year B.A. LL.B. (Hons)");
+  const [yearOfStudy, setYearOfStudy] = useState(studentProfile?.yearOfStudy || "3rd Year Scholar");
+  const [city, setCity] = useState(studentProfile?.city || "New Delhi");
+  const [studentId, setStudentId] = useState(studentProfile?.studentIdNumber || "");
+  const [focus, setFocus] = useState(studentProfile?.focus || "");
+  const [bio, setBio] = useState(studentProfile?.bio || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     document.title = "Law Student Workspace — TRANA";
   }, [location.pathname]);
 
-  const hasStudentAccess = isStudent || isLawyer || isFounder;
+  useEffect(() => {
+    if (studentProfile) {
+      if (studentProfile.fullName) setFullName(studentProfile.fullName);
+      if (studentProfile.university) setUniversity(studentProfile.university);
+      if (studentProfile.studentIdNumber) setStudentId(studentProfile.studentIdNumber);
+      if (studentProfile.degree) setDegree(studentProfile.degree);
+      if (studentProfile.yearOfStudy) setYearOfStudy(studentProfile.yearOfStudy);
+      if (studentProfile.city) setCity(studentProfile.city);
+      if (studentProfile.focus) setFocus(studentProfile.focus);
+      if (studentProfile.bio) setBio(studentProfile.bio);
+    }
+  }, [studentProfile]);
+
+  const isEnrolled = Boolean(
+    studentProfile &&
+    studentProfile.university &&
+    studentProfile.university.trim() &&
+    studentProfile.studentIdNumber &&
+    studentProfile.studentIdNumber.trim()
+  );
+  const isProfileRoute = location.pathname.startsWith("/student/profile");
 
   async function handleEnrollSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,40 +78,26 @@ function StudentLayout() {
       toast.error("Please enter your law university or college name.");
       return;
     }
+    if (!studentId.trim()) {
+      toast.error("Please enter your student ID or college roll number.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const profile: StudentProfile = {
+        fullName: fullName.trim() || user?.name || "Law Student",
         university: university.trim(),
         degree: degree.trim(),
         yearOfStudy: yearOfStudy.trim(),
-        studentIdNumber: studentId.trim() || undefined,
+        studentIdNumber: studentId.trim(),
         city: city.trim() || "New Delhi",
+        focus: focus.trim(),
+        bio: bio.trim(),
       };
 
       await enrollAsStudent(profile);
-
-      // Register student in central directory for networking
-      try {
-        const stored = JSON.parse(localStorage.getItem("trana_all_registered_students") || "[]");
-        const entry = {
-          id: user.id,
-          name: fullName.trim() || "Law Student",
-          role: "student",
-          roleLabel: `Law Student (${degree})`,
-          affiliation: university.trim(),
-          city: city.trim(),
-          experienceOrYear: yearOfStudy.trim(),
-          specialisationOrInterests: "Constitutional Law, Criminal Procedure & Statutory AI Research",
-          isVerified: true,
-          email: user.email,
-        };
-        const updated = stored.filter((s: any) => s.id !== user.id);
-        updated.push(entry);
-        localStorage.setItem("trana_all_registered_students", JSON.stringify(updated));
-      } catch {}
-
-      toast.success("Welcome to TRANA Student Workspace!");
+      toast.success("Student scholar credentials saved! Welcome to TRANA.");
     } catch (err: any) {
       toast.error(err.message || "Failed to complete student enrollment.");
     } finally {
@@ -103,8 +114,8 @@ function StudentLayout() {
     navigate({ to: "/auth", replace: true });
   }
 
-  // Student Enrollment Gate for pure citizens
-  if (!hasStudentAccess) {
+  // Mandatory Student Enrollment Gate: requires roll no, college, etc.
+  if (!isEnrolled && !isProfileRoute) {
     return (
       <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center selection:bg-white selection:text-black">
         <Toaster />
@@ -120,7 +131,7 @@ function StudentLayout() {
               </div>
               <div>
                 <span className="font-display text-2xl font-semibold tracking-[0.15em] text-white">TRANA</span>
-                <p className="text-[0.7rem] text-neutral-400 tracking-widest uppercase">Student Workspace Onboarding</p>
+                <p className="text-[0.7rem] text-neutral-400 tracking-widest uppercase">Student Scholar Enrollment</p>
               </div>
             </div>
             <div className="apple-glass-pill px-3 py-1 text-xs text-purple-300 font-mono flex items-center gap-1.5 border-purple-500/30">
@@ -131,10 +142,10 @@ function StudentLayout() {
 
           <div className="mt-6">
             <h1 className="font-display text-2xl md:text-3xl font-medium text-white">
-              Law Student & Academic Scholar Enrollment
+              Law Student Enrollment Form
             </h1>
             <p className="mt-2 text-xs md:text-sm text-neutral-300 leading-relaxed">
-              Unlock access to TRANA's research suite — AI Drafter for moot court memorials, eCourts Case Tracker, Statutory Precedent Search, and the Student Professional Network.
+              Please enter your law college details and roll number to initialize your student academic workspace — AI Drafter for moot court memorials, Case Tracker, Statutory Precedent Search, and Student Network.
             </p>
           </div>
 
@@ -142,7 +153,7 @@ function StudentLayout() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
-                  Full Name
+                  Full Name *
                 </label>
                 <input
                   type="text"
@@ -156,7 +167,7 @@ function StudentLayout() {
 
               <div>
                 <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
-                  City / Campus Location
+                  Campus City / Location *
                 </label>
                 <input
                   type="text"
@@ -171,22 +182,37 @@ function StudentLayout() {
 
             <div>
               <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
-                Law University / College / Faculty of Law
+                Law University / College / Faculty of Law *
               </label>
               <input
                 type="text"
                 required
                 value={university}
                 onChange={(e) => setUniversity(e.target.value)}
-                placeholder="e.g. National Law University Delhi, NALSAR, Faculty of Law DU"
+                placeholder="e.g. National Law University Delhi, NLSIU, Faculty of Law DU, ILS Pune"
                 className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
+                <label className="block text-[0.7rem] uppercase tracking-wider text-purple-300 font-mono mb-1.5 flex items-center gap-1">
+                  <Hash className="h-3 w-3" />
+                  <span>Student ID / College Roll No. *</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  placeholder="e.g. 2023/BALLB/042, NLU-D-21-098"
+                  className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 font-mono uppercase"
+                />
+              </div>
+
+              <div>
                 <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
-                  Degree Program
+                  Degree Program *
                 </label>
                 <select
                   value={degree}
@@ -200,10 +226,12 @@ function StudentLayout() {
                   <option value="Ph.D. Legal Scholar" className="bg-[#121216] text-white">Ph.D. Legal Scholar</option>
                 </select>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
-                  Year of Study
+                  Year of Study *
                 </label>
                 <select
                   value={yearOfStudy}
@@ -216,21 +244,23 @@ function StudentLayout() {
                   <option value="4th Year Pre-Final" className="bg-[#121216] text-white">4th Year Pre-Final</option>
                   <option value="5th Year Finalist" className="bg-[#121216] text-white">5th Year Finalist</option>
                   <option value="Postgraduate LL.M." className="bg-[#121216] text-white">Postgraduate LL.M.</option>
+                  <option value="Doctoral Scholar" className="bg-[#121216] text-white">Doctoral Scholar</option>
                 </select>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
-                Student ID / Roll No. (Optional)
-              </label>
-              <input
-                type="text"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                placeholder="e.g. NLU-D-2023-042"
-                className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500"
-              />
+              <div>
+                <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5 flex items-center gap-1">
+                  <Compass className="h-3 w-3 text-purple-400" />
+                  <span>Academic Focus (Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={focus}
+                  onChange={(e) => setFocus(e.target.value)}
+                  placeholder="e.g. Constitutional Law, BNSS, Moot Court"
+                  className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500"
+                />
+              </div>
             </div>
 
             <div className="pt-4 flex items-center justify-between gap-4 border-t border-white/[0.08]">
@@ -243,7 +273,7 @@ function StudentLayout() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-md cursor-pointer"
+                className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>{isSubmitting ? "Enrolling..." : "Launch Student Workspace"}</span>
@@ -255,7 +285,7 @@ function StudentLayout() {
     );
   }
 
-  const studentDisplayName = fullName || user?.name || user?.email?.split("@")[0] || "Law Student";
+  const studentDisplayName = studentProfile?.fullName || fullName || user?.name || user?.email?.split("@")[0] || "Law Student";
   const studentCollege = studentProfile?.university || "National Law University";
 
   const sidebarContent = (

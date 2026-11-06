@@ -5,11 +5,14 @@ import { checkIsAdmin } from "@/routes/founders";
 export type UserRole = "citizen" | "lawyer" | "student" | "founder";
 
 export interface StudentProfile {
+  fullName?: string;
   university: string;
   degree: string;
   yearOfStudy: string;
   studentIdNumber?: string;
   city?: string;
+  focus?: string;
+  bio?: string;
   enrolledAt?: string;
 }
 
@@ -29,7 +32,7 @@ export function getStoredUserRole(userId?: string | null, email?: string | null)
     }
 
     // 3. Student enrollment check
-    const studentData = localStorage.getItem(`trana_student_enrolled_${userId}`);
+    const studentData = localStorage.getItem(`trana_student_enrolled_${userId}`) || localStorage.getItem(`trana_student_profile_${userId}`);
     if (studentData) return "student";
 
     // 4. Lawyer check
@@ -52,10 +55,14 @@ export function getStoredUserRole(userId?: string | null, email?: string | null)
 }
 
 export function getStoredStudentProfile(userId?: string | null): StudentProfile | null {
-  if (!userId || typeof window === "undefined") return null;
+  if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(`trana_student_enrolled_${userId}`);
-    if (raw) return JSON.parse(raw);
+    if (userId) {
+      const raw = localStorage.getItem(`trana_student_enrolled_${userId}`) || localStorage.getItem(`trana_student_profile_${userId}`);
+      if (raw) return JSON.parse(raw);
+    }
+    const globalRaw = localStorage.getItem("trana_student_profile");
+    if (globalRaw) return JSON.parse(globalRaw);
   } catch {}
   return null;
 }
@@ -70,6 +77,24 @@ export function useUserRole(userId?: string | null, email?: string | null) {
   // Sync role and student profile from Supabase & localStorage
   const syncRole = useCallback(async () => {
     if (!userId && !email) return;
+
+    // Always check and load studentProfile
+    let student = getStoredStudentProfile(userId);
+    if (!student) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user?.user_metadata?.student_profile) {
+          student = authData.user.user_metadata.student_profile;
+          if (userId && typeof window !== "undefined") {
+            localStorage.setItem(`trana_student_enrolled_${userId}`, JSON.stringify(student));
+            localStorage.setItem(`trana_student_profile_${userId}`, JSON.stringify(student));
+          }
+        }
+      } catch {}
+    }
+    if (student) {
+      setStudentProfileState(student);
+    }
 
     if (checkIsAdmin(email)) {
       setRoleState("founder");
@@ -97,10 +122,8 @@ export function useUserRole(userId?: string | null, email?: string | null) {
     } catch {}
 
     // Check if enrolled as student
-    const student = getStoredStudentProfile(userId);
     if (student) {
       setRoleState("student");
-      setStudentProfileState(student);
       return;
     }
 
@@ -110,12 +133,6 @@ export function useUserRole(userId?: string | null, email?: string | null) {
       const meta = authData.user?.user_metadata;
       if (meta?.role === "student" || meta?.role === "lawyer" || meta?.role === "founder") {
         setRoleState(meta.role as UserRole);
-        if (meta.role === "student" && meta.student_profile) {
-          setStudentProfileState(meta.student_profile);
-          if (userId && typeof window !== "undefined") {
-            localStorage.setItem(`trana_student_enrolled_${userId}`, JSON.stringify(meta.student_profile));
-          }
-        }
         return;
       }
     } catch {}
@@ -140,17 +157,20 @@ export function useUserRole(userId?: string | null, email?: string | null) {
   // Onboard as a Law Student
   const enrollAsStudent = useCallback(
     async (profile: StudentProfile) => {
-      if (!userId) return;
       setIsLoading(true);
       try {
-        const enriched = {
+        const enriched: StudentProfile = {
           ...profile,
           enrolledAt: profile.enrolledAt || new Date().toISOString(),
         };
 
         if (typeof window !== "undefined") {
-          localStorage.setItem(`trana_student_enrolled_${userId}`, JSON.stringify(enriched));
-          localStorage.setItem(`trana_user_role_${userId}`, "student");
+          if (userId) {
+            localStorage.setItem(`trana_student_enrolled_${userId}`, JSON.stringify(enriched));
+            localStorage.setItem(`trana_student_profile_${userId}`, JSON.stringify(enriched));
+            localStorage.setItem(`trana_user_role_${userId}`, "student");
+          }
+          localStorage.setItem("trana_student_profile", JSON.stringify(enriched));
         }
 
         // Also persist in Supabase user metadata
@@ -160,6 +180,28 @@ export function useUserRole(userId?: string | null, email?: string | null) {
             student_profile: enriched,
           },
         }).catch(() => {});
+
+        // Also register in central directory for networking
+        try {
+          const stored = JSON.parse(localStorage.getItem("trana_all_registered_students") || "[]");
+          const entry = {
+            id: userId || "student-" + Date.now(),
+            name: enriched.fullName || "Law Student",
+            role: "student",
+            roleLabel: `Law Student (${enriched.degree})`,
+            affiliation: enriched.university,
+            city: enriched.city || "New Delhi",
+            experienceOrYear: enriched.yearOfStudy,
+            specialisationOrInterests: enriched.focus || "Constitutional Law, Criminal Procedure & Statutory AI Research",
+            rollNo: enriched.studentIdNumber || "",
+            bio: enriched.bio || "",
+            isVerified: true,
+            email: email,
+          };
+          const updated = stored.filter((s: any) => s.id !== (userId || entry.id));
+          updated.push(entry);
+          localStorage.setItem("trana_all_registered_students", JSON.stringify(updated));
+        } catch {}
 
         setRoleState("student");
         setStudentProfileState(enriched);
@@ -171,7 +213,7 @@ export function useUserRole(userId?: string | null, email?: string | null) {
         setIsLoading(false);
       }
     },
-    [userId]
+    [userId, email]
   );
 
   // Switch Role
