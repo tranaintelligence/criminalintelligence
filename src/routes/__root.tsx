@@ -12,6 +12,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { StatutoryDisclaimerModal } from "@/components/StatutoryDisclaimerModal";
 
 function NotFoundComponent() {
   return (
@@ -195,6 +196,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ScrollToTopOnOpen />
       <GlobalAnnouncementBanner />
+      <StatutoryDisclaimerModal />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

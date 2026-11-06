@@ -8,33 +8,31 @@ interface StatutoryDisclaimerModalProps {
 }
 
 export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: StatutoryDisclaimerModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  // Always open on initial mount/reload
+  const [isOpen, setIsOpen] = useState(true);
   const [agreed, setAgreed] = useState(false);
   const [isDeclined, setIsDeclined] = useState(false);
 
   useEffect(() => {
-    // If explicitly forced open (e.g. from footer link)
-    if (forceOpen) {
-      setIsOpen(true);
-      setIsDeclined(false);
-      return;
-    }
+    // Show acknowledgement modal on every reload / page load
+    setIsOpen(true);
+    setAgreed(false);
+    setIsDeclined(false);
 
-    // Check if user has already agreed
-    if (typeof window !== "undefined") {
-      const accepted = localStorage.getItem("trana_statutory_disclaimer_accepted");
-      if (accepted !== "true") {
-        setIsOpen(true);
-      }
-    }
-
-    // Listen to global open event
+    // Listen to global open event (e.g. from footer link)
     function handleOpenEvent() {
       setIsDeclined(false);
       setIsOpen(true);
     }
     window.addEventListener("open_statutory_disclaimer", handleOpenEvent);
     return () => window.removeEventListener("open_statutory_disclaimer", handleOpenEvent);
+  }, []);
+
+  useEffect(() => {
+    if (forceOpen) {
+      setIsOpen(true);
+      setIsDeclined(false);
+    }
   }, [forceOpen]);
 
   // Lock body scroll when modal is active
@@ -51,12 +49,6 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
 
   async function handleAccept() {
     if (!agreed) return;
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem("trana_statutory_disclaimer_accepted", "true");
-      localStorage.setItem("trana_statutory_disclaimer_accepted_at", new Date().toISOString());
-      localStorage.setItem("trana_disclaimer_accepted_all", "true");
-    }
 
     // Attempt to log acceptance in Supabase if a user session exists
     try {
@@ -87,11 +79,7 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
     if (onClose) onClose();
   }
 
-  function handleDecline() {
-    setIsDeclined(true);
-  }
-
-  function handleExit() {
+  function handleLeave() {
     if (typeof window !== "undefined") {
       window.location.href = "https://www.google.com";
     }
@@ -135,10 +123,10 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
               </button>
               <button
                 type="button"
-                onClick={handleExit}
-                className="rounded-lg bg-white px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-black hover:bg-neutral-200 transition-colors"
+                onClick={handleLeave}
+                className="rounded-lg bg-white px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-black hover:bg-neutral-200 transition-colors cursor-pointer"
               >
-                Exit Website
+                Leave to Google
               </button>
             </div>
           </div>
@@ -255,8 +243,8 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
               <div className="mt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={handleDecline}
-                  className="w-full sm:w-auto rounded-lg border border-white/15 px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-colors text-center"
+                  onClick={handleLeave}
+                  className="w-full sm:w-auto rounded-lg border border-white/15 px-5 py-2.5 text-xs font-medium uppercase tracking-wider text-neutral-400 hover:text-white hover:border-white/30 transition-colors text-center cursor-pointer"
                 >
                   Decline & Leave
                 </button>

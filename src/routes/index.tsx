@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { StatutoryDisclaimerModal } from "@/components/StatutoryDisclaimerModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,16 +39,9 @@ function Index() {
     return () => io.disconnect();
   }, []);
   const [modalOpen, setModalOpen] = useState(false);
-  const [disclaimerModalOpen, setDisclaimerModalOpen] = useState(false);
 
   return (
     <div className="bg-background text-foreground border-l border-r border-black min-h-screen">
-      {/* Mandatory Bar Council Statutory Disclaimer & Volition Acknowledgement Modal */}
-      <StatutoryDisclaimerModal
-        forceOpen={disclaimerModalOpen}
-        onClose={() => setDisclaimerModalOpen(false)}
-      />
-
       <nav className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 md:px-6 py-3 md:py-4">
           <a href="#top" className="font-display text-xl md:text-2xl font-semibold tracking-[0.25em]">TRANA</a>
@@ -286,7 +278,7 @@ function Index() {
                     <button
                       key={l}
                       type="button"
-                      onClick={() => setDisclaimerModalOpen(true)}
+                      onClick={() => window.dispatchEvent(new CustomEvent("open_statutory_disclaimer"))}
                       className="hover:text-foreground text-left transition-colors cursor-pointer"
                     >
                       {l}
