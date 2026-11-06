@@ -220,33 +220,53 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
   z-index: 1;
 }
 
+@keyframes apple-ambient-pulse {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(25px, -25px) scale(1.08);
+    opacity: 1;
+  }
+}
+
+.animate-ambient-pulse {
+  animation: apple-ambient-pulse 14s infinite ease-in-out alternate;
+}
+
+.animate-ambient-pulse-reverse {
+  animation: apple-ambient-pulse 18s infinite ease-in-out alternate-reverse;
+}
+
 /* Glass Card with True Translucency & Continuous Seamless Rim */
 .apple-glass-card {
   position: relative;
   background: linear-gradient(155deg, 
-    rgba(255, 255, 255, 0.08) 0%, 
-    rgba(255, 255, 255, 0.015) 50%, 
-    rgba(255, 255, 255, 0.04) 100%
+    rgba(255, 255, 255, 0.09) 0%, 
+    rgba(255, 255, 255, 0.02) 50%, 
+    rgba(255, 255, 255, 0.05) 100%
   ), rgba(12, 12, 15, 0.65) !important;
-  backdrop-filter: blur(36px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(40px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.18),
-    0 12px 32px -8px rgba(0, 0, 0, 0.5) !important;
-  border-radius: 18px !important;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+    0 14px 34px -8px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 20px !important;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .apple-glass-card:hover {
-  transform: translateY(-2px) !important;
-  border-color: rgba(255, 255, 255, 0.22) !important;
+  transform: translateY(-3px) scale(1.003) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
   box-shadow: 
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3),
-    0 16px 40px -8px rgba(0, 0, 0, 0.65),
-    0 0 20px 0 rgba(255, 255, 255, 0.04) !important;
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.4),
+    0 20px 48px -10px rgba(0, 0, 0, 0.75),
+    0 0 25px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
 /* Apple Rounded Pill Badge / Button */

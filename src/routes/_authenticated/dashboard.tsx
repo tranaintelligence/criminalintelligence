@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
-import { Menu, X, Scale, GraduationCap, ArrowUpRight, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Menu, X, Scale, GraduationCap, ArrowUpRight, ShieldCheck, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/lib/user-role";
 
@@ -58,9 +58,60 @@ function DashboardLayout() {
   const [showLawyerModal, setShowLawyerModal] = useState(false);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
+  // VisionOS Sliding Pill Navigation and Search State
+  const [pillState, setPillState] = useState({ top: 0, height: 36, opacity: 0 });
+  const [searchQuery, setSearchQuery] = useState("");
+  const navContainerRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<(HTMLElement | null)[]>([]);
+
   useEffect(() => {
     document.title = "Citizens Dashboard — TRANA";
   }, [location.pathname]);
+
+  // Filter items by search query if user types in search
+  const filteredNav = searchQuery.trim()
+    ? nav.filter((item) =>
+        item.label.toLowerCase().includes(searchQuery.toLowerCase().trim())
+      )
+    : nav;
+
+  // Find active route index
+  const activeRouteIndex = filteredNav.findIndex((n) => {
+    if (n.to === "/dashboard") {
+      return location.pathname === "/dashboard" || location.pathname === "/dashboard/";
+    }
+    return location.pathname.startsWith(n.to);
+  });
+
+  const updatePill = (idx: number, visible: boolean) => {
+    if (!visible || idx === -1) {
+      setPillState((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+    const container = navContainerRef.current;
+    const target = itemRefs.current[idx];
+    if (container && target) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const topOffset = targetRect.top - containerRect.top;
+      setPillState({
+        top: topOffset,
+        height: targetRect.height,
+        opacity: 1,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (activeRouteIndex !== -1) {
+        updatePill(activeRouteIndex, true);
+      } else {
+        updatePill(-1, false);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [location.pathname, activeRouteIndex, filteredNav.length]);
 
   // Check if current logged-in user has already accepted the advocate notice
   const { data: hasAcknowledged } = useQuery({
@@ -153,23 +204,55 @@ function DashboardLayout() {
         </div>
       </div>
 
-      {/* Navigation Area */}
+      {/* Pill Search Bar */}
+      <div className="px-3 pt-3 pb-1">
+        <div className="relative flex items-center">
+          <Search className="absolute left-3.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search pages..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-12 py-1.5 text-xs text-white placeholder-neutral-400/60 bg-white/[0.07] hover:bg-white/[0.12] focus:bg-white/[0.14] border border-white/15 focus:border-white/40 rounded-full shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-all outline-none"
+          />
+          <span className="absolute right-2.5 px-1.5 py-0.5 text-[9px] font-mono font-medium rounded-full bg-white/10 border border-white/20 text-neutral-300 pointer-events-none shadow-sm">
+            ⌘K
+          </span>
+        </div>
+      </div>
+
+      {/* Navigation Area with Apple Smooth Gliding Frosted Glass Pill */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3">
-        <nav className="space-y-1">
-          {nav.map((n) => {
-            const isActive =
-              n.to === "/dashboard"
-                ? location.pathname === "/dashboard" || location.pathname === "/dashboard/"
-                : location.pathname.startsWith(n.to);
+        <nav
+          ref={navContainerRef}
+          onMouseLeave={() => updatePill(activeRouteIndex, activeRouteIndex !== -1)}
+          className="relative select-none space-y-0.5"
+        >
+          {/* THE FLUID GLIDING FROSTED GLASS PILL */}
+          <div
+            className="apple-sliding-pill"
+            style={{
+              top: `${pillState.top}px`,
+              height: `${pillState.height}px`,
+              opacity: pillState.opacity,
+            }}
+          />
+
+          {filteredNav.map((n, idx) => {
+            const isActive = idx === activeRouteIndex;
 
             if (n.to === "/dashboard/lawyers") {
               return (
                 <button
                   key={n.to}
+                  ref={(el) => {
+                    itemRefs.current[idx] = el;
+                  }}
+                  onMouseEnter={() => updatePill(idx, true)}
                   type="button"
                   onClick={handleFindLawyerClick}
                   className={`w-full text-left apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 cursor-pointer ${
-                    isActive ? "text-white bg-white/[0.14] border border-white/25 shadow-sm" : "text-neutral-300 hover:text-white hover:bg-white/[0.08]"
+                    isActive ? "text-white active" : "text-neutral-300 hover:text-white"
                   }`}
                 >
                   <span className="tracking-normal truncate">{n.label}</span>
@@ -181,11 +264,15 @@ function DashboardLayout() {
             return (
               <Link
                 key={n.to}
+                ref={(el) => {
+                  itemRefs.current[idx] = el;
+                }}
+                onMouseEnter={() => updatePill(idx, true)}
                 to={n.to}
                 activeOptions={{ exact: "exact" in n }}
                 onClick={() => setOpen(false)}
                 className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
-                  isActive ? "text-white bg-white/[0.14] border border-white/25 shadow-sm" : "text-neutral-300 hover:text-white hover:bg-white/[0.08]"
+                  isActive ? "text-white active" : "text-neutral-300 hover:text-white"
                 }`}
               >
                 <span className="tracking-normal truncate">{n.label}</span>
@@ -207,6 +294,7 @@ function DashboardLayout() {
                     {profile?.name?.[0]?.toUpperCase() || "C"}
                   </div>
                 </div>
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-[#121216] shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-medium text-white truncate leading-tight">
@@ -312,11 +400,11 @@ function DashboardLayout() {
   return (
     <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black">
       {/* Ambient background subtle monochrome white glow */}
-      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.025] blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10" />
+      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.03] blur-[140px] pointer-events-none -z-10 animate-ambient-pulse" />
+      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-emerald-500/[0.02] blur-[150px] pointer-events-none -z-10 animate-ambient-pulse-reverse" />
 
       {/* Desktop Left Sidebar: Fixed Floating Apple Glass */}
-      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[275px] p-3 lg:p-4 z-40 select-none">
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[280px] p-3 lg:p-4 z-40 select-none">
         <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden">
           {sidebar}
         </div>
@@ -343,7 +431,7 @@ function DashboardLayout() {
       {/* Mobile Drawer */}
       {open && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md md:hidden flex p-3">
-          <div className="apple-floating-sidebar w-[275px] h-full flex flex-col relative overflow-hidden shadow-2xl">
+          <div className="apple-floating-sidebar w-[280px] h-full flex flex-col relative overflow-hidden shadow-2xl">
             <button
               aria-label="Close menu"
               className="absolute right-3.5 top-3.5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-neutral-300 hover:text-white z-50 transition-all cursor-pointer"
@@ -358,7 +446,7 @@ function DashboardLayout() {
 
       {/* Main Content Area */}
       <main
-        className="md:ml-[275px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10"
+        className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10"
         onClickCapture={(e) => {
           const target = (e.target as HTMLElement).closest('a[href="/dashboard/lawyers"]');
           if (target) {
@@ -371,7 +459,7 @@ function DashboardLayout() {
           }
         }}
       >
-        <div className="mx-auto max-w-5xl px-6 py-10 md:px-12 md:py-14">
+        <div className="max-w-7xl mx-auto space-y-6">
           <Outlet />
         </div>
       </main>

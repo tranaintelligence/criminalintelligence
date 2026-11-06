@@ -91,12 +91,31 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
     const myNormId = currentUser.id.toLowerCase().trim();
     const myNormName = currentUser.name.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
 
-    // A. Real Lawyers
+    // Check for removed IDs by founders
+    let removedIds: string[] = [];
+    try {
+      if (typeof window !== "undefined") {
+        removedIds = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
+      }
+    } catch {}
+
+    // A. Real Verified Lawyers Only (Zero Sample/Mock Lawyers)
     (dbLawyers || []).forEach((row: any) => {
       const normId = String(row.id || "").toLowerCase().trim();
-      const normName = String(row.full_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+      const rawName = String(row.full_name || "");
+      const normName = rawName.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
 
       if (normId === myNormId || normName === myNormName) return;
+      if (removedIds.includes(String(row.id))) return;
+
+      // Filter out any mock/seed sample names
+      if (
+        normName.includes("anandita") ||
+        normName.includes("swastik") ||
+        normName.includes("vikramaditya")
+      ) {
+        return;
+      }
 
       let courtsDisplay = "High Court & Sessions";
       if (row.courts) {
@@ -126,18 +145,33 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
       });
     });
 
-    // B. Registered Law Students from localStorage or known student network
+    // B. Real Registered Law Students Only (Zero Sample Students)
     try {
-      const storedStudentsRaw = localStorage.getItem("trana_all_registered_students");
-      if (storedStudentsRaw) {
-        const parsed = JSON.parse(storedStudentsRaw);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((s: any) => {
-            if (!s.id || s.id === currentUser.id) return;
-            if (!list.some((existing) => existing.id === s.id)) {
-              list.push(s);
+      if (typeof window !== "undefined") {
+        // Clean out any stale sample student records from localStorage
+        const storedStudentsRaw = localStorage.getItem("trana_all_registered_students");
+        if (storedStudentsRaw) {
+          const parsed = JSON.parse(storedStudentsRaw);
+          if (Array.isArray(parsed)) {
+            const sanitized = parsed.filter((s: any) => {
+              const sName = (s.name || "").toLowerCase();
+              return (
+                !sName.includes("aarav") &&
+                !sName.includes("meera") &&
+                s.id !== "student-nlsiu-blr-02" &&
+                s.id !== "student-nlu-delhi-01"
+              );
+            });
+            if (sanitized.length !== parsed.length) {
+              localStorage.setItem("trana_all_registered_students", JSON.stringify(sanitized));
             }
-          });
+            sanitized.forEach((s: any) => {
+              if (!s.id || s.id === currentUser.id) return;
+              if (!list.some((existing) => existing.id === s.id)) {
+                list.push(s);
+              }
+            });
+          }
         }
       }
     } catch {}

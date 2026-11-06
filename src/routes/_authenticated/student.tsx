@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   GraduationCap, BookOpen, Scale, Search, FileText, 
   Sparkles, Users, ArrowUpRight, LogOut, ChevronRight, Menu, X, Landmark, ShieldCheck, User, Hash, Compass
@@ -32,6 +32,57 @@ function StudentLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // VisionOS Sliding Pill Navigation and Search State
+  const [pillState, setPillState] = useState({ top: 0, height: 36, opacity: 0 });
+  const [searchQuery, setSearchQuery] = useState("");
+  const navContainerRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<(HTMLElement | null)[]>([]);
+
+  // Filter items by search query if user types in search
+  const filteredNav = searchQuery.trim()
+    ? studentNav.filter((item) =>
+        item.label.toLowerCase().includes(searchQuery.toLowerCase().trim())
+      )
+    : studentNav;
+
+  // Find active route index
+  const activeRouteIndex = filteredNav.findIndex((item) => {
+    if (item.exact) {
+      return location.pathname === item.to || location.pathname === `${item.to}/`;
+    }
+    return location.pathname.startsWith(item.to);
+  });
+
+  const updatePill = (idx: number, visible: boolean) => {
+    if (!visible || idx === -1) {
+      setPillState((prev) => ({ ...prev, opacity: 0 }));
+      return;
+    }
+    const container = navContainerRef.current;
+    const target = itemRefs.current[idx];
+    if (container && target) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const topOffset = targetRect.top - containerRect.top;
+      setPillState({
+        top: topOffset,
+        height: targetRect.height,
+        opacity: 1,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (activeRouteIndex !== -1) {
+        updatePill(activeRouteIndex, true);
+      } else {
+        updatePill(-1, false);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [location.pathname, activeRouteIndex, filteredNav.length]);
 
   // Student Enrollment Form states
   const [fullName, setFullName] = useState(
@@ -319,24 +370,57 @@ function StudentLayout() {
         </div>
       </div>
 
-      {/* Navigation Area */}
+      {/* Pill Search Bar */}
+      <div className="px-3 pt-3 pb-1">
+        <div className="relative flex items-center">
+          <Search className="absolute left-3.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search scholar workspace..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-12 py-1.5 text-xs text-white placeholder-neutral-400/60 bg-white/[0.07] hover:bg-white/[0.12] focus:bg-white/[0.14] border border-white/15 focus:border-white/40 rounded-full shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-all outline-none"
+          />
+          <span className="absolute right-2.5 px-1.5 py-0.5 text-[9px] font-mono font-medium rounded-full bg-white/10 border border-white/20 text-neutral-300 pointer-events-none shadow-sm">
+            ⌘K
+          </span>
+        </div>
+      </div>
+
+      {/* Navigation Area with Apple Smooth Gliding Frosted Glass Pill */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3">
-        <nav className="space-y-0.5">
-          {studentNav.map((item) => {
+        <nav
+          ref={navContainerRef}
+          onMouseLeave={() => updatePill(activeRouteIndex, activeRouteIndex !== -1)}
+          className="relative select-none space-y-0.5"
+        >
+          {/* THE FLUID GLIDING FROSTED GLASS PILL */}
+          <div
+            className="apple-sliding-pill"
+            style={{
+              top: `${pillState.top}px`,
+              height: `${pillState.height}px`,
+              opacity: pillState.opacity,
+            }}
+          />
+
+          {filteredNav.map((item, idx) => {
             const Icon = item.icon;
-            const isActive = item.exact
-              ? location.pathname === item.to || location.pathname === `${item.to}/`
-              : location.pathname.startsWith(item.to);
+            const isActive = idx === activeRouteIndex;
 
             return (
               <Link
                 key={item.to}
+                ref={(el) => {
+                  itemRefs.current[idx] = el;
+                }}
+                onMouseEnter={() => updatePill(idx, true)}
                 to={item.to}
                 onClick={() => setMobileOpen(false)}
                 className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
                   isActive
-                    ? "text-white bg-white/[0.14] border border-white/25 shadow-sm"
-                    : "text-neutral-300 hover:text-white hover:bg-white/[0.08]"
+                    ? "text-white active"
+                    : "text-neutral-300 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -397,11 +481,11 @@ function StudentLayout() {
       <Toaster />
 
       {/* Ambient background subtle monochrome white glow */}
-      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.025] blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10" />
+      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-purple-500/[0.03] blur-[140px] pointer-events-none -z-10 animate-ambient-pulse" />
+      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10 animate-ambient-pulse-reverse" />
 
       {/* Desktop Left Sidebar: Fixed Floating Apple Glass */}
-      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[275px] p-3 lg:p-4 z-40 select-none">
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[280px] p-3 lg:p-4 z-40 select-none">
         <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden">
           {sidebarContent}
         </div>
@@ -428,7 +512,7 @@ function StudentLayout() {
       {/* Mobile Sidebar Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md md:hidden flex p-3">
-          <div className="apple-floating-sidebar w-[275px] h-full flex flex-col relative overflow-hidden shadow-2xl">
+          <div className="apple-floating-sidebar w-[280px] h-full flex flex-col relative overflow-hidden shadow-2xl">
             <button
               aria-label="Close menu"
               className="absolute right-3.5 top-3.5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-neutral-300 hover:text-white z-50 transition-all cursor-pointer"
@@ -442,7 +526,7 @@ function StudentLayout() {
       )}
 
       {/* Main Content Area */}
-      <main className="md:ml-[275px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
+      <main className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
         <div className="max-w-7xl mx-auto space-y-6">
           <Outlet />
         </div>

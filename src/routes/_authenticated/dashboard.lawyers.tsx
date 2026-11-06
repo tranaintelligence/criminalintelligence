@@ -207,6 +207,15 @@ function Lawyers() {
       const normId = l.id.toLowerCase().trim();
       const normName = l.full_name.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
 
+      // Guard against any test / mock advocates
+      if (
+        normName.includes("anandita") ||
+        normName.includes("swastik") ||
+        normName.includes("vikramaditya")
+      ) {
+        continue;
+      }
+
       if (!seenIds.has(normId) && !seenNames.has(normName)) {
         seenIds.add(normId);
         seenNames.add(normName);
