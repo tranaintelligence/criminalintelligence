@@ -40,11 +40,19 @@ function FoundersOverview() {
         accepted_at: string;
       }> = [];
 
+      // Clean up any anonymous / visitor rows in Supabase audit table
+      try {
+        await supabase.from("advocate_disclaimers").delete().is("user_email", null);
+        await supabase.from("advocate_disclaimers").delete().ilike("user_email", "%visitor%");
+        await supabase.from("advocate_disclaimers").delete().ilike("user_name", "%visitor%");
+      } catch {}
+
       // 1. Supabase database records
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("advocate_disclaimers")
           .select("*")
+          .not("user_email", "is", null)
           .order("accepted_at", { ascending: false });
         if (data && data.length > 0) {
           records.push(...(data as any));
@@ -53,13 +61,15 @@ function FoundersOverview() {
         console.warn("Error fetching advocate disclaimers:", err);
       }
 
-      // 2. Client-side persisted statutory disclaimer audit logs
+      // 2. Client-side persisted statutory disclaimer audit logs (authenticated users only)
       if (typeof window !== "undefined") {
         try {
           const local = JSON.parse(localStorage.getItem("trana_all_user_acknowledgements") || "[]");
           if (Array.isArray(local)) {
-            local.forEach((l) => {
-              if (!records.some((r) => r.id === l.id || (r.user_email && r.user_email === l.user_email && r.notice_text === l.notice_text))) {
+            const cleaned = local.filter((l: any) => l.user_email && !l.user_email.includes("visitor") && l.user_email !== "—");
+            localStorage.setItem("trana_all_user_acknowledgements", JSON.stringify(cleaned));
+            cleaned.forEach((l) => {
+              if (!records.some((r) => r.id === l.id || (r.user_email && r.user_email.toLowerCase() === l.user_email.toLowerCase() && r.notice_text === l.notice_text))) {
                 records.push(l);
               }
             });
@@ -67,19 +77,20 @@ function FoundersOverview() {
         } catch {}
       }
 
-      return records;
+      return records.filter((r) => r.user_email && !r.user_email.includes("visitor") && r.user_email !== "—");
     },
     refetchInterval: 15000,
   });
 
-  // Deduplicate records
+  // Deduplicate records so each signed-in user email appears cleanly per notice type
   const uniqueDisclaimerLogs = useMemo(() => {
     const seen = new Set<string>();
     const list: typeof disclaimerLogs = [];
     for (const log of disclaimerLogs) {
+      if (!log.user_email || log.user_email.includes("visitor") || log.user_email === "—") continue;
       const isPlatform = (log.notice_text || "").toLowerCase().includes("platform") || (log.notice_text || "").toLowerCase().includes("statutory");
       const typeKey = isPlatform ? "platform" : "advocate";
-      const key = `${typeKey}-${log.user_id || ""}-${(log.user_email || "").toLowerCase()}-${log.id}`;
+      const key = `${typeKey}-${log.user_email.trim().toLowerCase()}`;
       if (!seen.has(key)) {
         seen.add(key);
         list.push(log);
@@ -399,7 +410,7 @@ function FoundersOverview() {
         {filteredDisclaimers.length === 0 ? (
           <div className="py-12 text-center text-neutral-500 text-xs">
             {uniqueDisclaimerLogs.length === 0
-              ? "No user acknowledgements recorded yet. When users accept the statutory disclaimer or view legal professionals, their auditable compliance records will appear here."
+              ? "No user acknowledgements recorded yet. When signed-in users accept the statutory disclaimer or view legal professionals, their auditable compliance records will appear here with their email address."
               : "No acknowledgements match your search query."}
           </div>
         ) : (

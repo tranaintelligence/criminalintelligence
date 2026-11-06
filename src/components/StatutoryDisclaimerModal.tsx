@@ -2,6 +2,98 @@ import { useState, useEffect } from "react";
 import { Shield, ShieldAlert, Check, ArrowRight, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+export async function syncUserStatutoryAcknowledgement(user?: {
+  id?: string | null;
+  email?: string | null;
+  name?: string | null;
+} | null) {
+  if (typeof window === "undefined") return;
+
+  const isAccepted =
+    localStorage.getItem("trana_statutory_disclaimer_accepted") === "true" ||
+    document.cookie.includes("trana_statutory_disclaimer_accepted=true");
+
+  if (!isAccepted) return;
+
+  // Resolve user info from argument, localStorage, or Supabase
+  let email = user?.email?.trim().toLowerCase();
+  let name = user?.name?.trim();
+  let userId = user?.id || null;
+
+  if (!email) {
+    try {
+      const stored = localStorage.getItem("trana_user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.email) {
+          email = parsed.email.trim().toLowerCase();
+          name = parsed.name || parsed.email.split("@")[0];
+          userId = parsed.id || null;
+        }
+      }
+    } catch {}
+  }
+
+  if (!email) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        email = session.user.email.trim().toLowerCase();
+        name = (session.user.user_metadata?.full_name as string) || session.user.email.split("@")[0];
+        userId = session.user.id || null;
+      }
+    } catch {}
+  }
+
+  // If user is not yet signed in, DO NOT add to list. Wait till user signs in!
+  if (!email || email.includes("visitor") || email === "—") return;
+
+  const finalName = name || email.split("@")[0] || "Citizen User";
+
+  // Check if this user email is already recorded in advocate_disclaimers with Platform Disclaimer
+  try {
+    const { data: existing } = await supabase
+      .from("advocate_disclaimers")
+      .select("id")
+      .eq("user_email", email)
+      .limit(1)
+      .maybeSingle();
+
+    if (!existing) {
+      await supabase.from("advocate_disclaimers").insert({
+        user_id: userId,
+        user_email: email,
+        user_name: finalName,
+        notice_text: "Platform Statutory Disclaimer & User Volition Accepted",
+      });
+    }
+  } catch (err) {
+    console.warn("Could not sync user acknowledgement:", err);
+  }
+
+  // Update localStorage audit log, removing any anonymous entries
+  try {
+    const raw = localStorage.getItem("trana_all_user_acknowledgements");
+    const list = raw ? JSON.parse(raw) : [];
+    const cleaned = Array.isArray(list)
+      ? list.filter((l: any) => l.user_email && !l.user_email.includes("visitor") && l.user_email !== "—")
+      : [];
+
+    if (!cleaned.some((l: any) => (l.user_email || "").toLowerCase() === email)) {
+      cleaned.unshift({
+        id: `ACK-${Date.now()}`,
+        user_id: userId,
+        user_email: email,
+        user_name: finalName,
+        notice_text: "Platform Statutory Disclaimer & User Volition Accepted",
+        accepted_at: new Date().toISOString(),
+      });
+    }
+    localStorage.setItem("trana_all_user_acknowledgements", JSON.stringify(cleaned));
+    window.dispatchEvent(new Event("trana_user_acknowledgement_logged"));
+  } catch {}
+}
+
 interface StatutoryDisclaimerModalProps {
   forceOpen?: boolean;
   onClose?: () => void;
@@ -17,6 +109,25 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
   });
   const [agreed, setAgreed] = useState(true);
   const [isDeclined, setIsDeclined] = useState(false);
+
+  useEffect(() => {
+    // If user is signed in or when auth state changes, sync their acknowledgement with real email
+    syncUserStatutoryAcknowledgement();
+
+    const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        syncUserStatutoryAcknowledgement({
+          id: session.user.id,
+          email: session.user.email,
+          name: (session.user.user_metadata?.full_name as string) || session.user.email.split("@")[0],
+        });
+      }
+    });
+
+    return () => {
+      authSub.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     // Listen to global open event (e.g. from footer link or manual trigger)
@@ -60,47 +171,8 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
       }
     }
 
-    // Log acceptance in persistent local audit list and Supabase
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const u = session?.user;
-      const userName = (u?.user_metadata?.full_name as string) || (u?.email ? u.email.split("@")[0] : "Web Visitor (Citizen)");
-      const userEmail = u?.email || "voluntary-access@visitor";
-
-      // Always maintain persistent client-side audit log
-      if (typeof window !== "undefined") {
-        try {
-          const localLogs = JSON.parse(localStorage.getItem("trana_all_user_acknowledgements") || "[]");
-          const alreadyInLocal = localLogs.some((l: any) => l.user_id === u?.id || l.user_email === userEmail);
-          if (!alreadyInLocal) {
-            localLogs.unshift({
-              id: `ACK-${Date.now()}`,
-              user_id: u?.id || null,
-              user_email: userEmail,
-              user_name: userName,
-              notice_text: "Platform Statutory Disclaimer & User Volition Accepted",
-              accepted_at: new Date().toISOString(),
-            });
-            localStorage.setItem("trana_all_user_acknowledgements", JSON.stringify(localLogs));
-            window.dispatchEvent(new Event("trana_user_acknowledgement_logged"));
-          }
-        } catch {}
-      }
-
-      // Record in Supabase audit table
-      try {
-        await supabase.from("advocate_disclaimers").insert({
-          user_id: u?.id || null,
-          user_email: u?.email || null,
-          user_name: userName,
-          notice_text: "Platform Statutory Disclaimer & User Volition Accepted",
-        });
-      } catch (dbErr) {
-        console.warn("Could not insert platform disclaimer acknowledgement:", dbErr);
-      }
-    } catch {
-      // ignore
-    }
+    // If user is already signed in, record with their email; otherwise wait till they sign in
+    await syncUserStatutoryAcknowledgement();
 
     setIsOpen(false);
     if (onClose) onClose();

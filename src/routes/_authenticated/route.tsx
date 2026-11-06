@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { syncUserStatutoryAcknowledgement } from "@/components/StatutoryDisclaimerModal";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -13,16 +14,18 @@ export const Route = createFileRoute("/_authenticated")({
           try {
             const userObj = JSON.parse(userRaw);
             if (userObj && (userObj.email || userObj.id)) {
-              return {
-                user: {
-                  id: userObj.id || userObj.email,
-                  email: userObj.email,
-                  name: userObj.name || userObj.email?.split("@")[0] || "User",
-                  user_metadata: {
-                    full_name: userObj.name,
-                    avatar_url: userObj.picture,
-                  },
+              const authenticatedUser = {
+                id: userObj.id || userObj.email,
+                email: userObj.email,
+                name: userObj.name || userObj.email?.split("@")[0] || "User",
+                user_metadata: {
+                  full_name: userObj.name,
+                  avatar_url: userObj.picture,
                 },
+              };
+              void syncUserStatutoryAcknowledgement(authenticatedUser);
+              return {
+                user: authenticatedUser,
               };
             }
           } catch {
@@ -34,6 +37,11 @@ export const Route = createFileRoute("/_authenticated")({
       // 2. Supabase session fallback
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
+        void syncUserStatutoryAcknowledgement({
+          id: data.user.id,
+          email: data.user.email,
+          name: (data.user.user_metadata?.full_name as string) || data.user.email?.split("@")[0] || "User",
+        });
         return { user: data.user };
       }
 

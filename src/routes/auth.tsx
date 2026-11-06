@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { API_URL } from "@/lib/trana-backend";
+import { syncUserStatutoryAcknowledgement } from "@/components/StatutoryDisclaimerModal";
 
 type Search = { redirect?: string | undefined };
 
@@ -89,6 +90,7 @@ function AuthPage() {
       if (authData.session_token && authData.user) {
         localStorage.setItem("trana_session_token", authData.session_token);
         localStorage.setItem("trana_user", JSON.stringify(authData.user));
+        void syncUserStatutoryAcknowledgement(authData.user as any);
         navigate({ to: dest, replace: true });
       } else {
         throw new Error("Invalid session response received from backend.");
