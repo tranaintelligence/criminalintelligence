@@ -278,34 +278,34 @@ function LawyerOverview() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             to="/lawyer/cases"
-            className="border border-emerald-500/40 bg-emerald-950/30 px-4 py-2.5 text-xs uppercase tracking-[0.15em] text-emerald-300 hover:bg-emerald-900/40 transition-colors flex items-center gap-2 font-mono"
+            className="apple-glass-pill px-4 py-2.5 text-xs uppercase tracking-[0.15em] text-emerald-300 hover:text-white transition-all flex items-center gap-2 font-mono shadow-sm"
           >
             <Calendar className="h-3.5 w-3.5" />
             <span>Case Tracker</span>
           </Link>
           <Link
             to="/lawyer/drafter"
-            className="bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center gap-2"
+            className="bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 rounded-full transition-all flex items-center gap-2 shadow-md hover:shadow-[0_0_20px_rgba(255,255,255,0.25)]"
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span>New Draft</span>
           </Link>
           <Link
             to="/lawyer/profile"
-            className="border border-white/30 px-4 py-2.5 text-xs uppercase tracking-[0.15em] text-white hover:border-white transition-colors"
+            className="apple-glass-pill px-4 py-2.5 text-xs uppercase tracking-[0.15em] text-neutral-300 hover:text-white transition-all shadow-sm"
           >
             Edit Profile
           </Link>
         </div>
       </div>
 
-      {/* TOP STATS ROW (4 cards, #1A1A1A, white border) */}
+      {/* TOP STATS ROW (4 cards with Apple Frosted Glass) */}
       <section>
-        <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888] mb-4">Practice Analytics</h2>
+        <h2 className="text-xs uppercase tracking-[0.2em] text-neutral-400 font-mono mb-4">Practice Analytics</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Stat 1 */}
-          <div className="bg-[#1A1A1A] border border-white p-6 transition-all hover:translate-y-[-2px]">
-            <p className="text-xs uppercase tracking-[0.15em] text-[#999999]">
+          <div className="apple-glass-card p-6 flex flex-col justify-between group">
+            <p className="text-xs uppercase tracking-[0.15em] text-neutral-400">
               Referrals Received This Month
             </p>
             <div className="mt-4 flex items-baseline justify-between">
@@ -317,12 +317,12 @@ function LawyerOverview() {
                   +{newRequestsCount} new <ArrowUpRight className="h-3 w-3" />
                 </span>
               ) : (
-                <span className="text-xs text-[#888888] font-mono">
+                <span className="text-xs text-neutral-400 font-mono">
                   Active Relay
                 </span>
               )}
             </div>
-            <p className="mt-3 text-[0.7rem] text-[#777777]">
+            <p className="mt-3 text-[0.7rem] text-neutral-400 border-t border-white/[0.06] pt-2">
               {newRequestsCount > 0 
                 ? `${newRequestsCount} new incoming request${newRequestsCount === 1 ? "" : "s"} this week` 
                 : "No pending requests this week"}
@@ -330,19 +330,19 @@ function LawyerOverview() {
           </div>
 
           {/* Stat 2 */}
-          <div className="bg-[#1A1A1A] border border-white p-6 transition-all hover:translate-y-[-2px]">
-            <p className="text-xs uppercase tracking-[0.15em] text-[#999999]">
+          <div className="apple-glass-card p-6 flex flex-col justify-between group">
+            <p className="text-xs uppercase tracking-[0.15em] text-neutral-400">
               Consultations Completed
             </p>
             <div className="mt-4 flex items-baseline justify-between">
               <span className="font-display text-4xl font-semibold text-white">
                 {completedConsultationsCount}
               </span>
-              <span className={`text-xs font-mono ${completedConsultationsCount > 0 ? "text-emerald-400" : "text-white/60"}`}>
+              <span className={`text-xs font-mono ${completedConsultationsCount > 0 ? "text-emerald-400" : "text-neutral-400"}`}>
                 {completedConsultationsCount > 0 ? "100% verified" : "0% completed"}
               </span>
             </div>
-            <p className="mt-3 text-[0.7rem] text-[#777777]">
+            <p className="mt-3 text-[0.7rem] text-neutral-400 border-t border-white/[0.06] pt-2">
               {completedConsultationsCount > 0
                 ? `${phoneCallsCount} phone call${phoneCallsCount === 1 ? "" : "s"} • ${secureChatsCount} secure chat${secureChatsCount === 1 ? "" : "s"}`
                 : totalReferralsCount > 0
@@ -352,19 +352,19 @@ function LawyerOverview() {
           </div>
 
           {/* Stat 3 */}
-          <div className="bg-[#1A1A1A] border border-white p-6 transition-all hover:translate-y-[-2px]">
-            <p className="text-xs uppercase tracking-[0.15em] text-[#999999]">
+          <div className="apple-glass-card p-6 flex flex-col justify-between group">
+            <p className="text-xs uppercase tracking-[0.15em] text-neutral-400">
               Documents Drafted
             </p>
             <div className="mt-4 flex items-baseline justify-between">
               <span className="font-display text-4xl font-semibold text-white">
                 {savedDocsCount}
               </span>
-              <span className="text-xs text-white/80 font-mono">
+              <span className="text-xs text-neutral-300 font-mono">
                 AI assisted
               </span>
             </div>
-            <p className="mt-3 text-[0.7rem] text-[#777777]">
+            <p className="mt-3 text-[0.7rem] text-neutral-400 border-t border-white/[0.06] pt-2">
               {savedDocsCount > 0
                 ? `${savedDocsCount} saved in workspace repository`
                 : "Draft bail apps, notices & pleadings with AI"}
@@ -372,8 +372,8 @@ function LawyerOverview() {
           </div>
 
           {/* Stat 4 */}
-          <div className="bg-[#1A1A1A] border border-white p-6 transition-all hover:translate-y-[-2px]">
-            <p className="text-xs uppercase tracking-[0.15em] text-[#999999]">
+          <div className="apple-glass-card p-6 flex flex-col justify-between group">
+            <p className="text-xs uppercase tracking-[0.15em] text-neutral-400">
               Profile Views
             </p>
             <div className="mt-4 flex items-baseline justify-between">
@@ -384,7 +384,7 @@ function LawyerOverview() {
                 {lawyer?.approved || lawyer?.verification_status === "VERIFIED" ? "Verified" : "Enrolled"}
               </span>
             </div>
-            <p className="mt-3 text-[0.7rem] text-[#777777]">
+            <p className="mt-3 text-[0.7rem] text-neutral-400 border-t border-white/[0.06] pt-2">
               {profileViewsCount > 0 
                 ? `${profileViewsCount} direct directory inquiries`
                 : `Active listing in ${lawyer?.city || "Delhi NCR"} & verified courts`}
@@ -393,30 +393,30 @@ function LawyerOverview() {
         </div>
       </section>
 
-      {/* QUICK ACTIONS (3 cards, large) */}
+      {/* QUICK ACTIONS (3 cards, Apple Frosted Glass) */}
       <section>
-        <h2 className="text-xs uppercase tracking-[0.2em] text-[#888888] mb-4">Quick Actions</h2>
+        <h2 className="text-xs uppercase tracking-[0.2em] text-neutral-400 font-mono mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 1 (white background, black text) */}
-          <div className="bg-white text-black p-8 flex flex-col justify-between border border-white shadow-xl transition-all hover:translate-y-[-2px]">
+          {/* Card 1 */}
+          <div className="apple-glass-card p-8 flex flex-col justify-between group">
             <div>
               <div className="flex items-center justify-between">
-                <span className="inline-block border border-black/80 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-black">
+                <span className="apple-glass-pill px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-white">
                   In Development
                 </span>
-                <Sparkles className="h-5 w-5 text-black" />
+                <Sparkles className="h-5 w-5 text-emerald-300 group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="mt-6 font-display text-3xl font-semibold text-black">
+              <h3 className="mt-6 font-display text-3xl font-semibold text-white group-hover:text-emerald-300 transition-colors">
                 Draft a Document
               </h3>
-              <p className="mt-3 text-sm text-neutral-700 leading-relaxed font-light">
+              <p className="mt-3 text-sm text-neutral-300 leading-relaxed font-light">
                 Generate bail applications, petitions, legal notices and more using AI.
               </p>
             </div>
-            <div className="mt-8 pt-6 border-t border-black/10">
+            <div className="mt-8 pt-6 border-t border-white/[0.08]">
               <Link
                 to="/lawyer/drafter"
-                className="w-full bg-black text-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.15em] hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-white text-black hover:bg-neutral-200 px-5 py-3 rounded-full text-xs font-semibold uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 shadow-md"
               >
                 <span>Open AI Drafter</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -424,26 +424,26 @@ function LawyerOverview() {
             </div>
           </div>
 
-          {/* Card 2 (#1A1A1A) */}
-          <div className="bg-[#1A1A1A] text-white p-8 flex flex-col justify-between border border-[#2E2E2E] hover:border-white/50 transition-all hover:translate-y-[-2px]">
+          {/* Card 2 */}
+          <div className="apple-glass-card p-8 flex flex-col justify-between group">
             <div>
               <div className="flex items-center justify-between">
-                <span className="inline-block border border-white/30 px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-white/90">
+                <span className="apple-glass-pill px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-neutral-300">
                   In Development
                 </span>
-                <Search className="h-5 w-5 text-white/80" />
+                <Search className="h-5 w-5 text-white/80 group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="mt-6 font-display text-3xl font-medium text-white">
+              <h3 className="mt-6 font-display text-3xl font-medium text-white group-hover:text-emerald-300 transition-colors">
                 Find Citations
               </h3>
-              <p className="mt-3 text-sm text-[#999999] leading-relaxed font-light">
+              <p className="mt-3 text-sm text-neutral-300 leading-relaxed font-light">
                 Search BNS, BNSS, BSA and case law with exact citations and section references.
               </p>
             </div>
-            <div className="mt-8 pt-6 border-t border-[#2A2A2A]">
+            <div className="mt-8 pt-6 border-t border-white/[0.08]">
               <Link
                 to="/lawyer/citations"
-                className="w-full border border-white/60 text-white px-5 py-3 text-xs uppercase tracking-[0.15em] hover:bg-white hover:text-black transition-colors flex items-center justify-center gap-2"
+                className="w-full apple-glass-pill text-white px-5 py-3 text-xs uppercase tracking-[0.15em] hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2"
               >
                 <span>Open Citation Finder</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -451,26 +451,26 @@ function LawyerOverview() {
             </div>
           </div>
 
-          {/* Card 3 (#1A1A1A) */}
-          <div className="bg-[#1A1A1A] text-white p-8 flex flex-col justify-between border border-[#2E2E2E] hover:border-white/50 transition-all hover:translate-y-[-2px]">
+          {/* Card 3 */}
+          <div className="apple-glass-card p-8 flex flex-col justify-between group">
             <div>
               <div className="flex items-center justify-between">
-                <span className="inline-block border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-emerald-400">
+                <span className="apple-glass-pill px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-emerald-400 bg-emerald-500/10 border-emerald-500/30">
                   Active Network
                 </span>
-                <Users className="h-5 w-5 text-white/80" />
+                <Users className="h-5 w-5 text-emerald-300 group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="mt-6 font-display text-3xl font-medium text-white">
+              <h3 className="mt-6 font-display text-3xl font-medium text-white group-hover:text-emerald-300 transition-colors">
                 Connect With Lawyers
               </h3>
-              <p className="mt-3 text-sm text-[#999999] leading-relaxed font-light">
+              <p className="mt-3 text-sm text-neutral-300 leading-relaxed font-light">
                 TRANA's professional network collaborate, refer and connect with other legal professionals.
               </p>
             </div>
-            <div className="mt-8 pt-6 border-t border-[#2A2A2A]">
+            <div className="mt-8 pt-6 border-t border-white/[0.08]">
               <Link
                 to="/lawyer/network"
-                className="w-full border border-white/60 text-white px-5 py-3 text-xs uppercase tracking-[0.15em] hover:bg-white hover:text-black transition-colors flex items-center justify-center gap-2"
+                className="w-full apple-glass-pill text-white px-5 py-3 text-xs uppercase tracking-[0.15em] hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2"
               >
                 <span>View Network</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -481,17 +481,17 @@ function LawyerOverview() {
       </section>
 
       {/* RECENT REFERRALS TABLE */}
-      <section className="bg-[#1A1A1A] border border-[#2E2E2E] p-6 md:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2A2A2A] pb-6">
+      <section className="apple-glass-card p-6 md:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-6">
           <div>
             <h2 className="font-display text-2xl font-medium text-white">Recent Referrals</h2>
-            <p className="mt-1 text-xs text-[#888888]">
+            <p className="mt-1 text-xs text-neutral-400">
               Clients directed to your profile matching your court jurisdictions and specialisation.
             </p>
           </div>
           <Link
             to="/lawyer/referrals"
-            className="text-xs uppercase tracking-[0.15em] text-[#AAAAAA] hover:text-white transition-colors flex items-center gap-1.5"
+            className="apple-glass-pill px-3 py-1.5 text-xs uppercase tracking-[0.15em] text-neutral-300 hover:text-white transition-all flex items-center gap-1.5"
           >
             <span>View All Referrals</span>
             <ChevronRight className="h-3.5 w-3.5" />

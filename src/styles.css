@@ -153,6 +153,7 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
    ========================================================================== */
 
 /* Ambient canvas background: subtle monochrome white / graphite luminescence */
+.apple-glass-canvas,
 .founders-canvas {
   background-color: #08080a !important;
   background-image: 
@@ -275,7 +276,14 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas input[type="search"],
 .founders-canvas input[type="number"],
 .founders-canvas select,
-.founders-canvas textarea {
+.founders-canvas textarea,
+.apple-glass-canvas input[type="text"],
+.apple-glass-canvas input[type="email"],
+.apple-glass-canvas input[type="password"],
+.apple-glass-canvas input[type="search"],
+.apple-glass-canvas input[type="number"],
+.apple-glass-canvas select,
+.apple-glass-canvas textarea {
   background: rgba(255, 255, 255, 0.08) !important;
   backdrop-filter: blur(24px) saturate(200%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
@@ -291,7 +299,10 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .apple-glass-input:focus,
 .founders-canvas input:focus,
 .founders-canvas select:focus,
-.founders-canvas textarea:focus {
+.founders-canvas textarea:focus,
+.apple-glass-canvas input:focus,
+.apple-glass-canvas select:focus,
+.apple-glass-canvas textarea:focus {
   background: rgba(255, 255, 255, 0.14) !important;
   border-color: rgba(255, 255, 255, 0.55) !important;
   box-shadow: 
@@ -300,14 +311,33 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
   outline: none !important;
 }
 
-/* Glassify all containers in founders-canvas to rich translucent glass with clean, continuous borders */
+/* Glassify all containers in founders-canvas & apple-glass-canvas to rich translucent glass with clean, continuous borders */
 .founders-canvas .border-\[\#222222\],
 .founders-canvas .border-\[\#333333\],
 .founders-canvas .border-\[\#282828\],
+.founders-canvas .border-\[\#262626\],
+.founders-canvas .border-\[\#2B2B2B\],
+.founders-canvas .border-\[\#2A2A2A\],
+.founders-canvas .border-\[\#2D2D2D\],
+.founders-canvas .border-\[\#202020\],
 .founders-canvas .border-\[\#1e1e1e\],
 .founders-canvas .border-\[\#181818\],
+.founders-canvas .border-border,
 .founders-canvas .border-white\/10,
-.founders-canvas .border-white\/20 {
+.founders-canvas .border-white\/20,
+.apple-glass-canvas .border-\[\#222222\],
+.apple-glass-canvas .border-\[\#333333\],
+.apple-glass-canvas .border-\[\#282828\],
+.apple-glass-canvas .border-\[\#262626\],
+.apple-glass-canvas .border-\[\#2B2B2B\],
+.apple-glass-canvas .border-\[\#2A2A2A\],
+.apple-glass-canvas .border-\[\#2D2D2D\],
+.apple-glass-canvas .border-\[\#202020\],
+.apple-glass-canvas .border-\[\#1e1e1e\],
+.apple-glass-canvas .border-\[\#181818\],
+.apple-glass-canvas .border-border,
+.apple-glass-canvas .border-white\/10,
+.apple-glass-canvas .border-white\/20 {
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
@@ -320,7 +350,16 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas .bg-\[\#1e1e1e\],
 .founders-canvas .admin-counter,
 .founders-canvas .admin-usage-model,
-.founders-canvas .admin-key-row {
+.founders-canvas .admin-key-row,
+.apple-glass-canvas .bg-\[\#141414\],
+.apple-glass-canvas .bg-\[\#111111\],
+.apple-glass-canvas .bg-\[\#121212\],
+.apple-glass-canvas .bg-\[\#161616\],
+.apple-glass-canvas .bg-\[\#181818\],
+.apple-glass-canvas .bg-\[\#1A1A1A\],
+.apple-glass-canvas .bg-\[\#1e1e1e\],
+.apple-glass-canvas .bg-card,
+.apple-glass-canvas .bg-secondary {
   position: relative;
   background: linear-gradient(155deg, 
     rgba(255, 255, 255, 0.08) 0%, 
@@ -343,7 +382,13 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas .bg-\[\#121212\]:hover,
 .founders-canvas .bg-\[\#161616\]:hover,
 .founders-canvas .admin-counter:hover,
-.founders-canvas .admin-key-row:hover {
+.founders-canvas .admin-key-row:hover,
+.apple-glass-canvas .bg-\[\#141414\]:hover,
+.apple-glass-canvas .bg-\[\#111111\]:hover,
+.apple-glass-canvas .bg-\[\#121212\]:hover,
+.apple-glass-canvas .bg-\[\#161616\]:hover,
+.apple-glass-canvas .bg-\[\#1A1A1A\]:hover,
+.apple-glass-canvas .bg-card:hover {
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.22) !important;
   box-shadow: 
@@ -354,7 +399,9 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 
 /* Nested sub-boxes (e.g. inner dark rows/cards) */
 .founders-canvas .bg-\[\#0A0A0A\],
-.founders-canvas .bg-\[\#0E0E0E\] {
+.founders-canvas .bg-\[\#0E0E0E\],
+.apple-glass-canvas .bg-\[\#0A0A0A\],
+.apple-glass-canvas .bg-\[\#0E0E0E\] {
   background: rgba(14, 12, 18, 0.5) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
@@ -362,43 +409,51 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
   border-radius: 14px;
 }
 
-/* Glass tables within founders-canvas */
-.founders-canvas table {
+/* Glass tables within founders-canvas & apple-glass-canvas */
+.founders-canvas table,
+.apple-glass-canvas table {
   background: transparent !important;
 }
 
-.founders-canvas table thead tr {
+.founders-canvas table thead tr,
+.apple-glass-canvas table thead tr {
   background: rgba(255, 255, 255, 0.08) !important;
   backdrop-filter: blur(16px) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.16) !important;
 }
 
-.founders-canvas table tbody tr {
+.founders-canvas table tbody tr,
+.apple-glass-canvas table tbody tr {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.founders-canvas table tbody tr:hover {
+.founders-canvas table tbody tr:hover,
+.apple-glass-canvas table tbody tr:hover {
   background: rgba(255, 255, 255, 0.08) !important;
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
-/* Smooth Apple scrollbar for founders */
-.founders-canvas ::-webkit-scrollbar {
+/* Smooth Apple scrollbar for founders & apple-glass-canvas */
+.founders-canvas ::-webkit-scrollbar,
+.apple-glass-canvas ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 
-.founders-canvas ::-webkit-scrollbar-track {
+.founders-canvas ::-webkit-scrollbar-track,
+.apple-glass-canvas ::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.1);
 }
 
-.founders-canvas ::-webkit-scrollbar-thumb {
+.founders-canvas ::-webkit-scrollbar-thumb,
+.apple-glass-canvas ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.25);
   border-radius: 9999px;
   backdrop-filter: blur(8px);
 }
 
-.founders-canvas ::-webkit-scrollbar-thumb:hover {
+.founders-canvas ::-webkit-scrollbar-thumb:hover,
+.apple-glass-canvas ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.45);
 }

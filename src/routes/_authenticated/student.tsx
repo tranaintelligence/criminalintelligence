@@ -106,20 +106,24 @@ function StudentLayout() {
   // Student Enrollment Gate for pure citizens
   if (!hasStudentAccess) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center selection:bg-white selection:text-black">
         <Toaster />
-        <div className="w-full max-w-2xl bg-[#141414] border border-[#2D2D2D] p-8 md:p-10 shadow-2xl relative">
-          <div className="flex items-center justify-between border-b border-[#252525] pb-5">
+        {/* Ambient background subtle monochrome white glow */}
+        <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.025] blur-[140px] pointer-events-none -z-10" />
+        <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10" />
+
+        <div className="w-full max-w-2xl apple-glass-card p-8 md:p-10 relative z-10">
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded bg-[#1F1F1F] border border-[#333333] flex items-center justify-center text-purple-400">
+              <div className="h-10 w-10 rounded-2xl bg-white/[0.12] border border-white/20 flex items-center justify-center text-purple-300 shadow-sm">
                 <GraduationCap className="h-6 w-6" />
               </div>
               <div>
                 <span className="font-display text-2xl font-semibold tracking-[0.15em] text-white">TRANA</span>
-                <p className="text-[0.7rem] text-[#888888] tracking-widest uppercase">Student Workspace Onboarding</p>
+                <p className="text-[0.7rem] text-neutral-400 tracking-widest uppercase">Student Workspace Onboarding</p>
               </div>
             </div>
-            <div className="border border-purple-500/30 bg-purple-950/30 px-3 py-1 text-xs text-purple-300 font-mono flex items-center gap-1.5">
+            <div className="apple-glass-pill px-3 py-1 text-xs text-purple-300 font-mono flex items-center gap-1.5 border-purple-500/30">
               <Sparkles className="h-3.5 w-3.5" />
               <span>Academic Edition</span>
             </div>
@@ -129,7 +133,7 @@ function StudentLayout() {
             <h1 className="font-display text-2xl md:text-3xl font-medium text-white">
               Law Student & Academic Scholar Enrollment
             </h1>
-            <p className="mt-2 text-xs md:text-sm text-[#AAAAAA] leading-relaxed">
+            <p className="mt-2 text-xs md:text-sm text-neutral-300 leading-relaxed">
               Unlock access to TRANA's research suite — AI Drafter for moot court memorials, eCourts Case Tracker, Statutory Precedent Search, and the Student Professional Network.
             </p>
           </div>
@@ -137,7 +141,7 @@ function StudentLayout() {
           <form onSubmit={handleEnrollSubmit} className="mt-6 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[0.7rem] uppercase tracking-wider text-[#888888] font-mono mb-1.5">
+                <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -146,12 +150,12 @@ function StudentLayout() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Aarav Sharma"
-                  className="w-full bg-[#181818] border border-[#333333] px-3.5 py-2.5 text-xs text-white placeholder-[#555555] focus:border-purple-400 focus:outline-none"
+                  className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[0.7rem] uppercase tracking-wider text-[#888888] font-mono mb-1.5">
+                <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
                   City / Campus Location
                 </label>
                 <input
@@ -160,13 +164,13 @@ function StudentLayout() {
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="e.g. New Delhi"
-                  className="w-full bg-[#181818] border border-[#333333] px-3.5 py-2.5 text-xs text-white placeholder-[#555555] focus:border-purple-400 focus:outline-none"
+                  className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[0.7rem] uppercase tracking-wider text-[#888888] font-mono mb-1.5">
+              <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
                 Law University / College / Faculty of Law
               </label>
               <input
@@ -175,49 +179,49 @@ function StudentLayout() {
                 value={university}
                 onChange={(e) => setUniversity(e.target.value)}
                 placeholder="e.g. National Law University Delhi, NALSAR, Faculty of Law DU"
-                className="w-full bg-[#181818] border border-[#333333] px-3.5 py-2.5 text-xs text-white placeholder-[#555555] focus:border-purple-400 focus:outline-none"
+                className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[0.7rem] uppercase tracking-wider text-[#888888] font-mono mb-1.5">
+                <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
                   Degree Program
                 </label>
                 <select
                   value={degree}
                   onChange={(e) => setDegree(e.target.value)}
-                  className="w-full bg-[#181818] border border-[#333333] px-3 py-2.5 text-xs text-white focus:border-purple-400 focus:outline-none"
+                  className="w-full apple-glass-input px-3 py-2.5 text-xs text-white"
                 >
-                  <option value="5-Year B.A. LL.B. (Hons)">5-Year B.A. LL.B. (Hons)</option>
-                  <option value="5-Year B.B.A. LL.B. (Hons)">5-Year B.B.A. LL.B. (Hons)</option>
-                  <option value="3-Year LL.B. Degree">3-Year LL.B. Degree</option>
-                  <option value="LL.M. Postgraduate Scholar">LL.M. Postgraduate Scholar</option>
-                  <option value="Ph.D. Legal Scholar">Ph.D. Legal Scholar</option>
+                  <option value="5-Year B.A. LL.B. (Hons)" className="bg-[#121216] text-white">5-Year B.A. LL.B. (Hons)</option>
+                  <option value="5-Year B.B.A. LL.B. (Hons)" className="bg-[#121216] text-white">5-Year B.B.A. LL.B. (Hons)</option>
+                  <option value="3-Year LL.B. Degree" className="bg-[#121216] text-white">3-Year LL.B. Degree</option>
+                  <option value="LL.M. Postgraduate Scholar" className="bg-[#121216] text-white">LL.M. Postgraduate Scholar</option>
+                  <option value="Ph.D. Legal Scholar" className="bg-[#121216] text-white">Ph.D. Legal Scholar</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-[0.7rem] uppercase tracking-wider text-[#888888] font-mono mb-1.5">
+                <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
                   Year of Study
                 </label>
                 <select
                   value={yearOfStudy}
                   onChange={(e) => setYearOfStudy(e.target.value)}
-                  className="w-full bg-[#181818] border border-[#333333] px-3 py-2.5 text-xs text-white focus:border-purple-400 focus:outline-none"
+                  className="w-full apple-glass-input px-3 py-2.5 text-xs text-white"
                 >
-                  <option value="1st Year Undergrad">1st Year Undergrad</option>
-                  <option value="2nd Year Undergrad">2nd Year Undergrad</option>
-                  <option value="3rd Year Scholar">3rd Year Scholar</option>
-                  <option value="4th Year Pre-Final">4th Year Pre-Final</option>
-                  <option value="5th Year Finalist">5th Year Finalist</option>
-                  <option value="Postgraduate LL.M.">Postgraduate LL.M.</option>
+                  <option value="1st Year Undergrad" className="bg-[#121216] text-white">1st Year Undergrad</option>
+                  <option value="2nd Year Undergrad" className="bg-[#121216] text-white">2nd Year Undergrad</option>
+                  <option value="3rd Year Scholar" className="bg-[#121216] text-white">3rd Year Scholar</option>
+                  <option value="4th Year Pre-Final" className="bg-[#121216] text-white">4th Year Pre-Final</option>
+                  <option value="5th Year Finalist" className="bg-[#121216] text-white">5th Year Finalist</option>
+                  <option value="Postgraduate LL.M." className="bg-[#121216] text-white">Postgraduate LL.M.</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-[0.7rem] uppercase tracking-wider text-[#888888] font-mono mb-1.5">
+              <label className="block text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-1.5">
                 Student ID / Roll No. (Optional)
               </label>
               <input
@@ -225,21 +229,21 @@ function StudentLayout() {
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
                 placeholder="e.g. NLU-D-2023-042"
-                className="w-full bg-[#181818] border border-[#333333] px-3.5 py-2.5 text-xs text-white placeholder-[#555555] focus:border-purple-400 focus:outline-none"
+                className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white placeholder-neutral-500"
               />
             </div>
 
-            <div className="pt-4 flex items-center justify-between gap-4 border-t border-[#252525]">
+            <div className="pt-4 flex items-center justify-between gap-4 border-t border-white/[0.08]">
               <Link
                 to="/dashboard"
-                className="text-xs uppercase tracking-wider text-[#888888] hover:text-white transition-colors"
+                className="text-xs uppercase tracking-wider text-neutral-400 hover:text-white transition-colors"
               >
                 ← Return to Citizen Dashboard
               </Link>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] transition-colors flex items-center gap-2"
+                className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-md cursor-pointer"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>{isSubmitting ? "Enrolling..." : "Launch Student Workspace"}</span>
@@ -255,26 +259,43 @@ function StudentLayout() {
   const studentCollege = studentProfile?.university || "National Law University";
 
   const sidebarContent = (
-    <div className="flex h-full flex-col justify-between p-6">
-      <div className="space-y-6">
-        <div>
-          <div className="flex items-center justify-between">
-            <span className="font-display text-2xl font-bold tracking-[0.2em] text-white">TRANA</span>
-            <span className="text-[0.65rem] px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/40 text-purple-300 font-mono uppercase">
-              Student Edition
-            </span>
+    <div className="flex h-full flex-col text-[#F0F0F0] relative overflow-hidden select-none">
+      {/* Brand Header */}
+      <div className="p-4 pb-3 flex items-center justify-between relative border-b border-white/[0.08]">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            to="/"
+            className="w-9 h-9 rounded-2xl bg-white/[0.12] hover:bg-white/[0.18] border border-white/25 flex items-center justify-center shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.6),0_4px_16px_rgba(0,0,0,0.4),0_0_12px_rgba(255,255,255,0.08)] text-white font-bold font-display text-lg shrink-0 hover:scale-105 transition-all"
+            title="TRANA Home"
+          >
+            T
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/"
+                className="font-display font-bold text-base text-white tracking-wide hover:text-neutral-200 transition-colors truncate"
+              >
+                TRANA
+              </Link>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                STUDENT
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans truncate leading-none mt-0.5">
+              Law Student Workspace
+            </div>
           </div>
-          <p className="mt-1 text-[0.7rem] text-[#888888] tracking-widest uppercase">
-            Law Student Workspace
-          </p>
         </div>
+      </div>
 
-        {/* Navigation */}
-        <nav className="space-y-1">
+      {/* Navigation Area */}
+      <div className="flex-1 overflow-y-auto px-2.5 py-3">
+        <nav className="space-y-0.5">
           {studentNav.map((item) => {
             const Icon = item.icon;
             const isActive = item.exact
-              ? location.pathname === item.to
+              ? location.pathname === item.to || location.pathname === `${item.to}/`
               : location.pathname.startsWith(item.to);
 
             return (
@@ -282,14 +303,19 @@ function StudentLayout() {
                 key={item.to}
                 to={item.to}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 text-xs font-mono transition-colors border-l-2 ${
+                className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
                   isActive
-                    ? "bg-[#181818] border-white text-white font-medium"
-                    : "border-transparent text-[#888888] hover:text-white hover:bg-[#141414]"
+                    ? "text-white bg-white/[0.14] border border-white/25 shadow-sm"
+                    : "text-neutral-300 hover:text-white hover:bg-white/[0.08]"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-purple-300" : "text-[#777777]"}`} />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? "text-purple-300" : "text-neutral-400"}`} />
+                  <span className="tracking-normal truncate">{item.label}</span>
+                </div>
+                {isActive && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                )}
               </Link>
             );
           })}
@@ -297,31 +323,39 @@ function StudentLayout() {
       </div>
 
       {/* Footer / User Badge */}
-      <div className="pt-6 border-t border-[#222222] space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-[#1F1F1F] border border-[#333333] flex items-center justify-center font-display text-white text-xs">
-            {studentDisplayName.slice(0, 2).toUpperCase()}
-          </div>
-          <div className="overflow-hidden">
-            <p className="text-xs font-medium text-white truncate">{studentDisplayName}</p>
-            <p className="text-[0.65rem] text-[#888888] font-mono truncate">{studentCollege}</p>
+      <div className="p-3 border-t border-white/[0.08] bg-black/25 backdrop-blur-xl mt-auto space-y-2">
+        <div className="relative overflow-hidden rounded-2xl bg-white/[0.07] hover:bg-white/[0.12] border border-white/15 p-2 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.3),0_8px_20px_rgba(0,0,0,0.35)] transition-all">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-400/40 via-white/50 to-purple-400/20 p-[1px] shadow-sm">
+                  <div className="w-full h-full rounded-full bg-[#121216] flex items-center justify-center text-xs font-semibold text-white">
+                    {studentDisplayName.slice(0, 2).toUpperCase()}
+                  </div>
+                </div>
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-purple-400 border border-[#121216] shadow-[0_0_6px_rgba(168,85,247,0.9)]" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-white leading-tight">{studentDisplayName}</p>
+                <p className="truncate text-[10px] font-mono text-neutral-400 leading-tight mt-0.5">{studentCollege}</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="pt-2 flex flex-col gap-1.5 text-xs font-mono">
+        <div className="flex flex-col gap-1 pt-1 text-[11px] font-mono">
           <Link
             to="/dashboard"
-            className="flex items-center justify-between text-[#888888] hover:text-white text-[0.7rem] py-1"
+            className="flex items-center justify-between text-neutral-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors"
           >
             <span>Citizen Dashboard</span>
             <ArrowUpRight className="h-3 w-3" />
           </Link>
           <button
             onClick={handleSignOut}
-            className="flex items-center justify-between text-left text-[#777777] hover:text-red-400 text-[0.7rem] py-1"
+            className="w-full text-center py-1.5 text-[10px] uppercase tracking-wider text-neutral-400 hover:text-red-400 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
           >
-            <span>Sign Out</span>
-            <LogOut className="h-3 w-3" />
+            Sign Out
           </button>
         </div>
       </div>
@@ -329,43 +363,59 @@ function StudentLayout() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] text-[#ECECEC]">
+    <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black">
       <Toaster />
 
+      {/* Ambient background subtle monochrome white glow */}
+      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.025] blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10" />
+
+      {/* Desktop Left Sidebar: Fixed Floating Apple Glass */}
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[275px] p-3 lg:p-4 z-40 select-none">
+        <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden">
+          {sidebarContent}
+        </div>
+      </aside>
+
       {/* Mobile Top Header */}
-      <header className="md:hidden flex items-center justify-between border-b border-[#222222] bg-[#111111] px-5 py-4">
+      <header className="flex items-center justify-between border-b border-white/10 bg-[#0d0b14]/80 backdrop-blur-2xl px-4 py-3 md:hidden sticky top-0 z-40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-2">
-          <span className="font-display text-xl font-bold tracking-[0.2em] text-white">TRANA</span>
-          <span className="text-[0.65rem] font-mono px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/40 text-purple-300">
-            Student
-          </span>
+          <div className="w-7 h-7 rounded-xl bg-white/[0.12] border border-white/25 flex items-center justify-center shadow-md text-white font-bold font-display text-sm">
+            T
+          </div>
+          <span className="font-display text-base tracking-[0.15em] text-[#F0F0F0]">TRANA</span>
+          <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">STUDENT</span>
         </div>
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-1.5 text-[#AAAAAA] hover:text-white"
+          className="p-1.5 apple-glass-pill text-[#F0F0F0] cursor-pointer"
         >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </button>
       </header>
 
       {/* Mobile Sidebar Drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 md:hidden">
-          <div className="w-72 h-full bg-[#111111] border-r border-[#262626]">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md md:hidden flex p-3">
+          <div className="apple-floating-sidebar w-[275px] h-full flex flex-col relative overflow-hidden shadow-2xl">
+            <button
+              aria-label="Close menu"
+              className="absolute right-3.5 top-3.5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-neutral-300 hover:text-white z-50 transition-all cursor-pointer"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </button>
             {sidebarContent}
           </div>
         </div>
       )}
 
-      {/* Desktop Fixed Left Sidebar */}
-      <aside className="hidden md:block fixed inset-y-0 left-0 w-64 bg-[#111111] border-r border-[#202020] z-20">
-        {sidebarContent}
-      </aside>
-
       {/* Main Content Area */}
-      <main className="md:ml-64 p-6 md:p-10 max-w-7xl">
-        <Outlet />
+      <main className="md:ml-[275px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

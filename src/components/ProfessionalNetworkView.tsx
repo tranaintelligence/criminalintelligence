@@ -142,34 +142,6 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
       }
     } catch {}
 
-    // Seed exemplary verified student researcher if none exist
-    if (!list.some((m) => m.role === "student")) {
-      list.push({
-        id: "student-nlu-delhi-01",
-        name: "Aarav Singhania",
-        role: "student",
-        roleLabel: "Law Student (BA.LL.B)",
-        affiliation: "National Law University, Delhi (NLU Delhi)",
-        city: "New Delhi",
-        experienceOrYear: "4th Year Undergraduate",
-        specialisationOrInterests: "Constitutional Writs, Moot Court & BNSS Comparative Jurisprudence",
-        bio: "Convenor of Moot Court Society, researcher in criminal procedural safeguards and BNS/BNSS statutory transition.",
-        isVerified: true,
-      });
-      list.push({
-        id: "student-nlsiu-blr-02",
-        name: "Meera Venkatesh",
-        role: "student",
-        roleLabel: "Law Student (LL.B)",
-        affiliation: "National Law School of India University (NLSIU Bengaluru)",
-        city: "Bengaluru",
-        experienceOrYear: "3rd Year Law Scholar",
-        specialisationOrInterests: "Cyber Crimes, IT Act & Corporate Criminal Liability",
-        bio: "Student editor at Law Review; researching digital evidence admissibility under Section 63 BSA.",
-        isVerified: true,
-      });
-    }
-
     return list;
   }, [dbLawyers, currentUser]);
 
@@ -339,14 +311,14 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
       </div>
 
       {/* Main Navigation Tabs (Discover, Invitations, My Connections) */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#242424] pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab("discover")}
-            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all border ${
+            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all rounded-full cursor-pointer ${
               activeTab === "discover"
-                ? "bg-white text-black border-white font-semibold"
-                : "bg-[#111111] text-[#999999] border-[#2A2A2A] hover:text-white hover:border-[#444444]"
+                ? "bg-white text-black font-semibold shadow-md"
+                : "apple-glass-pill text-neutral-300 hover:text-white"
             }`}
           >
             Discover Network ({allMembers.length})
@@ -354,15 +326,15 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
 
           <button
             onClick={() => setActiveTab("invitations")}
-            className={`relative px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all border flex items-center gap-2 ${
+            className={`relative px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all rounded-full cursor-pointer flex items-center gap-2 ${
               activeTab === "invitations"
-                ? "bg-white text-black border-white font-semibold"
-                : "bg-[#111111] text-[#999999] border-[#2A2A2A] hover:text-white hover:border-[#444444]"
+                ? "bg-white text-black font-semibold shadow-md"
+                : "apple-glass-pill text-neutral-300 hover:text-white"
             }`}
           >
             <span>Invitations</span>
             {pendingReceived.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[0.65rem] bg-emerald-500 text-black font-bold">
+              <span className="px-1.5 py-0.2 rounded-full text-[0.65rem] bg-emerald-400 text-black font-bold">
                 {pendingReceived.length}
               </span>
             )}
@@ -370,10 +342,10 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
 
           <button
             onClick={() => setActiveTab("connections")}
-            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all border flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all rounded-full cursor-pointer flex items-center gap-2 ${
               activeTab === "connections"
-                ? "bg-white text-black border-white font-semibold"
-                : "bg-[#111111] text-[#999999] border-[#2A2A2A] hover:text-white hover:border-[#444444]"
+                ? "bg-white text-black font-semibold shadow-md"
+                : "apple-glass-pill text-neutral-300 hover:text-white"
             }`}
           >
             <UserCheck className="h-3.5 w-3.5" />
@@ -382,19 +354,19 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
         </div>
 
         {activeTab === "discover" && (
-          <div className="flex items-center gap-1.5 bg-[#141414] border border-[#282828] p-1">
+          <div className="flex items-center gap-1.5 apple-glass-pill p-1">
             <button
               onClick={() => setRoleFilter("all")}
-              className={`px-3 py-1 text-[0.7rem] uppercase font-mono ${
-                roleFilter === "all" ? "bg-[#282828] text-white" : "text-[#777777] hover:text-white"
+              className={`px-3 py-1 text-[0.7rem] uppercase font-mono rounded-full transition-colors cursor-pointer ${
+                roleFilter === "all" ? "bg-white/20 text-white font-medium" : "text-neutral-400 hover:text-white"
               }`}
             >
               All
             </button>
             <button
               onClick={() => setRoleFilter("lawyers")}
-              className={`px-3 py-1 text-[0.7rem] uppercase font-mono flex items-center gap-1 ${
-                roleFilter === "lawyers" ? "bg-[#282828] text-white" : "text-[#777777] hover:text-white"
+              className={`px-3 py-1 text-[0.7rem] uppercase font-mono rounded-full flex items-center gap-1 transition-colors cursor-pointer ${
+                roleFilter === "lawyers" ? "bg-white/20 text-white font-medium" : "text-neutral-400 hover:text-white"
               }`}
             >
               <Scale className="h-3 w-3" />
@@ -402,8 +374,8 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
             </button>
             <button
               onClick={() => setRoleFilter("students")}
-              className={`px-3 py-1 text-[0.7rem] uppercase font-mono flex items-center gap-1 ${
-                roleFilter === "students" ? "bg-[#282828] text-white" : "text-[#777777] hover:text-white"
+              className={`px-3 py-1 text-[0.7rem] uppercase font-mono rounded-full flex items-center gap-1 transition-colors cursor-pointer ${
+                roleFilter === "students" ? "bg-white/20 text-white font-medium" : "text-neutral-400 hover:text-white"
               }`}
             >
               <GraduationCap className="h-3 w-3" />
@@ -419,13 +391,13 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
           {/* Search and Filters Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 relative">
-              <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#666666]" />
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search colleagues by advocate name, student name, university, or court..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[#141414] border border-[#2B2B2B] pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#666666] focus:border-white focus:outline-none"
+                className="w-full apple-glass-input pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500"
               />
             </div>
             <div>
@@ -433,10 +405,10 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                 aria-label="Filter members by city"
                 value={selectedCity}
                 onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full bg-[#141414] border border-[#2B2B2B] px-3 py-2.5 text-xs text-white focus:border-white focus:outline-none"
+                className="w-full apple-glass-input px-3.5 py-2.5 text-xs text-white"
               >
                 {cities.map((c) => (
-                  <option key={c} value={c} className="bg-[#141414] text-white">
+                  <option key={c} value={c} className="bg-[#121216] text-white">
                     City: {c}
                   </option>
                 ))}
@@ -457,7 +429,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
               return (
                 <div
                   key={member.id}
-                  className="bg-[#141414] border border-[#262626] hover:border-white/40 transition-all p-6 flex flex-col justify-between shadow-lg relative group"
+                  className="apple-glass-card p-6 flex flex-col justify-between group"
                 >
                   <div className="space-y-4">
                     {/* Header: Name and Role Badge */}
@@ -466,8 +438,8 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                         <h3 className="font-display text-xl font-medium text-white group-hover:text-emerald-300 transition-colors">
                           {member.name}
                         </h3>
-                        <div className="mt-1 flex items-center gap-1.5 text-xs text-[#888888] font-mono">
-                          <MapPin className="h-3 w-3 text-[#666666]" />
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-neutral-400 font-mono">
+                          <MapPin className="h-3 w-3 text-neutral-500" />
                           <span>{member.city}</span>
                           <span>•</span>
                           <span>{member.experienceOrYear}</span>
@@ -475,12 +447,12 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                       </div>
 
                       {isLawyer ? (
-                        <span className="px-2 py-0.5 text-[0.65rem] font-mono uppercase tracking-wider rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center gap-1 shrink-0">
+                        <span className="apple-glass-pill px-2 py-0.5 text-[0.65rem] font-mono uppercase tracking-wider text-emerald-300 border-emerald-500/30 bg-emerald-500/10 flex items-center gap-1 shrink-0">
                           <ShieldCheck className="h-3 w-3" />
                           Advocate
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 text-[0.65rem] font-mono uppercase tracking-wider rounded bg-purple-950/60 border border-purple-500/40 text-purple-300 flex items-center gap-1 shrink-0">
+                        <span className="apple-glass-pill px-2 py-0.5 text-[0.65rem] font-mono uppercase tracking-wider text-purple-300 border-purple-500/30 bg-purple-500/10 flex items-center gap-1 shrink-0">
                           <GraduationCap className="h-3 w-3" />
                           Student
                         </span>
@@ -488,8 +460,8 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                     </div>
 
                     {/* Affiliation / Institution */}
-                    <div className="space-y-1 bg-[#0E0E0E] p-3 border border-[#202020] text-xs">
-                      <div className="text-[0.65rem] uppercase tracking-wider text-[#777777] font-mono">
+                    <div className="space-y-1 rounded-xl bg-white/[0.05] p-3 border border-white/[0.08] text-xs">
+                      <div className="text-[0.65rem] uppercase tracking-wider text-neutral-400 font-mono">
                         {isLawyer ? "Courts & Practice" : "University / Law School"}
                       </div>
                       <div className="text-white font-medium line-clamp-1">{member.affiliation}</div>
@@ -497,23 +469,23 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
 
                     {/* Specialisation */}
                     <div className="text-xs">
-                      <span className="text-[0.65rem] uppercase tracking-wider text-[#777777] font-mono block">
+                      <span className="text-[0.65rem] uppercase tracking-wider text-neutral-400 font-mono block">
                         Focus & Research
                       </span>
-                      <p className="mt-0.5 text-[#CCCCCC] line-clamp-2 leading-relaxed">
+                      <p className="mt-0.5 text-neutral-300 line-clamp-2 leading-relaxed">
                         {member.specialisationOrInterests}
                       </p>
                     </div>
 
                     {member.bio && (
-                      <p className="text-xs text-[#888888] line-clamp-2 leading-relaxed italic border-l-2 border-[#333333] pl-2.5">
+                      <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed italic border-l-2 border-white/20 pl-2.5">
                         "{member.bio}"
                       </p>
                     )}
                   </div>
 
                   {/* Action Button: LinkedIn-Style Connection State */}
-                  <div className="mt-6 pt-4 border-t border-[#222222] flex items-center justify-between gap-2">
+                  <div className="mt-6 pt-4 border-t border-white/[0.08] flex items-center justify-between gap-2">
                     {status === "connected" ? (
                       <div className="flex items-center justify-between w-full">
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-mono">
@@ -523,7 +495,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                         <button
                           type="button"
                           onClick={() => handleOpenMessage(member.name, connection?.id || `CONN-${member.id}`)}
-                          className="bg-white text-black px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors flex items-center gap-1.5"
+                          className="bg-white text-black hover:bg-neutral-200 px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                           <span>Message</span>
@@ -531,19 +503,19 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                       </div>
                     ) : status === "pending_sent" ? (
                       <div className="flex items-center justify-between w-full">
-                        <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-mono">
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-300 font-mono">
                           <Clock className="h-3.5 w-3.5 animate-pulse" />
                           <span>Request Pending</span>
                         </span>
-                        <span className="text-[0.7rem] text-[#777777] font-mono">Awaiting reply</span>
+                        <span className="text-[0.7rem] text-neutral-400 font-mono">Awaiting reply</span>
                       </div>
                     ) : status === "pending_received" ? (
                       <div className="flex items-center justify-between w-full">
-                        <span className="text-xs text-emerald-400 font-mono">Sent you invite</span>
+                        <span className="text-xs text-emerald-300 font-mono">Sent you invite</span>
                         <button
                           type="button"
                           onClick={() => connection && handleAccept(connection)}
-                          className="bg-emerald-500 text-black px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-emerald-400 transition-colors"
+                          className="bg-emerald-400 text-black px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-emerald-300 transition-colors shadow-sm cursor-pointer"
                         >
                           Accept
                         </button>
@@ -553,7 +525,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                         type="button"
                         onClick={() => handleSendRequest(member)}
                         disabled={connectingId === member.id}
-                        className="w-full bg-[#1C1C1C] border border-[#333333] hover:border-white text-white hover:bg-white hover:text-black py-2 text-xs font-mono uppercase tracking-[0.1em] transition-colors flex items-center justify-center gap-1.5"
+                        className="w-full apple-glass-pill text-white hover:bg-white hover:text-black py-2 text-xs font-mono uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Users className="h-3.5 w-3.5" />
                         <span>{connectingId === member.id ? "Connecting..." : "Connect"}</span>
@@ -566,10 +538,10 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
           </div>
 
           {filteredMembers.length === 0 && (
-            <div className="bg-[#141414] border border-[#242424] p-12 text-center space-y-3">
-              <Users className="h-8 w-8 text-[#555555] mx-auto" />
+            <div className="apple-glass-card p-12 text-center space-y-3">
+              <Users className="h-8 w-8 text-neutral-500 mx-auto" />
               <h3 className="text-white font-medium text-sm">No Members Found</h3>
-              <p className="text-xs text-[#888888] max-w-md mx-auto">
+              <p className="text-xs text-neutral-400 max-w-md mx-auto">
                 No legal professionals or students match your filter criteria. Try adjusting your search query or city selection.
               </p>
             </div>
@@ -580,34 +552,34 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
       {/* TAB 2: INVITATIONS / PENDING REQUESTS */}
       {activeTab === "invitations" && (
         <div className="space-y-6">
-          <div className="bg-[#141414] border border-[#262626] p-6">
+          <div className="apple-glass-card p-6">
             <h3 className="text-white font-display text-xl font-medium">
               Received Invitations ({pendingReceived.length})
             </h3>
-            <p className="mt-1 text-xs text-[#888888]">
+            <p className="mt-1 text-xs text-neutral-400">
               Colleagues, advocates, and law scholars who have requested to connect with your profile.
             </p>
 
-            <div className="mt-6 divide-y divide-[#222222]">
+            <div className="mt-6 divide-y divide-white/[0.08]">
               {pendingReceived.length === 0 ? (
-                <div className="py-12 text-center text-[#777777] font-mono text-xs">
+                <div className="py-12 text-center text-neutral-400 font-mono text-xs">
                   No pending invitations. When colleagues or students request to connect with you, they will appear here.
                 </div>
               ) : (
                 pendingReceived.map((inv) => (
                   <div key={inv.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-[#222222] border border-[#333333] flex items-center justify-center font-display text-white">
+                      <div className="h-10 w-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-display text-white">
                         {inv.fromUserName.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-white font-medium text-sm">{inv.fromUserName}</span>
-                          <span className="text-[0.65rem] font-mono uppercase px-2 py-0.5 rounded border border-white/20 text-[#AAAAAA]">
+                          <span className="apple-glass-pill text-[0.65rem] font-mono uppercase px-2 py-0.5 text-neutral-300">
                             {inv.fromUserRole === "lawyer" ? "Advocate" : "Law Student"}
                           </span>
                         </div>
-                        <p className="text-xs text-[#888888] font-mono mt-0.5">
+                        <p className="text-xs text-neutral-400 font-mono mt-0.5">
                           {inv.fromUserRoleLabel} • {inv.fromUserCity}
                         </p>
                       </div>
@@ -618,7 +590,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                         type="button"
                         onClick={() => handleAccept(inv)}
                         disabled={acceptingId === inv.id}
-                        className="bg-white text-black px-4 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors flex items-center gap-1.5"
+                        className="bg-white text-black hover:bg-neutral-200 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                       >
                         <Check className="h-3.5 w-3.5" />
                         <span>{acceptingId === inv.id ? "Accepting..." : "Accept"}</span>
@@ -626,7 +598,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                       <button
                         type="button"
                         onClick={() => handleDecline(inv)}
-                        className="border border-[#333333] hover:border-red-400 text-[#AAAAAA] hover:text-red-400 px-3 py-1.5 text-xs uppercase tracking-wider transition-colors"
+                        className="apple-glass-pill hover:border-red-400 text-neutral-400 hover:text-red-400 px-3 py-1.5 text-xs uppercase tracking-wider transition-colors cursor-pointer"
                       >
                         Decline
                       </button>
@@ -642,13 +614,13 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
       {/* TAB 3: MY CONNECTIONS */}
       {activeTab === "connections" && (
         <div className="space-y-6">
-          <div className="bg-[#141414] border border-[#262626] p-6">
-            <div className="flex items-center justify-between border-b border-[#222222] pb-4">
+          <div className="apple-glass-card p-6">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div>
                 <h3 className="text-white font-display text-xl font-medium">
                   Your Connections ({myAcceptedConnections.length})
                 </h3>
-                <p className="mt-1 text-xs text-[#888888]">
+                <p className="mt-1 text-xs text-neutral-400">
                   Verified advocates and students you have established professional connections with.
                 </p>
               </div>
@@ -656,7 +628,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
 
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               {myAcceptedConnections.length === 0 ? (
-                <div className="col-span-2 py-12 text-center text-[#777777] font-mono text-xs">
+                <div className="col-span-2 py-12 text-center text-neutral-400 font-mono text-xs">
                   You haven't added any connections yet. Go to "Discover Network" to connect with advocates and law students.
                 </div>
               ) : (
@@ -669,20 +641,20 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                   return (
                     <div
                       key={conn.id}
-                      className="bg-[#191919] border border-[#2B2B2B] p-5 flex items-center justify-between gap-3"
+                      className="apple-glass-card p-5 flex items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-[#242424] border border-[#3A3A3A] flex items-center justify-center font-display text-white">
+                        <div className="h-10 w-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-display text-white">
                           {partnerName.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-white font-medium text-sm">{partnerName}</span>
                             <span
-                              className={`text-[0.65rem] font-mono uppercase px-2 py-0.5 rounded border ${
+                              className={`text-[0.65rem] font-mono uppercase px-2 py-0.5 rounded-full border ${
                                 partnerRole === "lawyer"
-                                  ? "border-emerald-500/40 text-emerald-300 bg-emerald-950/40"
-                                  : "border-purple-500/40 text-purple-300 bg-purple-950/40"
+                                  ? "border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
+                                  : "border-purple-500/40 text-purple-300 bg-purple-500/10"
                               }`}
                             >
                               {partnerRole === "lawyer" ? "Advocate" : "Law Student"}
@@ -698,7 +670,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                         <button
                           type="button"
                           onClick={() => handleOpenMessage(partnerName, conn.id)}
-                          className="bg-white text-black px-3 py-1.5 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors flex items-center gap-1.5"
+                          className="bg-white text-black hover:bg-neutral-200 px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                           <span>Message</span>
@@ -707,7 +679,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                           type="button"
                           onClick={() => handleDisconnect(conn)}
                           title="Remove connection"
-                          className="p-1.5 border border-[#333333] hover:border-red-400 text-[#777777] hover:text-red-400 transition-colors"
+                          className="p-1.5 apple-glass-pill hover:border-red-400 text-neutral-400 hover:text-red-400 transition-colors cursor-pointer"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>

@@ -123,73 +123,129 @@ function DashboardLayout() {
   }
 
   const sidebar = (
-    <div className="flex h-full flex-col">
-      <Link to="/" className="font-display text-3xl font-semibold tracking-[0.25em] text-foreground">TRANA</Link>
-      <p className="mt-1 text-xs text-muted-foreground">त्राणा — Protection.</p>
-      <nav className="mt-12 flex flex-col gap-1">
-        {nav.map((n) => {
-          if (n.to === "/dashboard/lawyers") {
-            const isActive = location.pathname === "/dashboard/lawyers";
+    <div className="flex h-full flex-col text-[#F0F0F0] relative overflow-hidden select-none">
+      {/* Brand Header */}
+      <div className="p-4 pb-3 flex items-center justify-between relative border-b border-white/[0.08]">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            to="/"
+            className="w-9 h-9 rounded-2xl bg-white/[0.12] hover:bg-white/[0.18] border border-white/25 flex items-center justify-center shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.6),0_4px_16px_rgba(0,0,0,0.4),0_0_12px_rgba(255,255,255,0.08)] text-white font-bold font-display text-lg shrink-0 hover:scale-105 transition-all"
+            title="TRANA Home"
+          >
+            T
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/"
+                className="font-display font-bold text-base text-white tracking-wide hover:text-neutral-200 transition-colors truncate"
+              >
+                TRANA
+              </Link>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-white/10 text-neutral-300 border border-white/20">
+                CITIZEN
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans truncate leading-none mt-0.5">
+              Legal First-Aid Portal
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Area */}
+      <div className="flex-1 overflow-y-auto px-2.5 py-3">
+        <nav className="space-y-1">
+          {nav.map((n) => {
+            const isActive =
+              n.to === "/dashboard"
+                ? location.pathname === "/dashboard" || location.pathname === "/dashboard/"
+                : location.pathname.startsWith(n.to);
+
+            if (n.to === "/dashboard/lawyers") {
+              return (
+                <button
+                  key={n.to}
+                  type="button"
+                  onClick={handleFindLawyerClick}
+                  className={`w-full text-left apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 cursor-pointer ${
+                    isActive ? "text-white bg-white/[0.14] border border-white/25 shadow-sm" : "text-neutral-300 hover:text-white hover:bg-white/[0.08]"
+                  }`}
+                >
+                  <span className="tracking-normal truncate">{n.label}</span>
+                  {isActive && <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+                </button>
+              );
+            }
+
             return (
-              <button
+              <Link
                 key={n.to}
-                type="button"
-                onClick={handleFindLawyerClick}
-                className={`border-l-2 text-left px-3 py-2.5 text-sm transition-colors hover:text-foreground ${
-                  isActive ? "!border-foreground !text-foreground" : "border-transparent text-muted-foreground"
+                to={n.to}
+                activeOptions={{ exact: "exact" in n }}
+                onClick={() => setOpen(false)}
+                className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
+                  isActive ? "text-white bg-white/[0.14] border border-white/25 shadow-sm" : "text-neutral-300 hover:text-white hover:bg-white/[0.08]"
                 }`}
               >
-                {n.label}
-              </button>
+                <span className="tracking-normal truncate">{n.label}</span>
+                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
+              </Link>
             );
-          }
-          return (
-            <Link
-              key={n.to}
-              to={n.to}
-              activeOptions={{ exact: "exact" in n }}
-              onClick={() => setOpen(false)}
-              className="border-l-2 border-transparent px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              activeProps={{ className: "!border-foreground !text-foreground" }}
-            >
-              {n.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="mt-auto border-t border-border pt-5 space-y-3">
-        <div>
-          <div className="flex items-center justify-between">
-            <p className="truncate text-sm font-medium text-foreground">{profile?.name}</p>
+          })}
+        </nav>
+      </div>
+
+      {/* Floating User Profile Capsule at Bottom */}
+      <div className="p-3 border-t border-white/[0.08] bg-black/25 backdrop-blur-xl mt-auto space-y-2">
+        <div className="relative overflow-hidden rounded-2xl bg-white/[0.07] hover:bg-white/[0.12] border border-white/15 p-2 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.3),0_8px_20px_rgba(0,0,0,0.35)] transition-all">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-white/25 via-white/50 to-white/20 p-[1px] shadow-sm">
+                  <div className="w-full h-full rounded-full bg-[#121216] flex items-center justify-center text-xs font-semibold text-white">
+                    {profile?.name?.[0]?.toUpperCase() || "C"}
+                  </div>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-white truncate leading-tight">
+                  {profile?.name || "Citizen"}
+                </div>
+                <div className="text-[10px] text-neutral-400 truncate leading-tight mt-0.5 font-mono">
+                  {profile?.email}
+                </div>
+              </div>
+            </div>
+
             {isFounder ? (
-              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
                 Founder
               </span>
             ) : isLawyer ? (
-              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 shrink-0">
                 <Scale className="h-2.5 w-2.5" />
                 Advocate
               </span>
             ) : isStudent ? (
-              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 shrink-0">
                 <GraduationCap className="h-2.5 w-2.5" />
                 Student
               </span>
             ) : (
-              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-white/10 text-neutral-300 border border-white/20 shrink-0">
                 Citizen
               </span>
             )}
           </div>
-          <p className="truncate text-xs text-muted-foreground mt-0.5">{profile?.email}</p>
         </div>
 
         {/* Portal Switcher Buttons */}
-        <div className="pt-2 border-t border-border/50 flex flex-col gap-1.5 text-xs font-mono">
+        <div className="flex flex-col gap-1 pt-1 text-[11px] font-mono">
           {(isLawyer || isFounder) && (
             <Link
               to="/lawyer"
-              className="flex items-center justify-between text-muted-foreground hover:text-foreground text-[0.7rem] py-1"
+              className="flex items-center justify-between text-neutral-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors"
             >
               <span className="flex items-center gap-1.5 text-emerald-400">
                 <Scale className="h-3 w-3" />
@@ -202,7 +258,7 @@ function DashboardLayout() {
           {(isStudent || isLawyer || isFounder) && (
             <Link
               to="/student"
-              className="flex items-center justify-between text-muted-foreground hover:text-foreground text-[0.7rem] py-1"
+              className="flex items-center justify-between text-neutral-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors"
             >
               <span className="flex items-center gap-1.5 text-purple-300">
                 <GraduationCap className="h-3 w-3" />
@@ -215,7 +271,7 @@ function DashboardLayout() {
           {isFounder && (
             <Link
               to="/founders"
-              className="flex items-center justify-between text-muted-foreground hover:text-foreground text-[0.7rem] py-1"
+              className="flex items-center justify-between text-neutral-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors"
             >
               <span className="flex items-center gap-1.5 text-amber-300">
                 <ShieldCheck className="h-3 w-3" />
@@ -226,16 +282,16 @@ function DashboardLayout() {
           )}
 
           {!isLawyer && !isStudent && !isFounder && (
-            <div className="pt-1 flex flex-col gap-1 text-[0.7rem]">
+            <div className="flex flex-col gap-0.5">
               <Link
                 to="/student"
-                className="text-purple-400 hover:text-purple-300 flex items-center justify-between py-0.5"
+                className="text-purple-400 hover:text-purple-300 flex items-center justify-between px-2 py-1 rounded-lg hover:bg-purple-950/30 transition-colors"
               >
                 <span>Law Student Portal →</span>
               </Link>
               <Link
                 to="/lawyer"
-                className="text-neutral-400 hover:text-white flex items-center justify-between py-0.5"
+                className="text-neutral-300 hover:text-white flex items-center justify-between px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors"
               >
                 <span>Advocate Portal →</span>
               </Link>
@@ -244,7 +300,7 @@ function DashboardLayout() {
 
           <button
             onClick={signOut}
-            className="mt-2 text-left text-muted-foreground hover:text-foreground text-[0.7rem] uppercase tracking-wider"
+            className="w-full mt-1 text-center py-1.5 text-[10px] uppercase tracking-wider text-neutral-400 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
           >
             Log out
           </button>
@@ -254,20 +310,55 @@ function DashboardLayout() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 hidden w-[260px] border-r border-border bg-secondary p-7 md:block">{sidebar}</aside>
-      <header className="flex items-center justify-between border-b border-border px-5 py-4 md:hidden">
-        <span className="font-display text-2xl tracking-[0.25em]">TRANA</span>
-        <button aria-label="Open menu" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button>
-      </header>
-      {open && (
-        <div className="fixed inset-0 z-50 bg-secondary p-7 md:hidden">
-          <button aria-label="Close menu" className="absolute right-5 top-5" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
+    <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black">
+      {/* Ambient background subtle monochrome white glow */}
+      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.025] blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10" />
+
+      {/* Desktop Left Sidebar: Fixed Floating Apple Glass */}
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[275px] p-3 lg:p-4 z-40 select-none">
+        <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden">
           {sidebar}
         </div>
+      </aside>
+
+      {/* Mobile Top Header */}
+      <header className="flex items-center justify-between border-b border-white/10 bg-[#0d0b14]/80 backdrop-blur-2xl px-4 py-3 md:hidden sticky top-0 z-40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-white/[0.12] border border-white/25 flex items-center justify-center shadow-md text-white font-bold font-display text-sm">
+            T
+          </div>
+          <span className="font-display text-base tracking-[0.15em] text-[#F0F0F0]">TRANA</span>
+          <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">CITIZEN</span>
+        </div>
+        <button
+          aria-label="Open menu"
+          onClick={() => setOpen(true)}
+          className="p-1.5 apple-glass-pill text-[#F0F0F0] cursor-pointer"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+      </header>
+
+      {/* Mobile Drawer */}
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md md:hidden flex p-3">
+          <div className="apple-floating-sidebar w-[275px] h-full flex flex-col relative overflow-hidden shadow-2xl">
+            <button
+              aria-label="Close menu"
+              className="absolute right-3.5 top-3.5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-neutral-300 hover:text-white z-50 transition-all cursor-pointer"
+              onClick={() => setOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {sidebar}
+          </div>
+        </div>
       )}
+
+      {/* Main Content Area */}
       <main
-        className="md:ml-[260px]"
+        className="md:ml-[275px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10"
         onClickCapture={(e) => {
           const target = (e.target as HTMLElement).closest('a[href="/dashboard/lawyers"]');
           if (target) {

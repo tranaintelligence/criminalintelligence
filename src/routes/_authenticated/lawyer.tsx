@@ -630,95 +630,127 @@ function LawyerLayout() {
   }
 
   const sidebarContent = (
-    <div className="flex h-full flex-col bg-[#111111] text-[#F0F0F0]">
+    <div className="flex h-full flex-col text-[#F0F0F0] relative overflow-hidden select-none">
       {/* Header */}
-      <div className="p-6 border-b border-[#222222]">
-        <Link to="/" className="font-display text-3xl font-semibold tracking-[0.25em] text-white">
-          TRANA
-        </Link>
-        <p className="mt-1 text-xs text-[#888888]">
-          Legal Professional Workspace
-        </p>
+      <div className="p-4 pb-3 flex flex-col gap-3 relative border-b border-white/[0.08]">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            to="/"
+            className="w-9 h-9 rounded-2xl bg-white/[0.12] hover:bg-white/[0.18] border border-white/25 flex items-center justify-center shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.6),0_4px_16px_rgba(0,0,0,0.4),0_0_12px_rgba(255,255,255,0.08)] text-white font-bold font-display text-lg shrink-0 hover:scale-105 transition-all"
+            title="TRANA Home"
+          >
+            T
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/"
+                className="font-display font-bold text-base text-white tracking-wide hover:text-neutral-200 transition-colors truncate"
+              >
+                TRANA
+              </Link>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ADVOCATE
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans truncate leading-none mt-0.5">
+              Legal Professional Workspace
+            </div>
+          </div>
+        </div>
 
         {/* Verification Status Pill */}
-        <div className="mt-4 flex items-center gap-2 border border-white/20 bg-[#1A1A1A] px-3 py-1.5 text-xs">
+        <div className="flex items-center gap-2 apple-glass-pill px-3 py-1 text-xs">
           {lawyer?.approved || lawyer?.verification_status === "VERIFIED" ? (
             <>
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-medium text-white">✓ Verified Advocate</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+              <span className="font-medium text-white text-[11px]">✓ Verified Advocate</span>
             </>
           ) : (
             <>
               <span className="h-2 w-2 rounded-full bg-amber-400" />
-              <span className="text-amber-300">⏳ Pending Verification</span>
+              <span className="text-amber-300 text-[11px]">⏳ Pending Verification</span>
             </>
           )}
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.exact 
-            ? location.pathname === item.to || location.pathname === `${item.to}/`
-            : location.pathname.startsWith(item.to);
+      <div className="flex-1 overflow-y-auto px-2.5 py-3">
+        <nav className="space-y-0.5">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = item.exact 
+              ? location.pathname === item.to || location.pathname === `${item.to}/`
+              : location.pathname.startsWith(item.to);
 
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`group flex items-center justify-between px-3.5 py-2.5 text-sm transition-colors border-l-2 ${
-                isActive 
-                  ? "border-white bg-[#1A1A1A] text-white font-medium" 
-                  : "border-transparent text-[#999999] hover:text-white hover:bg-[#161616]"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#777777] group-hover:text-white"}`} />
-                <span>{item.label}</span>
-              </div>
-              {"badge" in item && (
-                <span className={`text-[0.65rem] px-2 py-0.5 border ${
-                  item.badge === "In Development"
-                    ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
-                    : "border-neutral-700 text-[#888888] bg-neutral-900"
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`apple-nav-item flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans font-medium transition-colors relative z-10 ${
+                  isActive 
+                    ? "text-white bg-white/[0.14] border border-white/25 shadow-sm" 
+                    : "text-neutral-300 hover:text-white hover:bg-white/[0.08]"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? "text-white" : "text-neutral-400"}`} />
+                  <span className="tracking-normal truncate">{item.label}</span>
+                </div>
+                {"badge" in item && (
+                  <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full border ${
+                    item.badge === "In Development"
+                      ? "border-amber-500/40 text-amber-300 bg-amber-500/20"
+                      : "border-white/20 text-neutral-400 bg-white/10"
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+                {isActive && !("badge" in item) && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
 
       {/* Footer Profile & Switcher */}
-      <div className="p-5 border-t border-[#222222] bg-[#0E0E0E]">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-[#1F1F1F] border border-white/20 flex items-center justify-center font-display text-sm font-semibold text-white">
-            {lawyer?.full_name?.charAt(0) || "A"}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{lawyer?.full_name}</p>
-            <p className="truncate text-xs font-mono text-[#777777]">{lawyer?.bar_reg_no || lawyer?.city}</p>
+      <div className="p-3 border-t border-white/[0.08] bg-black/25 backdrop-blur-xl mt-auto space-y-2">
+        <div className="relative overflow-hidden rounded-2xl bg-white/[0.07] hover:bg-white/[0.12] border border-white/15 p-2 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.3),0_8px_20px_rgba(0,0,0,0.35)] transition-all">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-400/40 via-white/50 to-emerald-400/20 p-[1px] shadow-sm">
+                  <div className="w-full h-full rounded-full bg-[#121216] flex items-center justify-center text-xs font-semibold text-white">
+                    {lawyer?.full_name?.charAt(0) || "A"}
+                  </div>
+                </div>
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-[#121216] shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-white leading-tight">{lawyer?.full_name || "Advocate"}</p>
+                <p className="truncate text-[10px] font-mono text-neutral-400 leading-tight mt-0.5">{lawyer?.bar_reg_no || lawyer?.city}</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-[#1F1F1F] flex flex-col gap-2">
+        <div className="flex flex-col gap-1 pt-1 text-[11px] font-mono">
           <Link
             to="/dashboard"
-            className="flex items-center justify-between text-xs text-[#888888] hover:text-white transition-colors"
+            className="flex items-center justify-between text-neutral-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/[0.06] transition-colors"
           >
             <span>Citizen Dashboard</span>
             <ExternalLink className="h-3 w-3" />
           </Link>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-[#777777] hover:text-red-400 transition-colors mt-1"
+            className="w-full text-center py-1.5 text-[10px] uppercase tracking-wider text-neutral-400 hover:text-red-400 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer"
           >
-            <LogOut className="h-3 w-3" />
-            <span>Sign out</span>
+            Sign out
           </button>
         </div>
       </div>
@@ -726,37 +758,45 @@ function LawyerLayout() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0]">
+    <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] selection:bg-white selection:text-black">
       <Toaster />
 
-      {/* Desktop Left Sidebar (#111111) */}
-      <aside className="fixed inset-y-0 left-0 hidden w-[270px] border-r border-[#222222] bg-[#111111] md:block z-30">
-        {sidebarContent}
+      {/* Ambient background subtle monochrome white glow */}
+      <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-white/[0.025] blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10" />
+
+      {/* Desktop Left Sidebar: Fixed Floating Apple Glass */}
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[275px] p-3 lg:p-4 z-40 select-none">
+        <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden">
+          {sidebarContent}
+        </div>
       </aside>
 
       {/* Mobile Header */}
-      <header className="flex items-center justify-between border-b border-[#222222] bg-[#111111] px-5 py-4 md:hidden sticky top-0 z-40">
+      <header className="flex items-center justify-between border-b border-white/10 bg-[#0d0b14]/80 backdrop-blur-2xl px-4 py-3 md:hidden sticky top-0 z-40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-white" />
-          <span className="font-display text-xl tracking-[0.2em] text-white">TRANA</span>
-          <span className="text-[0.65rem] border border-white/20 px-1.5 py-0.5 text-[#999999]">LAWYER</span>
+          <div className="w-7 h-7 rounded-xl bg-white/[0.12] border border-white/25 flex items-center justify-center shadow-md text-white font-bold font-display text-sm">
+            T
+          </div>
+          <span className="font-display text-base tracking-[0.15em] text-[#F0F0F0]">TRANA</span>
+          <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">LAWYER</span>
         </div>
         <button
           aria-label="Open navigation menu"
           onClick={() => setMobileMenuOpen(true)}
-          className="p-1.5 border border-[#333333] text-white"
+          className="p-1.5 apple-glass-pill text-[#F0F0F0] cursor-pointer"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-4 w-4" />
         </button>
       </header>
 
       {/* Mobile Navigation Drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm md:hidden">
-          <div className="fixed inset-y-0 left-0 w-[280px] bg-[#111111] shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md md:hidden flex p-3">
+          <div className="apple-floating-sidebar w-[275px] h-full flex flex-col relative overflow-hidden shadow-2xl">
             <button
               aria-label="Close menu"
-              className="absolute right-4 top-4 p-2 text-white border border-[#333333]"
+              className="absolute right-3.5 top-3.5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-neutral-300 hover:text-white z-50 transition-all cursor-pointer"
               onClick={() => setMobileMenuOpen(false)}
             >
               <X className="h-4 w-4" />
@@ -767,21 +807,21 @@ function LawyerLayout() {
       )}
 
       {/* Main Content Area */}
-      <main className="md:ml-[270px] min-h-screen">
+      <main className="md:ml-[275px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
         {/* If pending verification, show prominent notification banner */}
         {lawyer?.verification_status === "PENDING_VERIFICATION" && !lawyer?.approved && (
-          <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-3 flex items-center justify-between text-xs text-amber-300">
+          <div className="apple-glass-card mb-6 p-4 flex items-center justify-between text-xs text-amber-300 border-amber-500/30">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-400 shrink-0" />
               <span>
                 <strong>Application Under Verification:</strong> Your Bar Council Sanad credentials (<strong>{lawyer.bar_reg_no}</strong>) are currently being reviewed by the TRANA Legal Verification Desk.
               </span>
             </div>
-            <span className="text-amber-400 font-mono text-[11px] shrink-0">Status: In Review</span>
+            <span className="apple-glass-pill px-2 py-0.5 text-amber-400 font-mono text-[11px] shrink-0">Status: In Review</span>
           </div>
         )}
 
-        <div className="mx-auto max-w-6xl px-6 py-8 md:px-12 md:py-12">
+        <div className="max-w-7xl mx-auto space-y-6">
           <Outlet />
         </div>
       </main>
