@@ -13,12 +13,19 @@ import { maskConfidentialPatterns } from "@/lib/privacy-mask";
 import type { ConsultationChatMessage } from "@/components/ConsultationChatModal";
 import { CaseSummaryModal } from "@/components/CaseSummaryViewer";
 
+interface LawyerInboxSearch {
+  chat?: string;
+}
+
 export const Route = createFileRoute("/_authenticated/lawyer/inbox")({
+  validateSearch: (search: Record<string, unknown>): LawyerInboxSearch => ({
+    chat: typeof search.chat === "string" ? search.chat : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "Case Inbox — Legal Professional Workspace — TRANA" },
-      { name: "description", content: "Direct case communications, client consultations, and active matter inbox." },
-      { property: "og:title", content: "Case Inbox — Legal Professional Workspace — TRANA" },
+      { title: "Case & Colleague Inbox — Legal Professional Workspace — TRANA" },
+      { name: "description", content: "Direct case communications, client consultations, and verified peer advocate network inbox." },
+      { property: "og:title", content: "Case & Colleague Inbox — Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerCaseInboxPage,
@@ -29,18 +36,22 @@ type CaseItem = {
   client: string;
   matterType: string;
   section?: string;
-  consultationType: "Call" | "Chat";
+  consultationType: "Call" | "Chat" | "Peer";
+  category: "client" | "peer";
   status: "New Request" | "Confirmed" | "Denied" | "Withdrawn" | "Completed";
   date: string;
   intakeBrief?: string;
   lastMessage?: string;
+  timestampSort: number;
 };
 
 function LawyerCaseInboxPage() {
   const { data: lawyer } = useLawyerAuth();
+  const searchParams = Route.useSearch();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [selectedCaseId, setSelectedCaseId] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "client" | "peer">("all");
+  const [selectedCaseId, setSelectedCaseId] = useState<string>(searchParams.chat || "");
   const [showCaseSummary, setShowCaseSummary] = useState(false);
   const [messages, setMessages] = useState<ConsultationChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -58,9 +69,11 @@ function LawyerCaseInboxPage() {
     },
   });
 
-  // Reconcile live consultations, local referrals, and benchmark matters
+  // Reconcile live consultations, local referrals, and peer advocate chats
   const cases: CaseItem[] = useMemo(() => {
     const list: CaseItem[] = [];
+    const myName = (lawyer?.full_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+    const myId = (lawyer?.id || "").toLowerCase().trim();
 
     // 1. Add from localStorage referrals (instant sync)
     let localReferrals: any[] = [];
@@ -80,10 +93,12 @@ function LawyerCaseInboxPage() {
           matterType: r.matterType || "Legal Consultation Request",
           section: r.section || "Applicable Statutes",
           consultationType: r.consultationType === "Chat" ? "Chat" : "Call",
+          category: "client",
           status: (r.status as CaseItem["status"]) || "Confirmed",
           date: r.date || "Today",
           intakeBrief: r.intakeBrief,
-          lastMessage: r.summary,
+          lastMessage: r.summary || "Consultation channel active",
+          timestampSort: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
         });
       }
     });
@@ -94,23 +109,66 @@ function LawyerCaseInboxPage() {
       if (list.some((existing) => existing.id === rowId)) return;
 
       const briefText = row.intake_brief || row.note || "";
+      const isPeer = row.consult_type === "peer" || 
+        briefText.includes("Peer Legal Collaboration") || 
+        briefText.includes("Peer Collaboration") ||
+        briefText.includes("Client Referral from Advocate");
+
       let matter = "Legal Consultation Request";
       let sectionStr = "Applicable Statutes";
-      if (briefText) {
-        const matterMatch = briefText.match(/\*\*Matter\*\*:\s*([^\n]+)/);
-        if (matterMatch) matter = matterMatch[1].trim();
-        const sectionMatch =
-          briefText.match(/\*\*Applicable Statutes\*\*:\s*([^\n]+)/) ||
-          briefText.match(/\*\*Sections Identified\*\*:\s*([^\n]+)/);
-        if (sectionMatch) sectionStr = sectionMatch[1].trim();
+      let clientName = "Citizen Client";
+
+      if (isPeer) {
+        let initiatorName = "Advocate Colleague";
+        const initMatch = briefText.match(/\*\*Initiating Advocate\*\*:\s*([^\n(]+)/) ||
+                          briefText.match(/\*\*Referring Advocate\*\*:\s*([^\n(]+)/) ||
+                          briefText.match(/between\s+(Adv\.[^and]+)\s+and/i);
+        if (initMatch) initiatorName = initMatch[1].trim();
+
+        let interlocutorName = row.lawyer_name || "Advocate Colleague";
+        const rowLawyerNorm = (row.lawyer_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+
+        // If current logged-in lawyer is the recipient, the interlocutor is the initiator
+        if (rowLawyerNorm && myName && rowLawyerNorm === myName) {
+          interlocutorName = initiatorName;
+        }
+
+        clientName = interlocutorName;
+
+        if (briefText.includes("Client Referral")) {
+          const clientRefMatch = briefText.match(/\*\*Client Name \/ Matter\*\*:\s*([^\n]+)/) || briefText.match(/\*\*Client\*\*:\s*([^\n]+)/);
+          matter = `Client Referral: ${clientRefMatch ? clientRefMatch[1].trim() : "Case Representation"}`;
+        } else {
+          matter = "Inter-Advocate Peer Collaboration";
+        }
+        sectionStr = "Bar Council / High Court Peer Channel";
+      } else {
+        if (briefText) {
+          const matterMatch = briefText.match(/\*\*Matter\*\*:\s*([^\n]+)/);
+          if (matterMatch) matter = matterMatch[1].trim();
+          const sectionMatch =
+            briefText.match(/\*\*Applicable Statutes\*\*:\s*([^\n]+)/) ||
+            briefText.match(/\*\*Sections Identified\*\*:\s*([^\n]+)/);
+          if (sectionMatch) sectionStr = sectionMatch[1].trim();
+        }
+
+        const clientMatch = briefText.match(/\*\*Client\*\*:\s*([^(•\n]+)/);
+        if (clientMatch && clientMatch[1].trim() && clientMatch[1].trim() !== "Citizen Client") {
+          clientName = clientMatch[1].trim();
+        } else if (row.user_id) {
+          clientName = `Citizen (${row.user_id.slice(0, 8)})`;
+        }
       }
 
-      let clientName = "Citizen Client";
-      const clientMatch = briefText.match(/\*\*Client\*\*:\s*([^(•\n]+)/);
-      if (clientMatch && clientMatch[1].trim() && clientMatch[1].trim() !== "Citizen Client") {
-        clientName = clientMatch[1].trim();
-      } else if (row.user_id) {
-        clientName = `Citizen (${row.user_id.slice(0, 8)})`;
+      // Check last message from note if available
+      let lastMsgText = briefText || "Channel opened.";
+      if (row.note) {
+        try {
+          const parsed = JSON.parse(row.note);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            lastMsgText = parsed[parsed.length - 1].text || lastMsgText;
+          }
+        } catch {}
       }
 
       const stLower = (row.status || "").toLowerCase();
@@ -123,12 +181,15 @@ function LawyerCaseInboxPage() {
           ? "Denied"
           : "New Request";
 
+      const sortTime = row.created_at ? new Date(row.created_at).getTime() : 0;
+
       list.push({
         id: rowId,
         client: clientName,
         matterType: matter,
         section: sectionStr,
-        consultationType: row.consult_type === "chat" ? "Chat" : "Call",
+        consultationType: isPeer ? "Peer" : row.consult_type === "call" ? "Call" : "Chat",
+        category: isPeer ? "peer" : "client",
         status: statusLabel,
         date: row.created_at
           ? new Date(row.created_at).toLocaleDateString("en-IN", {
@@ -138,11 +199,13 @@ function LawyerCaseInboxPage() {
             })
           : "Today",
         intakeBrief: briefText,
+        lastMessage: lastMsgText,
+        timestampSort: sortTime,
       });
     });
 
-    return list;
-  }, [dbConsults]);
+    return list.sort((a, b) => b.timestampSort - a.timestampSort);
+  }, [dbConsults, lawyer]);
 
   // Default selected case
   useEffect(() => {
@@ -393,15 +456,22 @@ function LawyerCaseInboxPage() {
     toast.warning(`You have withdrawn from the case for ${activeCase.client}. Client is now free to consult another lawyer.`);
   }
 
-  const filteredCases = cases.filter((c) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      c.client.toLowerCase().includes(q) ||
-      c.matterType.toLowerCase().includes(q) ||
-      (c.section && c.section.toLowerCase().includes(q))
-    );
-  });
+  const clientCasesCount = cases.filter((c) => c.category === "client").length;
+  const peerCasesCount = cases.filter((c) => c.category === "peer").length;
+
+  const filteredCases = useMemo(() => {
+    return cases.filter((c) => {
+      if (categoryFilter === "client" && c.category !== "client") return false;
+      if (categoryFilter === "peer" && c.category !== "peer") return false;
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (
+        c.client.toLowerCase().includes(q) ||
+        c.matterType.toLowerCase().includes(q) ||
+        (c.section && c.section.toLowerCase().includes(q))
+      );
+    });
+  }, [cases, categoryFilter, search]);
 
   return (
     <div className="space-y-6">
@@ -409,25 +479,28 @@ function LawyerCaseInboxPage() {
       <div className="border-b border-[#222222] pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-[0.65rem] uppercase tracking-widest text-[#888888] font-mono block">
-            CONFIDENTIAL CLIENT-COUNSEL RELAY
+            CONFIDENTIAL CASE & PEER NETWORK INBOX
           </span>
           <h1 className="font-display text-4xl md:text-5xl font-medium text-white mt-1">
-            Case Inbox
+            Case & Colleague Inbox
           </h1>
           <p className="mt-1.5 text-xs text-[#999999]">
-            Active consultation chats, structured matter intake, and direct client correspondence.
+            Active client consultations, peer advocate collaboration channels, and transmitted case referrals.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="border border-white/20 bg-[#1A1A1A] px-3.5 py-1.5 text-xs font-mono text-white">
-            Active Matters: {cases.filter((c) => c.status !== "Denied" && c.status !== "Completed").length}
-          </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/lawyer/network"
+            className="border border-white/20 bg-[#1A1A1A] hover:bg-[#252525] px-3.5 py-1.5 text-xs font-mono text-white rounded transition-colors"
+          >
+            + Connect With Colleagues
+          </Link>
         </div>
       </div>
 
       {/* Master-Detail Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[640px] bg-[#141414] border border-[#2E2E2E]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[640px] bg-[#141414] border border-[#2E2E2E] rounded-xl overflow-hidden shadow-2xl">
         {/* Left Column: Cases List */}
         <div className="lg:col-span-4 border-r border-[#262626] flex flex-col h-full bg-[#121212]">
           {/* Search Bar */}
@@ -438,76 +511,137 @@ function LawyerCaseInboxPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search cases by client or matter..."
-                className="w-full border border-[#333333] bg-[#0A0A0A] py-2 pl-9 pr-3 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
+                placeholder="Search clients, colleagues, or matter..."
+                className="w-full border border-[#333333] bg-[#0A0A0A] py-2 pl-9 pr-3 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none rounded"
               />
+            </div>
+
+            {/* Category Filter Tabs */}
+            <div className="flex items-center gap-1.5 mt-2.5 font-mono text-[0.68rem]">
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("all")}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  categoryFilter === "all"
+                    ? "bg-white text-black font-semibold shadow-sm"
+                    : "text-[#888888] hover:text-white hover:bg-[#1E1E1E]"
+                }`}
+              >
+                All ({cases.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("client")}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  categoryFilter === "client"
+                    ? "bg-white text-black font-semibold shadow-sm"
+                    : "text-[#888888] hover:text-white hover:bg-[#1E1E1E]"
+                }`}
+              >
+                Clients ({clientCasesCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("peer")}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  categoryFilter === "peer"
+                    ? "bg-white text-black font-semibold shadow-sm"
+                    : "text-[#888888] hover:text-white hover:bg-[#1E1E1E]"
+                }`}
+              >
+                Colleagues ({peerCasesCount})
+              </button>
             </div>
           </div>
 
           {/* Cases Feed */}
-          <div className="flex-1 overflow-y-auto divide-y divide-[#202020]">
+          <div className="flex-1 overflow-y-auto divide-y divide-[#202020] max-h-[580px]">
             {filteredCases.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#777777] font-mono">
-                No client consultation matters found.
+                {search ? "No matches found." : "No conversations found in this category."}
               </div>
             ) : (
               filteredCases.map((c) => {
-              const isSelected = c.id === activeCase?.id;
-              const isConfirmed = c.status === "Confirmed";
-              const isDenied = c.status === "Denied";
+                const isSelected = c.id === activeCase?.id;
+                const isConfirmed = c.status === "Confirmed";
+                const isDenied = c.status === "Denied";
+                const isPeer = c.category === "peer";
 
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedCaseId(c.id)}
-                  className={`w-full text-left p-4 transition-colors block ${
-                    isSelected
-                      ? "bg-[#1E1E1E] border-l-2 border-white"
-                      : "hover:bg-[#181818] border-l-2 border-transparent"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-[#2A2A2A] border border-white/10 flex items-center justify-center text-[0.65rem] font-bold text-white uppercase">
-                        {c.client.charAt(0)}
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCaseId(c.id)}
+                    className={`w-full text-left p-4 transition-colors block ${
+                      isSelected
+                        ? "bg-[#1E1E1E] border-l-2 border-white"
+                        : "hover:bg-[#181818] border-l-2 border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-7 w-7 rounded-full border flex items-center justify-center text-[0.65rem] font-bold uppercase ${
+                            isPeer
+                              ? "bg-sky-950/60 border-sky-500/40 text-sky-300"
+                              : "bg-[#2A2A2A] border-white/10 text-white"
+                          }`}
+                        >
+                          {isPeer ? <Scale className="h-3.5 w-3.5" /> : c.client.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-white text-sm truncate max-w-[140px]">
+                              {c.client}
+                            </span>
+                            {isPeer ? (
+                              <span className="border border-sky-500/40 bg-sky-950/50 text-[0.55rem] font-mono text-sky-300 px-1 py-0.2 rounded uppercase">
+                                Colleague
+                              </span>
+                            ) : (
+                              <span className="border border-emerald-500/40 bg-emerald-950/50 text-[0.55rem] font-mono text-emerald-400 px-1 py-0.2 rounded uppercase">
+                                Client
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <span className="font-medium text-white text-sm truncate max-w-[150px]">
-                        {c.client}
+
+                      <span
+                        className={`text-[0.6rem] font-mono uppercase px-2 py-0.5 rounded border ${
+                          isConfirmed
+                            ? "border-emerald-500/50 bg-emerald-950/40 text-emerald-300"
+                            : isDenied
+                            ? "border-red-500/50 bg-red-950/40 text-red-400"
+                            : "border-amber-500/50 bg-amber-950/40 text-amber-300"
+                        }`}
+                      >
+                        {c.status}
                       </span>
                     </div>
 
-                    <span
-                      className={`text-[0.6rem] font-mono uppercase px-2 py-0.5 rounded border ${
-                        isConfirmed
-                          ? "border-emerald-500/50 bg-emerald-950/40 text-emerald-300"
-                          : isDenied
-                          ? "border-red-500/50 bg-red-950/40 text-red-400"
-                          : "border-amber-500/50 bg-amber-950/40 text-amber-300"
-                      }`}
-                    >
-                      {c.status}
-                    </span>
-                  </div>
+                    <p className="text-xs text-[#CCCCCC] mt-1.5 line-clamp-1 font-sans">
+                      {c.matterType}
+                    </p>
 
-                  <p className="text-xs text-[#CCCCCC] mt-1.5 line-clamp-1 font-sans">
-                    {c.matterType}
-                  </p>
-
-                  <div className="mt-2.5 flex items-center justify-between text-[0.65rem] text-[#888888] font-mono">
-                    <span className="flex items-center gap-1">
-                      {c.consultationType === "Call" ? (
-                        <Phone className="h-2.5 w-2.5 text-sky-400" />
-                      ) : (
-                        <MessageSquare className="h-2.5 w-2.5 text-purple-400" />
-                      )}
-                      {c.consultationType}
-                    </span>
-                    <span>{c.date}</span>
-                  </div>
-                </button>
-              );
-            })
-          )}
+                    <div className="mt-2.5 flex items-center justify-between text-[0.65rem] text-[#888888] font-mono">
+                      <span className="flex items-center gap-1">
+                        {isPeer ? (
+                          <Users className="h-2.5 w-2.5 text-sky-400" />
+                        ) : c.consultationType === "Call" ? (
+                          <Phone className="h-2.5 w-2.5 text-sky-400" />
+                        ) : (
+                          <MessageSquare className="h-2.5 w-2.5 text-purple-400" />
+                        )}
+                        {c.consultationType}
+                      </span>
+                      <span>{c.date}</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -518,12 +652,19 @@ function LawyerCaseInboxPage() {
             <div className="p-4 border-b border-[#262626] bg-[#161616] flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[0.65rem] font-mono uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
-                    <Lock className="h-3 w-3 inline mr-1" />
-                    Masked Relay
-                  </span>
+                  {activeCase.category === "peer" ? (
+                    <span className="text-[0.65rem] font-mono uppercase tracking-widest text-sky-400 bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded">
+                      <Users className="h-3 w-3 inline mr-1" />
+                      Peer Collaboration
+                    </span>
+                  ) : (
+                    <span className="text-[0.65rem] font-mono uppercase tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
+                      <Lock className="h-3 w-3 inline mr-1" />
+                      Masked Relay
+                    </span>
+                  )}
                   <span className="text-[0.65rem] font-mono uppercase text-[#AAAAAA] bg-[#222222] border border-[#333333] px-2 py-0.5 rounded">
-                    {activeCase.consultationType === "Call" ? "Phone Consultation" : "Secure In-App Chat"}
+                    {activeCase.consultationType === "Call" ? "Phone Consultation" : activeCase.category === "peer" ? "Colleague P2P Stream" : "Secure In-App Chat"}
                   </span>
                   <span
                     className={`text-[0.65rem] font-mono uppercase px-2 py-0.5 rounded border ${

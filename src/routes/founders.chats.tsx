@@ -5,7 +5,7 @@ import {
   MessageSquare, Search, Phone, ShieldCheck, Download, 
   ExternalLink, User, CheckCircle2, XCircle, Clock, RefreshCw, 
   AlertTriangle, ArrowRight, ShieldAlert, Sparkles, Filter,
-  Bot, Scale, FileText, Lock, Check, Layers
+  Bot, Scale, FileText, Lock, Check, Layers, Users
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -38,11 +38,11 @@ export type RealChatMessage = {
 
 export type RealChatSession = {
   id: string;
-  category: "ai" | "advocate";
+  category: "ai" | "advocate" | "peer";
   title: string;
   participantPrimary: string;
   participantSecondary: string;
-  mode: "Legal AI" | "Chat" | "Call";
+  mode: "Legal AI" | "Chat" | "Call" | "Peer";
   status: string;
   lastMessage: string;
   lastUpdated: string;
@@ -56,7 +56,7 @@ export type RealChatSession = {
 function FoundersChatsPage() {
   const { credential } = useTranaCredential();
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "ai" | "advocate">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "ai" | "advocate" | "peer">("all");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
   const [liveTrigger, setLiveTrigger] = useState(0);
@@ -171,22 +171,48 @@ function FoundersChatsPage() {
       });
     });
 
-    // --- Process Real Advocate Consultations ---
+    // --- Process Real Advocate Consultations & Peer Collaborations ---
     (dbConsults || []).forEach((row) => {
       if (!row || !row.id) return;
       const rowId = row.id;
 
       const briefText = row.intake_brief || "";
-      let clientName = "Citizen Client";
-      if (briefText) {
-        const clientMatch = briefText.match(/\*\*Client\*\*:\s*([^(•\n]+)/);
-        if (clientMatch && clientMatch[1].trim() && clientMatch[1].trim() !== "Citizen Client") {
-          clientName = clientMatch[1].trim();
+      const isPeer = 
+        row.consult_type === "peer" || 
+        briefText.includes("Peer Legal Collaboration") || 
+        briefText.includes("Client Referral from Advocate") || 
+        String(rowId).startsWith("PEER-");
+
+      let clientName = isPeer ? "Advocate Colleague" : "Citizen Client";
+      let sessionTitle = `Consultation with ${row.lawyer_name || "Counsel"}`;
+
+      if (isPeer) {
+        if (briefText.includes("Client Referral from Advocate")) {
+          const referralClientMatch = briefText.match(/\*\*Client Name \/ Matter\*\*:\s*([^\n]+)/);
+          const referringAdvMatch = briefText.match(/\*\*Referring Advocate\*\*:\s*([^(•\n]+)/);
+          clientName = referringAdvMatch ? referringAdvMatch[1].trim() : "Referring Advocate";
+          sessionTitle = referralClientMatch ? `Referral: ${referralClientMatch[1].trim()}` : "Client Referral";
+        } else if (briefText.includes("Peer Legal Collaboration")) {
+          const initMatch = briefText.match(/\*\*Initiating Advocate\*\*:\s*([^(•\n]+)/);
+          clientName = initMatch ? initMatch[1].trim() : "Initiating Advocate";
+          sessionTitle = "Colleague Collaboration";
+        } else {
+          sessionTitle = "Peer Legal Collaboration";
+        }
+      } else {
+        if (briefText) {
+          const clientMatch = briefText.match(/\*\*Client\*\*:\s*([^(•\n]+)/);
+          if (clientMatch && clientMatch[1].trim() && clientMatch[1].trim() !== "Citizen Client") {
+            clientName = clientMatch[1].trim();
+          } else if (row.user_id) {
+            clientName = `Citizen (${row.user_id.slice(0, 8)})`;
+          }
         } else if (row.user_id) {
           clientName = `Citizen (${row.user_id.slice(0, 8)})`;
         }
-      } else if (row.user_id) {
-        clientName = `Citizen (${row.user_id.slice(0, 8)})`;
+        if (briefText) {
+          sessionTitle = briefText.slice(0, 50) + "...";
+        }
       }
 
       const stLower = (row.status || "").toLowerCase();
@@ -206,7 +232,7 @@ function FoundersChatsPage() {
           const parsed = JSON.parse(row.note);
           if (Array.isArray(parsed) && parsed.length > 0) {
             consultMessages = parsed.map((m: any, idx: number) => ({
-              id: m.id || `msg-adv-${idx}`,
+              id: m.id || `msg-${isPeer ? "peer" : "adv"}-${idx}`,
               sender: m.sender === "lawyer" ? "lawyer" : m.sender === "system" ? "system" : "citizen",
               senderName: m.senderName || (m.sender === "lawyer" ? (row.lawyer_name || "Advocate") : clientName),
               text: m.text || "",
@@ -225,7 +251,7 @@ function FoundersChatsPage() {
             const parsed = JSON.parse(localRaw);
             if (Array.isArray(parsed) && parsed.length > 0) {
               consultMessages = parsed.map((m: any, idx: number) => ({
-                id: m.id || `msg-adv-${idx}`,
+                id: m.id || `msg-${isPeer ? "peer" : "adv"}-${idx}`,
                 sender: m.sender === "lawyer" ? "lawyer" : m.sender === "system" ? "system" : "citizen",
                 senderName: m.senderName || (m.sender === "lawyer" ? (row.lawyer_name || "Advocate") : clientName),
                 text: m.text || "",
@@ -241,8 +267,10 @@ function FoundersChatsPage() {
         consultMessages.push({
           id: `msg-init-${row.id}`,
           sender: "system",
-          senderName: "TRANA Relay",
-          text: `Consultation requested for ${clientName} with ${row.lawyer_name || "Advocate"}. Channel mode: ${row.consult_type === "call" ? "Telephonic Relay" : "Secure In-App Chat"}.`,
+          senderName: isPeer ? "TRANA Peer Relay" : "TRANA Relay",
+          text: isPeer
+            ? `Peer collaboration channel established between ${clientName} and ${row.lawyer_name || "Advocate"}.`
+            : `Consultation requested for ${clientName} with ${row.lawyer_name || "Advocate"}. Channel mode: ${row.consult_type === "call" ? "Telephonic Relay" : "Secure In-App Chat"}.`,
           timestamp: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Created",
         });
       }
@@ -252,16 +280,16 @@ function FoundersChatsPage() {
         return acc + (matches ? matches.length : 0);
       }, 0);
 
-      const lastMsg = consultMessages[consultMessages.length - 1]?.text || (briefText ? `Inquiry: ${briefText.slice(0, 80)}...` : "Consultation requested with counsel.");
+      const lastMsg = consultMessages[consultMessages.length - 1]?.text || (briefText ? `Brief: ${briefText.slice(0, 80)}...` : "Channel initiated.");
       const sortTime = row.created_at ? new Date(row.created_at).getTime() : 0;
 
       list.push({
         id: rowId,
-        category: "advocate",
-        title: briefText ? briefText.slice(0, 50) + "..." : `Consultation with ${row.lawyer_name || "Counsel"}`,
+        category: isPeer ? "peer" : "advocate",
+        title: sessionTitle,
         participantPrimary: clientName,
         participantSecondary: row.lawyer_name || "Advocate Counsel",
-        mode: row.consult_type === "call" ? "Call" : "Chat",
+        mode: isPeer ? "Peer" : row.consult_type === "call" ? "Call" : "Chat",
         status: statusLabel,
         lastMessage: lastMsg,
         lastUpdated: row.created_at ? new Date(row.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Today",
@@ -273,9 +301,60 @@ function FoundersChatsPage() {
       });
     });
 
-    // 3. Fallback merge from local referrals index for complete coverage
+    // 3. Fallback merge from central consultations & referrals index for complete coverage
     if (typeof window !== "undefined") {
       try {
+        const chatIndex = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
+        Object.values(chatIndex || {}).forEach((item: any) => {
+          if (!item || !item.consultationId) return;
+          const cId = item.consultationId;
+          if (list.some((existing) => existing.id === cId)) return;
+
+          const rawStored = localStorage.getItem(`trana_consult_chat_${cId}`);
+          let msgs: RealChatMessage[] = [];
+          if (rawStored) {
+            try {
+              const parsed = JSON.parse(rawStored);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                msgs = parsed.map((m: any, idx: number) => ({
+                  id: m.id || `msg-idx-${idx}`,
+                  sender: m.sender === "lawyer" ? "lawyer" : m.sender === "system" ? "system" : "citizen",
+                  senderName: m.senderName || item.clientName || "Participant",
+                  text: m.text || "",
+                  timestamp: m.timestamp || "",
+                }));
+              }
+            } catch {}
+          }
+          if (msgs.length === 0) {
+            msgs.push({
+              id: `msg-init-${cId}`,
+              sender: "system",
+              senderName: item.consultationType === "Peer" ? "TRANA Peer Relay" : "TRANA Relay",
+              text: `Channel between ${item.clientName} and ${item.lawyerName}.`,
+              timestamp: "Recent",
+            });
+          }
+
+          const isPeer = item.consultationType === "Peer" || String(cId).startsWith("PEER-");
+          list.push({
+            id: cId,
+            category: isPeer ? "peer" : "advocate",
+            title: isPeer ? "Peer Legal Collaboration" : `Consultation with ${item.lawyerName}`,
+            participantPrimary: item.clientName || (isPeer ? "Advocate Colleague" : "Citizen"),
+            participantSecondary: item.lawyerName || "Advocate Counsel",
+            mode: isPeer ? "Peer" : item.consultationType === "Call" ? "Call" : "Chat",
+            status: item.status || "Confirmed",
+            lastMessage: item.lastMessage || msgs[msgs.length - 1]?.text || "Channel active",
+            lastUpdated: item.lastUpdated ? new Date(item.lastUpdated).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Today",
+            timestampSort: item.lastUpdated ? new Date(item.lastUpdated).getTime() : Date.now(),
+            messageCount: msgs.length,
+            maskingInterceptions: msgs.reduce((acc, m) => acc + ((m.text || "").match(/XXXXX/g) || []).length, 0),
+            messages: msgs,
+            intakeBrief: null,
+          });
+        });
+
         const localReferrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
         (localReferrals || []).forEach((r: any) => {
           if (!r || !r.id) return;
@@ -355,6 +434,7 @@ function FoundersChatsPage() {
     const totalSessions = sessions.length;
     const aiSessions = sessions.filter(s => s.category === "ai").length;
     const advocateSessions = sessions.filter(s => s.category === "advocate").length;
+    const peerSessions = sessions.filter(s => s.category === "peer").length;
     
     let totalMessages = 0;
     let totalInterceptions = 0;
@@ -370,6 +450,7 @@ function FoundersChatsPage() {
       totalSessions,
       aiSessions,
       advocateSessions,
+      peerSessions,
       totalMessages,
       totalInterceptions,
       uniqueParticipants: uniqueParticipants.size,
@@ -381,9 +462,10 @@ function FoundersChatsPage() {
     return sessions.filter((s) => {
       if (categoryFilter === "ai" && s.category !== "ai") return false;
       if (categoryFilter === "advocate" && s.category !== "advocate") return false;
+      if (categoryFilter === "peer" && s.category !== "peer") return false;
 
       if (statusFilter !== "All") {
-        if (s.category === "advocate" && s.status !== statusFilter) return false;
+        if (s.category !== "ai" && s.status !== statusFilter) return false;
         if (s.category === "ai" && statusFilter === "Withdrawn") return false;
       }
 
@@ -409,7 +491,7 @@ function FoundersChatsPage() {
       `TRANA LEGAL PLATFORM — SUPERVISORY CHAT AUDIT LOG`,
       `============================================================`,
       `Session ID          : ${activeSession.id}`,
-      `Category            : ${activeSession.category === "ai" ? "Platform Legal AI Session" : "Client-Advocate Consultation"}`,
+      `Category            : ${activeSession.category === "ai" ? "Platform Legal AI Session" : activeSession.category === "peer" ? "Advocate Peer Collaboration / Referral" : "Client-Advocate Consultation"}`,
       `Primary Participant : ${activeSession.participantPrimary}`,
       `Interlocutor        : ${activeSession.participantSecondary}`,
       `Channel Mode        : ${activeSession.mode}`,
@@ -517,7 +599,7 @@ function FoundersChatsPage() {
             {stats.totalSessions}
           </div>
           <div className="mt-1 text-[0.65rem] text-[#888888]">
-            {stats.aiSessions} Legal AI • {stats.advocateSessions} Consultations
+            {stats.aiSessions} Legal AI • {stats.advocateSessions} Client • {stats.peerSessions} Peer
           </div>
         </div>
 
@@ -618,6 +700,19 @@ function FoundersChatsPage() {
                 <Scale className="h-3 w-3" />
                 <span>Advocates ({stats.advocateSessions})</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("peer")}
+                className={`px-2.5 py-1 border transition-colors rounded flex items-center gap-1 ${
+                  categoryFilter === "peer"
+                    ? "border-white bg-[#242424] text-white"
+                    : "border-[#2A2A2A] text-[#888888] hover:text-white"
+                }`}
+              >
+                <Users className="h-3 w-3 text-sky-400" />
+                <span>Colleagues & Referrals ({stats.peerSessions})</span>
+              </button>
             </div>
           </div>
 
@@ -635,6 +730,7 @@ function FoundersChatsPage() {
               filteredSessions.map((s) => {
                 const isSelected = s.id === activeSession?.id;
                 const isAI = s.category === "ai";
+                const isPeer = s.category === "peer";
 
                 return (
                   <button
@@ -651,6 +747,8 @@ function FoundersChatsPage() {
                       <span className="font-semibold text-xs text-[#F0F0F0] truncate flex items-center gap-1.5">
                         {isAI ? (
                           <Bot className="h-3.5 w-3.5 text-neutral-300 shrink-0" />
+                        ) : isPeer ? (
+                          <Users className="h-3.5 w-3.5 text-sky-400 shrink-0" />
                         ) : (
                           <User className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
                         )}
@@ -662,7 +760,7 @@ function FoundersChatsPage() {
                     </div>
 
                     <div className="text-[0.75rem] text-[#CCCCCC] truncate font-medium flex items-center gap-1">
-                      <span className="text-[#666666]">{isAI ? "Topic:" : "Counsel:"}</span>
+                      <span className="text-[#666666]">{isAI ? "Topic:" : isPeer ? "Peer Counsel:" : "Counsel:"}</span>
                       <span className="text-[#E0E0E0] truncate">{isAI ? s.title : s.participantSecondary}</span>
                     </div>
 
@@ -672,8 +770,12 @@ function FoundersChatsPage() {
 
                     <div className="flex items-center justify-between gap-2 pt-1 font-mono text-[0.65rem]">
                       <div className="flex items-center gap-1.5">
-                        <span className="px-1.5 py-0.5 border border-white/20 bg-white/5 text-neutral-300 uppercase tracking-wider rounded">
-                          {s.mode}
+                        <span className={`px-1.5 py-0.5 border uppercase tracking-wider rounded ${
+                          isPeer
+                            ? "border-sky-500/30 bg-sky-950/20 text-sky-300"
+                            : "border-white/20 bg-white/5 text-neutral-300"
+                        }`}>
+                          {isPeer ? "Peer Relay" : s.mode}
                         </span>
 
                         <span className="px-1.5 py-0.5 border border-[#333333] text-[#AAAAAA] uppercase tracking-wider rounded">
@@ -709,13 +811,16 @@ function FoundersChatsPage() {
                     <ArrowRight className="h-3.5 w-3.5 text-[#666666]" />
                     <span className="font-display text-lg text-neutral-300 flex items-center gap-1.5">
                       {activeSession.category === "ai" && <Bot className="h-4 w-4 text-neutral-300 inline" />}
+                      {activeSession.category === "peer" && <Users className="h-4 w-4 text-sky-400 inline" />}
                       {activeSession.participantSecondary}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2 font-mono text-[0.7rem] text-[#888888] flex-wrap">
                     <span>ID: {activeSession.id.slice(0, 16)}...</span>
                     <span>•</span>
-                    <span className="uppercase">{activeSession.mode}</span>
+                    <span className={`uppercase font-semibold ${activeSession.category === "peer" ? "text-sky-300" : ""}`}>
+                      {activeSession.category === "peer" ? "Peer Collaboration Channel" : activeSession.mode}
+                    </span>
                     <span>•</span>
                     <span className="text-neutral-300">{activeSession.status}</span>
                   </div>
@@ -792,7 +897,15 @@ function FoundersChatsPage() {
                             {msg.senderName}
                           </span>
                           <span className="text-[0.65rem] uppercase px-1 border border-[#333333] text-[#777777] rounded">
-                            {isAI ? "Platform AI" : isLawyer ? "Advocate Counsel" : "Citizen Client"}
+                            {isAI
+                              ? "Platform AI"
+                              : activeSession.category === "peer"
+                              ? isLawyer
+                                ? "Collaborating Advocate"
+                                : "Initiating Advocate"
+                              : isLawyer
+                              ? "Advocate Counsel"
+                              : "Citizen Client"}
                           </span>
                           {msg.modelUsed && (
                             <span className="text-[0.65rem] px-1 border border-white/20 text-neutral-300 font-mono rounded">
@@ -813,6 +926,8 @@ function FoundersChatsPage() {
                               ? "bg-[#161616] border-[#2A2A2A] text-[#F0F0F0]"
                               : isAI
                               ? "bg-[#1A1A1A] border-white/10 text-[#F5F5F5]"
+                              : activeSession.category === "peer"
+                              ? "bg-[#121820] border-sky-500/30 text-[#F5F5F5]"
                               : "bg-[#1A1A1A] border-emerald-500/30 text-[#F5F5F5]"
                           }`}
                         >
