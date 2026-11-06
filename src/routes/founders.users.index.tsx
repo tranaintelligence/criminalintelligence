@@ -66,84 +66,295 @@ function FoundersUsersPage() {
     staleTime: 30000,
   });
 
-  // Query lawyers table to identify verified lawyers
-  const { data: dbLawyers = [] } = useQuery({
+  // 3. Query Supabase lawyers table
+  const { data: dbLawyers = [], refetch: refetchLawyers } = useQuery({
     queryKey: ["founders-db-lawyers-lookup"],
     queryFn: async () => {
-      const { data } = await supabase.from("lawyers").select("user_id, full_name, city");
+      const { data } = await supabase.from("lawyers").select("*");
       return data || [];
     },
-    staleTime: 60000,
+    staleTime: 30000,
+  });
+
+  // 4. Query Supabase advocate_disclaimers (all signed-in users who acknowledged terms)
+  const { data: dbDisclaimers = [], refetch: refetchDisclaimers } = useQuery({
+    queryKey: ["founders-db-disclaimers-lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("advocate_disclaimers")
+        .select("*")
+        .order("accepted_at", { ascending: false });
+      return data || [];
+    },
+    staleTime: 30000,
+  });
+
+  // 5. Query Supabase consultations (all citizen consultation requests & peer connections)
+  const { data: dbConsults = [], refetch: refetchConsults } = useQuery({
+    queryKey: ["founders-db-consults-lookup"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("consultations")
+        .select("*")
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    staleTime: 30000,
   });
 
   // Combine real database records with zero dummy mock data
   const usersList: MergedPlatformUser[] = useMemo(() => {
     const list: MergedPlatformUser[] = [];
     const seenEmails = new Set<string>();
+    const seenIds = new Set<string>();
 
-    const lawyerIds = new Set(dbLawyers.map((l) => l.user_id).filter(Boolean));
+    function addOrUpdateUser(entry: MergedPlatformUser) {
+      const normEmail = entry.email ? entry.email.trim().toLowerCase() : "";
+      const normId = entry.id ? entry.id.trim().toLowerCase() : "";
 
-    // First, add all users from chat database
+      const existingIndex = list.findIndex((u) => {
+        const uEmail = u.email ? u.email.trim().toLowerCase() : "";
+        const uId = u.id ? u.id.trim().toLowerCase() : "";
+        return (normEmail && uEmail && normEmail === uEmail) || (normId && uId && normId === uId);
+      });
+
+      if (existingIndex !== -1) {
+        // Merge richer details
+        const existing = list[existingIndex];
+        if (entry.userType === "Lawyer" || (entry.userType === "Law Student" && existing.userType === "Citizen")) {
+          existing.userType = entry.userType;
+        }
+        if (entry.city && entry.city !== "New Delhi" && existing.city === "New Delhi") {
+          existing.city = entry.city;
+        }
+        if (entry.name && (!existing.name || existing.name === "Citizen Account" || existing.name === "User")) {
+          existing.name = entry.name;
+        }
+        if (entry.chatsCount > existing.chatsCount) {
+          existing.chatsCount = entry.chatsCount;
+        }
+        if (entry.messagesCount > existing.messagesCount) {
+          existing.messagesCount = entry.messagesCount;
+        }
+        if (existing.dateJoined === "Recent" || existing.dateJoined === "—") {
+          existing.dateJoined = entry.dateJoined;
+        }
+        if (existing.lastActive === "—" && entry.lastActive !== "—") {
+          existing.lastActive = entry.lastActive;
+        }
+      } else {
+        if (normEmail) seenEmails.add(normEmail);
+        if (normId) seenIds.add(normId);
+        list.push(entry);
+      }
+    }
+
+    // 1. Add all users from backend admin API
     adminUsers.forEach((u) => {
-      const em = u.email.trim().toLowerCase();
-      seenEmails.add(em);
-
-      const isLawyer = lawyerIds.has(u.id);
-
-      list.push({
-        id: u.email || u.id,
-        name: u.name || em.split("@")[0],
+      const em = u.email ? u.email.trim().toLowerCase() : "";
+      addOrUpdateUser({
+        id: u.id || em,
+        name: u.name || em.split("@")[0] || "User",
         email: u.email,
         dateJoined: u.created_at
           ? new Date(u.created_at).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
           : "Recent",
         city: u.city || "New Delhi",
-        userType: isLawyer ? "Lawyer" : "Citizen",
+        userType: "Citizen",
         chatsCount: u.total_chats || 0,
         messagesCount: u.total_messages || 0,
         lastActive: u.last_active_at
           ? new Date(u.last_active_at).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
           : "—",
         status: u.status || "Active",
       });
     });
 
-    // Second, add any registered profiles from Supabase not already present
-    dbProfiles.forEach((p, idx) => {
-      const pEmail = `${p.full_name?.toLowerCase().replace(/\s+/g, ".") || "user"}@trana.in`;
-      if (!list.some((u) => u.id === p.id || u.email.toLowerCase() === pEmail.toLowerCase())) {
-        const isLawyer = lawyerIds.has(p.id);
-        list.push({
-          id: p.id || `profile-${idx}`,
-          name: p.full_name || "Citizen Account",
-          email: pEmail,
-          dateJoined: p.created_at
-            ? new Date(p.created_at).toLocaleDateString("en-IN", {
+    // 2. Add all registered Advocates from Supabase lawyers table
+    dbLawyers.forEach((l: any) => {
+      addOrUpdateUser({
+        id: l.user_id || l.id,
+        name: l.full_name || "Advocate Counsel",
+        email: l.email || `${(l.full_name || "advocate").toLowerCase().replace(/\s+/g, ".")}@trana.in`,
+        dateJoined: l.created_at
+          ? new Date(l.created_at).toLocaleDateString("en-IN", {
               day: "2-digit",
               month: "short",
               year: "numeric",
             })
+          : "Recent",
+        city: l.city || "New Delhi",
+        userType: "Lawyer",
+        chatsCount: 0,
+        messagesCount: 0,
+        lastActive: l.created_at
+          ? new Date(l.created_at).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "—",
+        status: l.verification_status === "SUSPENDED" ? "Inactive" : "Active",
+      });
+    });
+
+    // 3. Add all signed-in users who acknowledged the statutory disclaimer
+    dbDisclaimers.forEach((d: any) => {
+      if (!d.user_email || d.user_email.toLowerCase().includes("visitor")) return;
+      const em = d.user_email.trim().toLowerCase();
+      const isLawyer = d.user_role === "advocate" || d.user_role === "lawyer";
+      const isStudent = d.user_role === "student" || d.user_role === "law_student";
+
+      addOrUpdateUser({
+        id: em,
+        name: d.user_name || em.split("@")[0],
+        email: d.user_email,
+        dateJoined: d.accepted_at
+          ? new Date(d.accepted_at).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "Recent",
+        city: "New Delhi",
+        userType: isLawyer ? "Lawyer" : isStudent ? "Law Student" : "Citizen",
+        chatsCount: 0,
+        messagesCount: 0,
+        lastActive: d.accepted_at
+          ? new Date(d.accepted_at).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "—",
+        status: "Active",
+      });
+    });
+
+    // 4. Add peer connections / consultation participants
+    dbConsults.forEach((c: any) => {
+      let meta: any = null;
+      try {
+        if (c.note) meta = JSON.parse(c.note);
+      } catch {}
+
+      if (meta && meta.fromUserId && meta.fromUserName) {
+        addOrUpdateUser({
+          id: meta.fromUserId,
+          name: meta.fromUserName,
+          email: `${meta.fromUserName.toLowerCase().replace(/[^a-z0-9]/g, ".")}@trana.in`,
+          dateJoined: c.created_at
+            ? new Date(c.created_at).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "Recent",
+          city: meta.fromUserCity || "New Delhi",
+          userType: meta.fromUserRole === "lawyer" ? "Lawyer" : meta.fromUserRole === "student" ? "Law Student" : "Citizen",
+          chatsCount: 1,
+          messagesCount: 1,
+          lastActive: c.created_at
+            ? new Date(c.created_at).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
             : "—",
-          city: p.city || "New Delhi",
-          userType: isLawyer ? "Lawyer" : "Citizen",
-          chatsCount: 0,
-          messagesCount: 0,
-          lastActive: "—",
+          status: "Active",
+        });
+      }
+
+      if (meta && meta.toUserId && meta.toUserName) {
+        addOrUpdateUser({
+          id: meta.toUserId,
+          name: meta.toUserName,
+          email: `${meta.toUserName.toLowerCase().replace(/[^a-z0-9]/g, ".")}@trana.in`,
+          dateJoined: c.created_at
+            ? new Date(c.created_at).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "Recent",
+          city: meta.toUserCity || "New Delhi",
+          userType: meta.toUserRole === "lawyer" ? "Lawyer" : meta.toUserRole === "student" ? "Law Student" : "Citizen",
+          chatsCount: 1,
+          messagesCount: 1,
+          lastActive: c.created_at
+            ? new Date(c.created_at).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "—",
           status: "Active",
         });
       }
     });
 
+    // 5. Add any registered law scholars from localStorage
+    try {
+      if (typeof window !== "undefined") {
+        const storedStudentsRaw = localStorage.getItem("trana_all_registered_students");
+        if (storedStudentsRaw) {
+          const parsed = JSON.parse(storedStudentsRaw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((s: any) => {
+              if (s.name && !s.name.toLowerCase().includes("aarav") && !s.name.toLowerCase().includes("meera")) {
+                const sEmail = s.email || `${s.name.toLowerCase().replace(/[^a-z0-9]/g, ".")}@law.in`;
+                addOrUpdateUser({
+                  id: s.id || sEmail,
+                  name: s.name,
+                  email: sEmail,
+                  dateJoined: "Recent",
+                  city: s.city || "New Delhi",
+                  userType: "Law Student",
+                  chatsCount: 0,
+                  messagesCount: 0,
+                  lastActive: "—",
+                  status: "Active",
+                });
+              }
+            });
+          }
+        }
+      }
+    } catch {}
+
+    // 6. Add any remaining Supabase profiles
+    dbProfiles.forEach((p: any, idx: number) => {
+      const pEmail = `${p.full_name?.toLowerCase().replace(/\s+/g, ".") || "user"}@trana.in`;
+      addOrUpdateUser({
+        id: p.id || `profile-${idx}`,
+        name: p.full_name || "Citizen Account",
+        email: pEmail,
+        dateJoined: p.created_at
+          ? new Date(p.created_at).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "—",
+        city: p.city || "New Delhi",
+        userType: "Citizen",
+        chatsCount: 0,
+        messagesCount: 0,
+        lastActive: "—",
+        status: "Active",
+      });
+    });
+
     return list;
-  }, [adminUsers, dbProfiles, dbLawyers]);
+  }, [adminUsers, dbProfiles, dbLawyers, dbDisclaimers, dbConsults]);
 
   const cities = ["All", ...new Set(usersList.map((u) => u.city).filter(Boolean))];
 
@@ -226,6 +437,9 @@ function FoundersUsersPage() {
             onClick={() => {
               refetchAdminUsers();
               refetchProfiles();
+              refetchLawyers();
+              refetchDisclaimers();
+              refetchConsults();
             }}
             disabled={isFetchingAdmin}
             className="apple-glass-pill px-3 py-2 text-xs uppercase tracking-wider text-white flex items-center gap-1.5 disabled:opacity-50"

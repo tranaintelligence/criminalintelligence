@@ -25,6 +25,7 @@ import { ConsultationChatModal } from "@/components/ConsultationChatModal";
 interface ProfessionalNetworkViewProps {
   currentUser: {
     id: string;
+    userId?: string;
     name: string;
     email?: string;
     role: NetworkRole;
@@ -59,16 +60,33 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
   const { data: dbLawyers = [] } = useQuery({
     queryKey: ["network-view-lawyers"],
     queryFn: async () => {
-      try {
-        const apiRows = await getPublicLawyers();
-        if (apiRows && apiRows.length > 0) return apiRows;
-      } catch {}
-      const { data } = await supabase
+      // 1. Fetch all real lawyers from Supabase
+      const { data: supaData } = await supabase
         .from("lawyers")
         .select("*")
-        .eq("approved", true)
-        .order("full_name");
-      return data || [];
+        .order("created_at", { ascending: false });
+
+      // 2. Fetch public lawyers from backend API
+      let apiRows: any[] = [];
+      try {
+        apiRows = await getPublicLawyers();
+      } catch {}
+
+      // 3. Merge both sources deduplicated by user_id / email / id
+      const combined = [...(supaData || [])];
+      (apiRows || []).forEach((apiL: any) => {
+        const match = combined.find(
+          (c: any) =>
+            (c.email && apiL.email && c.email.toLowerCase() === apiL.email.toLowerCase()) ||
+            (c.user_id && apiL.user_id && c.user_id === apiL.user_id) ||
+            String(c.id) === String(apiL.id)
+        );
+        if (!match) {
+          combined.push(apiL);
+        }
+      });
+
+      return combined;
     },
   });
 
@@ -88,8 +106,8 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
   // 3. Reconcile Network Members (Advocates + Law Students)
   const allMembers: NetworkMember[] = useMemo(() => {
     const list: NetworkMember[] = [];
-    const myNormId = currentUser.id.toLowerCase().trim();
-    const myNormName = currentUser.name.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
+    const myNormId = (currentUser.userId || currentUser.id || "").toLowerCase().trim();
+    const myNormEmail = (currentUser.email || "").toLowerCase().trim();
 
     // Check for removed IDs by founders
     let removedIds: string[] = [];
@@ -101,19 +119,24 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
 
     // A. Real Verified Lawyers Only (Zero Sample/Mock Lawyers)
     (dbLawyers || []).forEach((row: any) => {
-      const normId = String(row.id || "").toLowerCase().trim();
+      const rowId = String(row.id || "").toLowerCase().trim();
+      const rowUserId = String(row.user_id || "").toLowerCase().trim();
+      const rowEmail = String(row.email || "").toLowerCase().trim();
       const rawName = String(row.full_name || "");
       const normName = rawName.toLowerCase().replace(/^adv\.?\s*/i, "").trim();
 
-      if (normId === myNormId || normName === myNormName) return;
-      if (removedIds.includes(String(row.id))) return;
+      // Check if this row is the current user
+      const isMe =
+        (rowUserId && rowUserId === myNormId) ||
+        (rowId && rowId === myNormId) ||
+        (rowEmail && myNormEmail && rowEmail === myNormEmail) ||
+        (currentUser.userId && rowUserId && rowUserId === currentUser.userId.toLowerCase().trim());
 
-      // Filter out any mock/seed sample names
-      if (
-        normName.includes("anandita") ||
-        normName.includes("swastik") ||
-        normName.includes("vikramaditya")
-      ) {
+      if (isMe) return;
+      if (removedIds.includes(String(row.id)) || (row.user_id && removedIds.includes(String(row.user_id)))) return;
+
+      // Filter out only sample mock seed names (keep real advocates like Swastik, Krish, etc.)
+      if (normName.includes("anandita") || normName.includes("vikramaditya")) {
         return;
       }
 
@@ -130,7 +153,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
       }
 
       list.push({
-        id: String(row.id),
+        id: row.user_id || String(row.id),
         name: row.full_name,
         role: "lawyer",
         roleLabel: "Verified Advocate",
@@ -166,8 +189,15 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
               localStorage.setItem("trana_all_registered_students", JSON.stringify(sanitized));
             }
             sanitized.forEach((s: any) => {
-              if (!s.id || s.id === currentUser.id) return;
-              if (!list.some((existing) => existing.id === s.id)) {
+              if (
+                !s.id ||
+                s.id === currentUser.id ||
+                (currentUser.userId && s.id === currentUser.userId) ||
+                (s.email && currentUser.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+              ) {
+                return;
+              }
+              if (!list.some((existing) => existing.id === s.id || (existing.email && s.email && existing.email === s.email))) {
                 list.push(s);
               }
             });
@@ -176,28 +206,91 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
       }
     } catch {}
 
+    // C. Add any members who have active connections or sent invitations
+    (connections || []).forEach((c) => {
+      const parties = [
+        {
+          id: c.fromUserId,
+          name: c.fromUserName,
+          role: c.fromUserRole,
+          roleLabel: c.fromUserRoleLabel || (c.fromUserRole === "lawyer" ? "Verified Advocate" : "Law Student"),
+          city: c.fromUserCity || "New Delhi",
+        },
+        {
+          id: c.toUserId,
+          name: c.toUserName,
+          role: c.toUserRole,
+          roleLabel: c.toUserRoleLabel || (c.toUserRole === "lawyer" ? "Verified Advocate" : "Law Student"),
+          city: c.toUserCity || "New Delhi",
+        },
+      ];
+
+      parties.forEach((p) => {
+        if (!p.id || !p.name) return;
+        const pNormId = p.id.toLowerCase().trim();
+        const isMe =
+          pNormId === myNormId ||
+          (currentUser.userId && pNormId === currentUser.userId.toLowerCase().trim()) ||
+          (currentUser.email && pNormId === currentUser.email.toLowerCase().trim());
+        if (isMe) return;
+        if (removedIds.includes(p.id)) return;
+
+        const exists = list.some(
+          (m) =>
+            m.id.toLowerCase().trim() === pNormId ||
+            (m.email && p.id.toLowerCase() === m.email.toLowerCase())
+        );
+
+        if (!exists) {
+          list.push({
+            id: p.id,
+            name: p.name,
+            role: p.role,
+            roleLabel: p.roleLabel,
+            affiliation: p.role === "lawyer" ? "Supreme Court of India · Delhi High Court" : "National Law University",
+            city: p.city || "New Delhi",
+            experienceOrYear: p.role === "lawyer" ? "Verified Sanad" : "Law Scholar",
+            specialisationOrInterests: p.role === "lawyer" ? "Criminal Defence & Litigation" : "Constitutional Law & Statutory AI",
+            bio: p.role === "lawyer" ? "Practicing advocate enrolled with State Bar Council." : "Law scholar researching criminal jurisprudence.",
+            isVerified: true,
+          });
+        }
+      });
+    });
+
     return list;
-  }, [dbLawyers, currentUser]);
+  }, [dbLawyers, currentUser, connections]);
 
   // Separate pending invitations received
   const pendingReceived = useMemo(() => {
-    const myNorm = currentUser.id.toLowerCase().trim();
-    return connections.filter(
-      (c) => c.status === "pending" && c.toUserId.toLowerCase().trim() === myNorm
-    );
-  }, [connections, currentUser.id]);
+    const myNorms = [
+      currentUser.id?.toLowerCase().trim(),
+      currentUser.userId?.toLowerCase().trim(),
+      currentUser.email?.toLowerCase().trim(),
+    ].filter(Boolean) as string[];
+
+    return connections.filter((c) => {
+      if (c.status !== "pending") return false;
+      const toNorm = c.toUserId.toLowerCase().trim();
+      return myNorms.includes(toNorm);
+    });
+  }, [connections, currentUser]);
 
   // Separate active accepted connections
   const myAcceptedConnections = useMemo(() => {
-    const myNorm = currentUser.id.toLowerCase().trim();
+    const myNorms = [
+      currentUser.id?.toLowerCase().trim(),
+      currentUser.userId?.toLowerCase().trim(),
+      currentUser.email?.toLowerCase().trim(),
+    ].filter(Boolean) as string[];
+
     return connections.filter((c) => {
       if (c.status !== "accepted") return false;
-      return (
-        c.fromUserId.toLowerCase().trim() === myNorm ||
-        c.toUserId.toLowerCase().trim() === myNorm
-      );
+      const fromNorm = c.fromUserId.toLowerCase().trim();
+      const toNorm = c.toUserId.toLowerCase().trim();
+      return myNorms.includes(fromNorm) || myNorms.includes(toNorm);
     });
-  }, [connections, currentUser.id]);
+  }, [connections, currentUser]);
 
   // Filter Discover Members
   const cities = ["All", ...new Set(allMembers.map((m) => m.city))];
@@ -458,8 +551,8 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
             {filteredMembers.map((member) => {
               const { status, connection } = getConnectionStatusBetween(
                 connections,
-                currentUser.id,
-                member.id
+                [currentUser.id, currentUser.userId, currentUser.email].filter(Boolean) as string[],
+                [member.id, member.email].filter(Boolean) as string[]
               );
               const isLawyer = member.role === "lawyer";
 

@@ -64,59 +64,87 @@ function FoundersLawyersPage() {
   const { data: lawyersSummary, isLoading, refetch } = useQuery({
     queryKey: ["founders-admin-lawyers"],
     queryFn: async () => {
+      const mergedMap = new Map<string, LawyerRecord>();
+
+      let removedIds: string[] = [];
+      try {
+        if (typeof window !== "undefined") {
+          removedIds = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
+        }
+      } catch {}
+
+      // 1. Supabase database records (real-time platform data)
+      try {
+        const { data } = await supabase
+          .from("lawyers")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (data && data.length > 0) {
+          data.forEach((r: any) => {
+            if (removedIds.includes(String(r.id)) || (r.user_id && removedIds.includes(String(r.user_id)))) return;
+            const rec: LawyerRecord = {
+              id: r.id,
+              user_id: r.user_id,
+              full_name: r.full_name,
+              email: r.email,
+              phone: r.phone,
+              bar_reg_no: r.bar_reg_no,
+              state_bar_council: r.state_bar_council,
+              year_of_enrollment: r.year_of_enrollment,
+              aibe_cop_number: r.aibe_cop_number,
+              bar_association: r.bar_association,
+              specialisation: r.specialisation || "General Legal Practice",
+              experience_years: r.experience_years || 1,
+              city: r.city || "New Delhi",
+              state: r.state || "Delhi",
+              chamber_address: r.chamber_address,
+              courts: typeof r.courts === "string" ? [r.courts] : (r.courts || []),
+              bio: r.bio,
+              sanad_document_url: r.sanad_document_url,
+              id_card_document_url: r.id_card_document_url,
+              offers_call: r.offers_call ?? true,
+              offers_chat: r.offers_chat ?? true,
+              offers_in_person: r.offers_in_person ?? false,
+              consultation_fee: r.consultation_fee || 0,
+              approved: r.approved ?? true,
+              verification_status: r.verification_status || (r.approved ? "VERIFIED" : "PENDING_VERIFICATION"),
+              verification_notes: r.verification_notes,
+              verified_at: r.verified_at,
+              verified_by: r.verified_by,
+              internal_rating: r.internal_rating || 5.0,
+              clients_referred: r.clients_referred || 0,
+              consultations_count: r.consultations_count || 0,
+              created_at: r.created_at || new Date().toISOString(),
+              updated_at: r.updated_at || new Date().toISOString(),
+            };
+            const key = (rec.email || rec.bar_reg_no || rec.id).toLowerCase().trim();
+            mergedMap.set(key, rec);
+          });
+        }
+      } catch (err) {
+        console.warn("Supabase founders-lawyers fetch error:", err);
+      }
+
+      // 2. Backend API records
       if (credential) {
         try {
           const res = await getAdminLawyers(credential);
           if (res && Array.isArray(res.lawyers)) {
-            return res;
+            res.lawyers.forEach((l) => {
+              if (removedIds.includes(String(l.id)) || (l.user_id && removedIds.includes(String(l.user_id)))) return;
+              const key = (l.email || l.bar_reg_no || l.id).toLowerCase().trim();
+              if (!mergedMap.has(key)) {
+                mergedMap.set(key, l);
+              }
+            });
           }
         } catch (e) {
-          console.warn("Backend getAdminLawyers fallback to Supabase:", e);
+          console.warn("Backend getAdminLawyers non-blocking notice:", e);
         }
       }
 
-      // Supabase fallback
-      const { data } = await supabase
-        .from("lawyers")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      const mapped: LawyerRecord[] = (data || []).map((r: any) => ({
-        id: r.id,
-        user_id: r.user_id,
-        full_name: r.full_name,
-        email: r.email,
-        phone: r.phone,
-        bar_reg_no: r.bar_reg_no,
-        state_bar_council: r.state_bar_council,
-        year_of_enrollment: r.year_of_enrollment,
-        aibe_cop_number: r.aibe_cop_number,
-        bar_association: r.bar_association,
-        specialisation: r.specialisation || "General Legal Practice",
-        experience_years: r.experience_years || 1,
-        city: r.city || "New Delhi",
-        state: r.state || "Delhi",
-        chamber_address: r.chamber_address,
-        courts: typeof r.courts === "string" ? [r.courts] : (r.courts || []),
-        bio: r.bio,
-        sanad_document_url: r.sanad_document_url,
-        id_card_document_url: r.id_card_document_url,
-        offers_call: r.offers_call ?? true,
-        offers_chat: r.offers_chat ?? true,
-        offers_in_person: r.offers_in_person ?? false,
-        consultation_fee: r.consultation_fee || 0,
-        approved: r.approved ?? true,
-        verification_status: r.verification_status || (r.approved ? "VERIFIED" : "PENDING_VERIFICATION"),
-        verification_notes: r.verification_notes,
-        verified_at: r.verified_at,
-        verified_by: r.verified_by,
-        internal_rating: r.internal_rating || 5.0,
-        clients_referred: r.clients_referred || 0,
-        consultations_count: r.consultations_count || 0,
-        created_at: r.created_at || new Date().toISOString(),
-        updated_at: r.updated_at || new Date().toISOString(),
-      }));
-
+      const mapped = Array.from(mergedMap.values());
       const verified = mapped.filter((l) => l.verification_status === "VERIFIED" || l.approved).length;
       const pending = mapped.filter((l) => l.verification_status === "PENDING_VERIFICATION" && !l.approved).length;
       const suspended = mapped.filter((l) => l.verification_status === "SUSPENDED" || l.verification_status === "REJECTED").length;
@@ -217,12 +245,16 @@ function FoundersLawyersPage() {
   async function handleSuspend(id: string, name: string) {
     try {
       if (credential) {
-        await verifyLawyerAdmin(credential, id, { action: "SUSPEND" });
+        try {
+          await verifyLawyerAdmin(credential, id, { action: "SUSPEND" });
+        } catch (backendErr) {
+          console.warn("Backend verifyLawyerAdmin non-blocking notice:", backendErr);
+        }
       }
       await supabase.from("lawyers").update({ 
         approved: false, 
         verification_status: "SUSPENDED" 
-      }).eq("id", id);
+      }).or(`id.eq.${id},user_id.eq.${id}`);
 
       toast.warning(`Advocate ${name} has been suspended.`);
       await refetch();
@@ -238,10 +270,30 @@ function FoundersLawyersPage() {
     if (!confirmed) return;
 
     try {
+      // 1. Non-blocking attempt to delete from backend API
       if (credential) {
-        await deleteLawyerAdmin(credential, id);
+        try {
+          await deleteLawyerAdmin(credential, id);
+        } catch (backendErr) {
+          console.warn("Backend deleteLawyerAdmin non-blocking notice:", backendErr);
+        }
       }
-      await supabase.from("lawyers").delete().eq("id", id);
+
+      // 2. Direct deletion in Supabase database
+      try {
+        await supabase.from("lawyers").delete().or(`id.eq.${id},user_id.eq.${id}`);
+      } catch (sbErr) {
+        console.warn("Supabase lawyer delete error:", sbErr);
+      }
+
+      // 3. Mark removed in persistent localStorage blacklist
+      try {
+        const removed = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
+        if (!removed.includes(id)) removed.push(id);
+        if (!removed.includes(name)) removed.push(name);
+        localStorage.setItem("trana_founders_removed_lawyers", JSON.stringify(removed));
+      } catch {}
+
       if (selectedLawyer?.id === id) setSelectedLawyer(null);
 
       toast.success(`Advocate ${name} removed from registry.`);

@@ -239,7 +239,6 @@ function Lawyers() {
       // Guard against any test / mock advocates
       if (
         normName.includes("anandita") ||
-        normName.includes("swastik") ||
         normName.includes("vikramaditya")
       ) {
         continue;

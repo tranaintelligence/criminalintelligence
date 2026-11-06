@@ -144,20 +144,21 @@ export async function fetchAllConnections(currentUserId: string): Promise<Connec
 
 export function getConnectionStatusBetween(
   connections: ConnectionRecord[],
-  myId: string,
-  otherId: string
+  myId: string | string[],
+  otherId: string | string[]
 ): { status: ConnectionStatus; connection?: ConnectionRecord } {
-  const myNorm = myId.toLowerCase().trim();
-  const otherNorm = otherId.toLowerCase().trim();
+  const myNorms = (Array.isArray(myId) ? myId : [myId]).filter(Boolean).map((s) => s.toLowerCase().trim());
+  const otherNorms = (Array.isArray(otherId) ? otherId : [otherId]).filter(Boolean).map((s) => s.toLowerCase().trim());
 
   // Find all matches between these two members
   const matches = connections.filter((c) => {
     const fromNorm = c.fromUserId.toLowerCase().trim();
     const toNorm = c.toUserId.toLowerCase().trim();
-    return (
-      (fromNorm === myNorm && toNorm === otherNorm) ||
-      (fromNorm === otherNorm && toNorm === myNorm)
-    );
+    const fromIsMe = myNorms.includes(fromNorm);
+    const toIsMe = myNorms.includes(toNorm);
+    const fromIsOther = otherNorms.includes(fromNorm);
+    const toIsOther = otherNorms.includes(toNorm);
+    return (fromIsMe && toIsOther) || (fromIsOther && toIsMe);
   });
 
   if (matches.length === 0) return { status: "none" };
@@ -170,7 +171,7 @@ export function getConnectionStatusBetween(
 
   const pending = matches.find((m) => m.status === "pending");
   if (pending) {
-    if (pending.fromUserId.toLowerCase().trim() === myNorm) {
+    if (myNorms.includes(pending.fromUserId.toLowerCase().trim())) {
       return { status: "pending_sent", connection: pending };
     }
     return { status: "pending_received", connection: pending };
@@ -218,30 +219,45 @@ export async function sendConnectionRequest(params: {
 
   // Sync to Supabase consultations first to obtain DB primary key
   try {
-    const { data: inserted, error: insErr } = await supabase
+    const basePayload = {
+      user_id: params.fromUser.id,
+      lawyer_name: params.toUser.name,
+      consult_type: "peer_connection",
+      status: "pending",
+      note: JSON.stringify({
+        fromUserId: params.fromUser.id,
+        fromUserName: params.fromUser.name,
+        fromUserRole: params.fromUser.role,
+        fromUserRoleLabel: params.fromUser.roleLabel,
+        fromUserCity: params.fromUser.city,
+        toUserId: params.toUser.id,
+        toUserName: params.toUser.name,
+        toUserRole: params.toUser.role,
+        toUserRoleLabel: params.toUser.roleLabel || "Member",
+        toUserCity: params.toUser.city || "New Delhi",
+        note: params.note || "",
+      }),
+      intake_brief: `Connection Request from ${params.fromUser.name} (${params.fromUser.roleLabel}) to ${params.toUser.name}`,
+    };
+
+    let inserted: any = null;
+    const { data: firstTry, error: err1 } = await supabase
       .from("consultations")
-      .insert({
-        user_id: params.fromUser.id,
-        lawyer_id: params.toUser.id,
-        lawyer_name: params.toUser.name,
-        consult_type: "peer_connection",
-        status: "pending",
-        note: JSON.stringify({
-          fromUserId: params.fromUser.id,
-          fromUserName: params.fromUser.name,
-          fromUserRole: params.fromUser.role,
-          fromUserRoleLabel: params.fromUser.roleLabel,
-          fromUserCity: params.fromUser.city,
-          toUserId: params.toUser.id,
-          toUserName: params.toUser.name,
-          toUserRole: params.toUser.role,
-          toUserRoleLabel: params.toUser.roleLabel,
-          toUserCity: params.toUser.city,
-        }),
-        intake_brief: `Connection Request from ${params.fromUser.name} (${params.fromUser.roleLabel}) to ${params.toUser.name}`,
-      })
+      .insert({ ...basePayload, lawyer_id: params.toUser.id })
       .select("id")
       .maybeSingle();
+
+    if (!err1 && firstTry?.id) {
+      inserted = firstTry;
+    } else {
+      // Fallback if foreign key check failed on lawyer_id
+      const { data: retryTry } = await supabase
+        .from("consultations")
+        .insert({ ...basePayload, lawyer_id: null })
+        .select("id")
+        .maybeSingle();
+      inserted = retryTry;
+    }
 
     if (inserted?.id) {
       newConnId = `CONN-${inserted.id}`;
@@ -325,6 +341,28 @@ export async function acceptConnectionRequest(connectionId: string): Promise<voi
       .or(`id.eq.${rawId},and(user_id.eq.${conn.fromUserId},lawyer_id.eq.${conn.toUserId}),and(user_id.eq.${conn.toUserId},lawyer_id.eq.${conn.fromUserId})`);
   } catch (err) {
     console.warn("acceptConnectionRequest Supabase update error:", err);
+  }
+
+  // Also insert or upsert confirmation record under accepting user's auth
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    if (authData?.user) {
+      await supabase.from("consultations").insert({
+        user_id: authData.user.id,
+        lawyer_name: conn.fromUserName || conn.toUserName || "Professional Colleague",
+        consult_type: "peer_connection",
+        status: "confirmed",
+        note: JSON.stringify({
+          ...conn,
+          status: "accepted",
+          acceptedBy: authData.user.id,
+          updatedAt: new Date().toISOString(),
+        }),
+        intake_brief: `Accepted Connection between ${conn.fromUserName} and ${conn.toUserName}`,
+      });
+    }
+  } catch (err) {
+    console.warn("acceptConnectionRequest confirmation insert error:", err);
   }
 }
 

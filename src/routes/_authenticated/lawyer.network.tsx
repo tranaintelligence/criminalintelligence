@@ -29,7 +29,8 @@ function LawyerNetworkPage() {
   }
 
   const currentUser = {
-    id: myProfile?.id || "advocate-current",
+    id: myProfile?.user_id || myProfile?.id || "advocate-current",
+    userId: myProfile?.user_id || myProfile?.id,
     name: myProfile?.full_name || "Advocate Counsel",
     email: myProfile?.email,
     role: "lawyer" as const,
