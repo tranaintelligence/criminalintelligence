@@ -134,24 +134,74 @@ const formatAnalysis = (
   const result = analysis as StructuredAnalysis;
   const sections: string[] = [];
 
-  if (result.conversational_reply) sections.push(result.conversational_reply);
-  if (result.general_analysis) sections.push(`## General Legal Analysis\n${result.general_analysis}`);
-  if (result.situation_meaning) sections.push(`## What This Situation Means\n${result.situation_meaning}`);
-  if (result.bail_status) sections.push(`## Bail Status\n${result.bail_status}`);
-  if (result.next_24_hours?.length) {
-    sections.push(`## What To Do Next\n${result.next_24_hours.map((item) => `- ${item}`).join('\n')}`);
+  // 1. Conversational Reply
+  if (result.conversational_reply?.trim()) {
+    sections.push(result.conversational_reply.trim());
   }
-  if (result.rights?.length) {
-    sections.push(`## Your Rights\n${result.rights.map((item) => `- ${item}`).join('\n')}`);
-  }
-  if (result.handling_authority) sections.push(`## Relevant Authority\n${result.handling_authority}`);
 
-  if (options.includeLegacyLawSummary && result.applicable_laws?.length) {
-    const laws = result.applicable_laws.map(formatLegalLaw);
-    sections.push(`## Applicable Laws\n${laws.join('\n\n')}`);
+  // 2. Direct Question / Explanations vs Incident Analysis
+  const hasSituationMeaning = Boolean(result.situation_meaning?.trim());
+  const hasGeneralAnalysis = Boolean(result.general_analysis?.trim());
+
+  if (hasGeneralAnalysis) {
+    const text = result.general_analysis.trim();
+    if (!hasSituationMeaning) {
+      // Question inquiry path: render markdown text directly without artificial "## General Legal Analysis"
+      sections.push(text);
+    } else {
+      // Both present: show legal context after or alongside situation
+      sections.push(text.startsWith('#') ? text : `### Legal Context & Analysis\n\n${text}`);
+    }
   }
+
+  // 3. Incident Specific Breakdown
+  if (hasSituationMeaning) {
+    const meaning = result.situation_meaning.trim();
+    sections.push(meaning.startsWith('#') ? meaning : `### What This Situation Means\n\n${meaning}`);
+  }
+
+  // 4. Bail Status
+  if (result.bail_status?.trim()) {
+    const bail = result.bail_status.trim();
+    const isApplicable = !/^(?:not applicable|none|n\/?a|unclear)$/i.test(bail);
+    if (isApplicable) {
+      sections.push(bail.startsWith('#') ? bail : `### Bail Status & Eligibility\n\n${bail}`);
+    }
+  }
+
+  // 5. Next 24 Hours Action Steps
+  if (result.next_24_hours?.length) {
+    const validSteps = result.next_24_hours.filter((item) => item?.trim());
+    if (validSteps.length > 0) {
+      sections.push(`### What To Do Next (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+    }
+  }
+
+  // 6. Rights
+  if (result.rights?.length) {
+    const validRights = result.rights.filter((item) => item?.trim());
+    if (validRights.length > 0) {
+      sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+    }
+  }
+
+  // 7. Handling Authority
+  if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a)$/i.test(result.handling_authority.trim())) {
+    const auth = result.handling_authority.trim();
+    sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
+  }
+
+  // 8. Legacy Law Summary
+  if (options.includeLegacyLawSummary && result.applicable_laws?.length) {
+    const laws = result.applicable_laws.filter((l) => l.act || l.code || l.section).map(formatLegalLaw);
+    if (laws.length > 0) {
+      sections.push(`### Applicable Laws & Sections\n\n${laws.join('\n\n')}`);
+    }
+  }
+
+  // 9. Lawyer Recommendation
   if (result.suggest_lawyer) {
-    sections.push('> Consider consulting a qualified lawyer for advice about your specific situation.');
+    sections.push('> ⚖️ **Legal Note**: While TRANA provides structured statutory guidance under Indian law, every case depends on specific facts. For formal court representation or bail applications, please consult a qualified advocate.');
   }
 
   return sections.join('\n\n') || 'The backend returned an analysis without readable content.';

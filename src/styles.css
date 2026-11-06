@@ -296,14 +296,12 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas input[type="search"],
 .founders-canvas input[type="number"],
 .founders-canvas select,
-.founders-canvas textarea,
 .apple-glass-canvas input[type="text"],
 .apple-glass-canvas input[type="email"],
 .apple-glass-canvas input[type="password"],
 .apple-glass-canvas input[type="search"],
 .apple-glass-canvas input[type="number"],
-.apple-glass-canvas select,
-.apple-glass-canvas textarea {
+.apple-glass-canvas select {
   background: rgba(255, 255, 255, 0.08) !important;
   backdrop-filter: blur(24px) saturate(200%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
@@ -312,6 +310,21 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
     inset 0 1px 2px 0 rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
   border-radius: 9999px;
+  color: #ffffff !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.founders-canvas textarea,
+.apple-glass-canvas textarea,
+textarea.apple-glass-input {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(24px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  border-radius: 14px !important;
   color: #ffffff !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -476,4 +489,178 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas ::-webkit-scrollbar-thumb:hover,
 .apple-glass-canvas ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.45);
+}
+
+/* ==========================================================================
+   Chatbot Rich Prose & Heading Typography (Legal RAG Advisor 2 Enhancements)
+   ========================================================================== */
+.message-bubble__bubble .prose {
+  font-family: inherit;
+  color: #e5e5e5;
+  line-height: 1.68;
+}
+
+.message-bubble__bubble .prose p {
+  margin-top: 0.6em;
+  margin-bottom: 0.6em;
+}
+
+.message-bubble__bubble .prose p:first-child {
+  margin-top: 0;
+}
+
+.message-bubble__bubble .prose p:last-child {
+  margin-bottom: 0;
+}
+
+.message-bubble__bubble .prose h1,
+.message-bubble__bubble .prose h2,
+.message-bubble__bubble .prose h3,
+.message-bubble__bubble .prose h4 {
+  color: #fef08a; /* amber-200 */
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+.message-bubble__bubble .prose h1 {
+  font-size: 1.35rem;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.message-bubble__bubble .prose h2 {
+  font-size: 1.18rem;
+  margin-top: 1.15em;
+  margin-bottom: 0.45em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.message-bubble__bubble .prose h3 {
+  font-size: 1.02rem;
+  margin-top: 1em;
+  margin-bottom: 0.35em;
+  color: #fde68a; /* amber-300 */
+}
+
+.message-bubble__bubble .prose h4 {
+  font-size: 0.92rem;
+  margin-top: 0.85em;
+  margin-bottom: 0.3em;
+  color: #ffffff;
+}
+
+.message-bubble__bubble .prose ul {
+  list-style-type: disc;
+  padding-left: 1.4em;
+  margin-top: 0.5em;
+  margin-bottom: 0.75em;
+}
+
+.message-bubble__bubble .prose ol {
+  list-style-type: decimal;
+  padding-left: 1.4em;
+  margin-top: 0.5em;
+  margin-bottom: 0.75em;
+}
+
+.message-bubble__bubble .prose li {
+  margin-top: 0.28em;
+  margin-bottom: 0.28em;
+  line-height: 1.6;
+}
+
+.message-bubble__bubble .prose li::marker {
+  color: #f59e0b; /* amber-500 */
+}
+
+.message-bubble__bubble .prose strong,
+.message-bubble__bubble .prose b {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.message-bubble__bubble .prose em,
+.message-bubble__bubble .prose i {
+  color: #e5e5e5;
+}
+
+.message-bubble__bubble .prose blockquote {
+  border-left: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.07);
+  padding: 0.65rem 0.95rem;
+  margin: 0.85em 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: #f3f4f6;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.message-bubble__bubble .prose code {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fef08a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.15em 0.4em;
+  border-radius: 0.375rem;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.message-bubble__bubble .prose pre {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.message-bubble__bubble .prose pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #e5e5e5;
+  font-size: 0.82rem;
+}
+
+.message-bubble__bubble .prose hr {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin: 1.25em 0;
+}
+
+.message-bubble__bubble .prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85em 0;
+  font-size: 0.82rem;
+}
+
+.message-bubble__bubble .prose th {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0.45rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #fef08a;
+}
+
+.message-bubble__bubble .prose td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.45rem 0.75rem;
+  color: #d1d5db;
+}
+
+.message-bubble__bubble .prose a {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.message-bubble__bubble .prose a:hover {
+  color: #7dd3fc;
 }

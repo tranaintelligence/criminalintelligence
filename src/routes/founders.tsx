@@ -195,7 +195,6 @@ function FoundersLayout() {
   // References and state for sliding liquid glass pill animation
   const navContainerRef = useRef<HTMLElement>(null);
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-  const sidebarRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [pillState, setPillState] = useState<{ top: number; height: number; opacity: number }>({
@@ -204,18 +203,11 @@ function FoundersLayout() {
     opacity: 0,
   });
 
-  // Vertical Floating Notch state (tracks active/hovered section along sidebar border)
-  const [notchState, setNotchState] = useState<{ y: number; opacity: number; label: string }>({
-    y: 140,
-    opacity: 0,
-    label: "SEARCH",
-  });
-
   useEffect(() => {
     document.title = "Founders Dashboard — TRANA";
   }, [location.pathname]);
 
-  // Global ⌘K / Ctrl+K keyboard shortcut to focus search & pulse notch
+  // Global ⌘K / Ctrl+K keyboard shortcut to focus search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -261,12 +253,11 @@ function FoundersLayout() {
       : location.pathname.startsWith(item.to)
   );
 
-  // Function to smoothly animate and position the frosted glass pill & vertical floating notch
+  // Function to smoothly animate and position the frosted glass pill
   const updatePill = (idx: number, visible = true) => {
     if (idx < 0 || !itemRefs.current[idx] || !navContainerRef.current) {
       if (!visible) {
         setPillState((prev) => ({ ...prev, opacity: 0 }));
-        setNotchState((prev) => ({ ...prev, opacity: 0 }));
       }
       return;
     }
@@ -279,27 +270,9 @@ function FoundersLayout() {
     const top = itemRect.top - navRect.top;
     const height = itemRect.height;
     setPillState({ top, height, opacity: 1 });
-
-    const sidebarEl = sidebarRef.current;
-    if (sidebarEl) {
-      const sidebarRect = sidebarEl.getBoundingClientRect();
-      const centerY = (itemRect.top + itemRect.height / 2) - sidebarRect.top;
-      setNotchState({
-        y: centerY,
-        opacity: 1,
-        label: "SEARCH",
-      });
-    }
   };
 
-  const handleNotchClick = () => {
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
-      searchInputRef.current.select();
-    }
-  };
-
-  // Keep pill and floating notch positioned over active item when route changes or on mount
+  // Keep pill positioned over active item when route changes or on mount
   useEffect(() => {
     const t = setTimeout(() => {
       if (activeRouteIndex !== -1) {
@@ -311,7 +284,7 @@ function FoundersLayout() {
     return () => clearTimeout(t);
   }, [location.pathname, activeRouteIndex]);
 
-  // Recalculate notch on window resize
+  // Recalculate on window resize
   useEffect(() => {
     const handleResize = () => {
       if (activeRouteIndex !== -1) {
@@ -661,97 +634,8 @@ function FoundersLayout() {
 
         {/* Desktop Left Sidebar: Completely FIXED to viewport — impossible to scroll away */}
         <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-[280px] p-3 lg:p-4 z-40 select-none">
-          <div
-            ref={sidebarRef}
-            className="apple-floating-sidebar w-full h-full flex flex-col relative"
-            style={{ overflow: "visible" }}
-          >
+          <div className="apple-floating-sidebar w-full h-full flex flex-col relative overflow-hidden">
             {sidebarContent}
-
-            {/* FLOATING NOTCH VERTICAL INDICATOR (DESIGN REFERENCE 03) */}
-            <div
-              className="group/notch-wrap pointer-events-auto absolute right-[-24px] z-50 flex items-center select-none"
-              style={{
-                top: `${notchState.y - 40}px`,
-                opacity: notchState.opacity,
-                transition: "top 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease",
-              }}
-            >
-              {/* Organic Curved Notch Cutout */}
-              <div className="relative">
-                <svg
-                  width="28"
-                  height="80"
-                  viewBox="0 0 28 80"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
-                >
-                  <defs>
-                    <linearGradient id="notchGlassFill" x1="0" y1="0" x2="28" y2="80" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stopColor="rgba(255, 255, 255, 0.14)" />
-                      <stop offset="50%" stopColor="rgba(255, 255, 255, 0.03)" />
-                      <stop offset="100%" stopColor="rgba(255, 255, 255, 0.08)" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Frosted Glass Notch Core matching sidebar background */}
-                  <path
-                    d="M 0 0 L 0 6 C 0 16, 2 22, 6 25 C 13 30, 21 34, 21 40 C 21 46, 13 50, 6 55 C 2 58, 0 64, 0 74 L 0 80 L -8 80 L -8 0 Z"
-                    fill="url(#notchGlassFill)"
-                  />
-
-                  {/* Organic Outer Boundary Line (Smooth Fillet Notch Edge) */}
-                  <path
-                    d="M 0 6 C 0 16, 2 22, 6 25 C 13 30, 21 34, 21 40 C 21 46, 13 50, 6 55 C 2 58, 0 64, 0 74"
-                    stroke="rgba(255, 255, 255, 0.42)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-
-                  {/* Outer Tangent Geometric Construction Ring from Diagram (dashed hairline) */}
-                  <circle
-                    cx="18"
-                    cy="40"
-                    r="15"
-                    stroke="rgba(255, 255, 255, 0.2)"
-                    strokeWidth="0.75"
-                    strokeDasharray="2 2"
-                  />
-
-                  {/* Inner Tangent Guide Circle from Diagram */}
-                  <circle
-                    cx="18"
-                    cy="40"
-                    r="10"
-                    stroke="rgba(255, 255, 255, 0.28)"
-                    strokeWidth="0.8"
-                  />
-                </svg>
-
-                {/* Floating Node Button inside the Center of the Notch */}
-                <button
-                  type="button"
-                  onClick={handleNotchClick}
-                  title="Search console (⌘K)"
-                  className="group/btn absolute left-[8px] top-[30px] w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer focus:outline-none hover:scale-125 active:scale-95"
-                >
-                  <div className="absolute inset-0 rounded-full bg-white/[0.22] border border-white/50 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.8),0_0_12px_rgba(255,255,255,0.4)] backdrop-blur-md transition-all group-hover/btn:bg-white/[0.38] group-hover/btn:border-white/80" />
-                  <div className="relative w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)] transition-all group-hover/btn:scale-75 group-hover/btn:opacity-0" />
-                  <Search className="absolute w-2.5 h-2.5 text-white opacity-0 transition-opacity duration-150 group-hover/btn:opacity-100" />
-                </button>
-              </div>
-
-              {/* Diagram-accurate "SEARCH" & "FLOATING NOTCH 03" Callout */}
-              <div className="flex flex-col ml-1.5 transition-all duration-200">
-                <span className="text-[7.5px] font-mono tracking-[0.22em] text-neutral-400 group-hover/notch-wrap:text-white uppercase transition-colors">
-                  SEARCH
-                </span>
-                <span className="text-[6.5px] font-mono text-neutral-500/70 tracking-[0.18em] uppercase group-hover/notch-wrap:text-neutral-300 transition-colors">
-                  NOTCH 03
-                </span>
-              </div>
-            </div>
           </div>
         </aside>
 
