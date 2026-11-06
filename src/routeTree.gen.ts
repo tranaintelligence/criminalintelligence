@@ -18,6 +18,7 @@ import { Route as FoundersRouteImport } from './routes/founders'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedLawyerRouteImport } from './routes/_authenticated/lawyer'
+import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated/student'
 import { Route as FoundersIndexRouteImport } from './routes/founders.index'
 import { Route as FoundersAdminRouteImport } from './routes/founders.admin'
 import { Route as FoundersAnalysesRouteImport } from './routes/founders.analyses'
@@ -46,6 +47,13 @@ import { Route as AuthenticatedLawyerNetworkRouteImport } from './routes/_authen
 import { Route as AuthenticatedLawyerProfileRouteImport } from './routes/_authenticated/lawyer.profile'
 import { Route as AuthenticatedLawyerReferralsRouteImport } from './routes/_authenticated/lawyer.referrals'
 import { Route as AuthenticatedLawyerResearchRouteImport } from './routes/_authenticated/lawyer.research'
+import { Route as AuthenticatedStudentIndexRouteImport } from './routes/_authenticated/student.index'
+import { Route as AuthenticatedStudentCasesRouteImport } from './routes/_authenticated/student.cases'
+import { Route as AuthenticatedStudentCitationsRouteImport } from './routes/_authenticated/student.citations'
+import { Route as AuthenticatedStudentDocumentsRouteImport } from './routes/_authenticated/student.documents'
+import { Route as AuthenticatedStudentDrafterRouteImport } from './routes/_authenticated/student.drafter'
+import { Route as AuthenticatedStudentNetworkRouteImport } from './routes/_authenticated/student.network'
+import { Route as AuthenticatedStudentResearchRouteImport } from './routes/_authenticated/student.research'
 import { Route as FoundersUsersIndexRouteImport } from './routes/founders.users.index'
 import { Route as FoundersUsersUserIdRouteImport } from './routes/founders.users.$userId'
 import { Route as AuthenticatedDashboardChatIdRouteImport } from './routes/_authenticated/dashboard.chat.$id'
@@ -92,6 +100,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
 const AuthenticatedLawyerRoute = AuthenticatedLawyerRouteImport.update({
   id: '/lawyer',
   path: '/lawyer',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStudentRoute = AuthenticatedStudentRouteImport.update({
+  id: '/student',
+  path: '/student',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const FoundersIndexRoute = FoundersIndexRouteImport.update({
@@ -252,6 +265,48 @@ const AuthenticatedLawyerResearchRoute =
     path: '/research',
     getParentRoute: () => AuthenticatedLawyerRoute,
   } as any)
+const AuthenticatedStudentIndexRoute =
+  AuthenticatedStudentIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
+const AuthenticatedStudentCasesRoute =
+  AuthenticatedStudentCasesRouteImport.update({
+    id: '/cases',
+    path: '/cases',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
+const AuthenticatedStudentCitationsRoute =
+  AuthenticatedStudentCitationsRouteImport.update({
+    id: '/citations',
+    path: '/citations',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
+const AuthenticatedStudentDocumentsRoute =
+  AuthenticatedStudentDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
+const AuthenticatedStudentDrafterRoute =
+  AuthenticatedStudentDrafterRouteImport.update({
+    id: '/drafter',
+    path: '/drafter',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
+const AuthenticatedStudentNetworkRoute =
+  AuthenticatedStudentNetworkRouteImport.update({
+    id: '/network',
+    path: '/network',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
+const AuthenticatedStudentResearchRoute =
+  AuthenticatedStudentResearchRouteImport.update({
+    id: '/research',
+    path: '/research',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
 const FoundersUsersIndexRoute = FoundersUsersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -278,6 +333,7 @@ export interface FileRoutesByFullPath {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/lawyer': typeof AuthenticatedLawyerRouteWithChildren
+  '/student': typeof AuthenticatedStudentRouteWithChildren
   '/founders/admin': typeof FoundersAdminRoute
   '/founders/analyses': typeof FoundersAnalysesRoute
   '/founders/chats': typeof FoundersChatsRoute
@@ -304,9 +360,16 @@ export interface FileRoutesByFullPath {
   '/lawyer/profile': typeof AuthenticatedLawyerProfileRoute
   '/lawyer/referrals': typeof AuthenticatedLawyerReferralsRoute
   '/lawyer/research': typeof AuthenticatedLawyerResearchRoute
+  '/student/cases': typeof AuthenticatedStudentCasesRoute
+  '/student/citations': typeof AuthenticatedStudentCitationsRoute
+  '/student/documents': typeof AuthenticatedStudentDocumentsRoute
+  '/student/drafter': typeof AuthenticatedStudentDrafterRoute
+  '/student/network': typeof AuthenticatedStudentNetworkRoute
+  '/student/research': typeof AuthenticatedStudentResearchRoute
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/lawyer/': typeof AuthenticatedLawyerIndexRoute
+  '/student/': typeof AuthenticatedStudentIndexRoute
   '/founders/users/': typeof FoundersUsersIndexRoute
   '/dashboard/chat/$id': typeof AuthenticatedDashboardChatIdRoute
 }
@@ -341,9 +404,16 @@ export interface FileRoutesByTo {
   '/lawyer/profile': typeof AuthenticatedLawyerProfileRoute
   '/lawyer/referrals': typeof AuthenticatedLawyerReferralsRoute
   '/lawyer/research': typeof AuthenticatedLawyerResearchRoute
+  '/student/cases': typeof AuthenticatedStudentCasesRoute
+  '/student/citations': typeof AuthenticatedStudentCitationsRoute
+  '/student/documents': typeof AuthenticatedStudentDocumentsRoute
+  '/student/drafter': typeof AuthenticatedStudentDrafterRoute
+  '/student/network': typeof AuthenticatedStudentNetworkRoute
+  '/student/research': typeof AuthenticatedStudentResearchRoute
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/lawyer': typeof AuthenticatedLawyerIndexRoute
+  '/student': typeof AuthenticatedStudentIndexRoute
   '/founders/users': typeof FoundersUsersIndexRoute
   '/dashboard/chat/$id': typeof AuthenticatedDashboardChatIdRoute
 }
@@ -358,6 +428,7 @@ export interface FileRoutesById {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/_authenticated/lawyer': typeof AuthenticatedLawyerRouteWithChildren
+  '/_authenticated/student': typeof AuthenticatedStudentRouteWithChildren
   '/founders/admin': typeof FoundersAdminRoute
   '/founders/analyses': typeof FoundersAnalysesRoute
   '/founders/chats': typeof FoundersChatsRoute
@@ -384,9 +455,16 @@ export interface FileRoutesById {
   '/_authenticated/lawyer/profile': typeof AuthenticatedLawyerProfileRoute
   '/_authenticated/lawyer/referrals': typeof AuthenticatedLawyerReferralsRoute
   '/_authenticated/lawyer/research': typeof AuthenticatedLawyerResearchRoute
+  '/_authenticated/student/cases': typeof AuthenticatedStudentCasesRoute
+  '/_authenticated/student/citations': typeof AuthenticatedStudentCitationsRoute
+  '/_authenticated/student/documents': typeof AuthenticatedStudentDocumentsRoute
+  '/_authenticated/student/drafter': typeof AuthenticatedStudentDrafterRoute
+  '/_authenticated/student/network': typeof AuthenticatedStudentNetworkRoute
+  '/_authenticated/student/research': typeof AuthenticatedStudentResearchRoute
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/lawyer/': typeof AuthenticatedLawyerIndexRoute
+  '/_authenticated/student/': typeof AuthenticatedStudentIndexRoute
   '/founders/users/': typeof FoundersUsersIndexRoute
   '/_authenticated/dashboard/chat/$id': typeof AuthenticatedDashboardChatIdRoute
 }
@@ -401,6 +479,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/dashboard'
     | '/lawyer'
+    | '/student'
     | '/founders/admin'
     | '/founders/analyses'
     | '/founders/chats'
@@ -427,9 +506,16 @@ export interface FileRouteTypes {
     | '/lawyer/profile'
     | '/lawyer/referrals'
     | '/lawyer/research'
+    | '/student/cases'
+    | '/student/citations'
+    | '/student/documents'
+    | '/student/drafter'
+    | '/student/network'
+    | '/student/research'
     | '/founders/users/$userId'
     | '/dashboard/'
     | '/lawyer/'
+    | '/student/'
     | '/founders/users/'
     | '/dashboard/chat/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -464,9 +550,16 @@ export interface FileRouteTypes {
     | '/lawyer/profile'
     | '/lawyer/referrals'
     | '/lawyer/research'
+    | '/student/cases'
+    | '/student/citations'
+    | '/student/documents'
+    | '/student/drafter'
+    | '/student/network'
+    | '/student/research'
     | '/founders/users/$userId'
     | '/dashboard'
     | '/lawyer'
+    | '/student'
     | '/founders/users'
     | '/dashboard/chat/$id'
   id:
@@ -480,6 +573,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/_authenticated/dashboard'
     | '/_authenticated/lawyer'
+    | '/_authenticated/student'
     | '/founders/admin'
     | '/founders/analyses'
     | '/founders/chats'
@@ -506,9 +600,16 @@ export interface FileRouteTypes {
     | '/_authenticated/lawyer/profile'
     | '/_authenticated/lawyer/referrals'
     | '/_authenticated/lawyer/research'
+    | '/_authenticated/student/cases'
+    | '/_authenticated/student/citations'
+    | '/_authenticated/student/documents'
+    | '/_authenticated/student/drafter'
+    | '/_authenticated/student/network'
+    | '/_authenticated/student/research'
     | '/founders/users/$userId'
     | '/_authenticated/dashboard/'
     | '/_authenticated/lawyer/'
+    | '/_authenticated/student/'
     | '/founders/users/'
     | '/_authenticated/dashboard/chat/$id'
   fileRoutesById: FileRoutesById
@@ -586,6 +687,13 @@ declare module '@tanstack/react-router' {
       path: '/lawyer'
       fullPath: '/lawyer'
       preLoaderRoute: typeof AuthenticatedLawyerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/student': {
+      id: '/_authenticated/student'
+      path: '/student'
+      fullPath: '/student'
+      preLoaderRoute: typeof AuthenticatedStudentRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/founders/': {
@@ -784,6 +892,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLawyerResearchRouteImport
       parentRoute: typeof AuthenticatedLawyerRoute
     }
+    '/_authenticated/student/': {
+      id: '/_authenticated/student/'
+      path: '/'
+      fullPath: '/student/'
+      preLoaderRoute: typeof AuthenticatedStudentIndexRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/student/cases': {
+      id: '/_authenticated/student/cases'
+      path: '/cases'
+      fullPath: '/student/cases'
+      preLoaderRoute: typeof AuthenticatedStudentCasesRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/student/citations': {
+      id: '/_authenticated/student/citations'
+      path: '/citations'
+      fullPath: '/student/citations'
+      preLoaderRoute: typeof AuthenticatedStudentCitationsRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/student/documents': {
+      id: '/_authenticated/student/documents'
+      path: '/documents'
+      fullPath: '/student/documents'
+      preLoaderRoute: typeof AuthenticatedStudentDocumentsRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/student/drafter': {
+      id: '/_authenticated/student/drafter'
+      path: '/drafter'
+      fullPath: '/student/drafter'
+      preLoaderRoute: typeof AuthenticatedStudentDrafterRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/student/network': {
+      id: '/_authenticated/student/network'
+      path: '/network'
+      fullPath: '/student/network'
+      preLoaderRoute: typeof AuthenticatedStudentNetworkRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/student/research': {
+      id: '/_authenticated/student/research'
+      path: '/research'
+      fullPath: '/student/research'
+      preLoaderRoute: typeof AuthenticatedStudentResearchRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
     '/founders/users/': {
       id: '/founders/users/'
       path: '/'
@@ -881,14 +1038,39 @@ const AuthenticatedLawyerRouteChildren: AuthenticatedLawyerRouteChildren = {
 const AuthenticatedLawyerRouteWithChildren =
   AuthenticatedLawyerRoute._addFileChildren(AuthenticatedLawyerRouteChildren)
 
+interface AuthenticatedStudentRouteChildren {
+  AuthenticatedStudentCasesRoute: typeof AuthenticatedStudentCasesRoute
+  AuthenticatedStudentCitationsRoute: typeof AuthenticatedStudentCitationsRoute
+  AuthenticatedStudentDocumentsRoute: typeof AuthenticatedStudentDocumentsRoute
+  AuthenticatedStudentDrafterRoute: typeof AuthenticatedStudentDrafterRoute
+  AuthenticatedStudentNetworkRoute: typeof AuthenticatedStudentNetworkRoute
+  AuthenticatedStudentResearchRoute: typeof AuthenticatedStudentResearchRoute
+  AuthenticatedStudentIndexRoute: typeof AuthenticatedStudentIndexRoute
+}
+
+const AuthenticatedStudentRouteChildren: AuthenticatedStudentRouteChildren = {
+  AuthenticatedStudentCasesRoute: AuthenticatedStudentCasesRoute,
+  AuthenticatedStudentCitationsRoute: AuthenticatedStudentCitationsRoute,
+  AuthenticatedStudentDocumentsRoute: AuthenticatedStudentDocumentsRoute,
+  AuthenticatedStudentDrafterRoute: AuthenticatedStudentDrafterRoute,
+  AuthenticatedStudentNetworkRoute: AuthenticatedStudentNetworkRoute,
+  AuthenticatedStudentResearchRoute: AuthenticatedStudentResearchRoute,
+  AuthenticatedStudentIndexRoute: AuthenticatedStudentIndexRoute,
+}
+
+const AuthenticatedStudentRouteWithChildren =
+  AuthenticatedStudentRoute._addFileChildren(AuthenticatedStudentRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
   AuthenticatedLawyerRoute: typeof AuthenticatedLawyerRouteWithChildren
+  AuthenticatedStudentRoute: typeof AuthenticatedStudentRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
   AuthenticatedLawyerRoute: AuthenticatedLawyerRouteWithChildren,
+  AuthenticatedStudentRoute: AuthenticatedStudentRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =

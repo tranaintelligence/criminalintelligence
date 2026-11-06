@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Scale, GraduationCap, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/lib/user-role";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -49,6 +50,7 @@ export function useProfile() {
 function DashboardLayout() {
   const { user } = Route.useRouteContext();
   const { data: profile } = useProfile();
+  const { role, isLawyer, isStudent, isFounder, studentProfile } = useUserRole(user?.id, user?.email);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -155,10 +157,98 @@ function DashboardLayout() {
           );
         })}
       </nav>
-      <div className="mt-auto border-t border-border pt-5">
-        <p className="truncate text-sm text-foreground">{profile?.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{profile?.email}</p>
-        <button onClick={signOut} className="mt-3 text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground">Log out</button>
+      <div className="mt-auto border-t border-border pt-5 space-y-3">
+        <div>
+          <div className="flex items-center justify-between">
+            <p className="truncate text-sm font-medium text-foreground">{profile?.name}</p>
+            {isFounder ? (
+              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                Founder
+              </span>
+            ) : isLawyer ? (
+              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                <Scale className="h-2.5 w-2.5" />
+                Advocate
+              </span>
+            ) : isStudent ? (
+              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+                <GraduationCap className="h-2.5 w-2.5" />
+                Student
+              </span>
+            ) : (
+              <span className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
+                Citizen
+              </span>
+            )}
+          </div>
+          <p className="truncate text-xs text-muted-foreground mt-0.5">{profile?.email}</p>
+        </div>
+
+        {/* Portal Switcher Buttons */}
+        <div className="pt-2 border-t border-border/50 flex flex-col gap-1.5 text-xs font-mono">
+          {(isLawyer || isFounder) && (
+            <Link
+              to="/lawyer"
+              className="flex items-center justify-between text-muted-foreground hover:text-foreground text-[0.7rem] py-1"
+            >
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <Scale className="h-3 w-3" />
+                <span>Advocate Portal</span>
+              </span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          )}
+
+          {(isStudent || isLawyer || isFounder) && (
+            <Link
+              to="/student"
+              className="flex items-center justify-between text-muted-foreground hover:text-foreground text-[0.7rem] py-1"
+            >
+              <span className="flex items-center gap-1.5 text-purple-300">
+                <GraduationCap className="h-3 w-3" />
+                <span>Student Workspace</span>
+              </span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          )}
+
+          {isFounder && (
+            <Link
+              to="/founders"
+              className="flex items-center justify-between text-muted-foreground hover:text-foreground text-[0.7rem] py-1"
+            >
+              <span className="flex items-center gap-1.5 text-amber-300">
+                <ShieldCheck className="h-3 w-3" />
+                <span>Founders Admin</span>
+              </span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          )}
+
+          {!isLawyer && !isStudent && !isFounder && (
+            <div className="pt-1 flex flex-col gap-1 text-[0.7rem]">
+              <Link
+                to="/student"
+                className="text-purple-400 hover:text-purple-300 flex items-center justify-between py-0.5"
+              >
+                <span>Law Student Portal →</span>
+              </Link>
+              <Link
+                to="/lawyer"
+                className="text-neutral-400 hover:text-white flex items-center justify-between py-0.5"
+              >
+                <span>Advocate Portal →</span>
+              </Link>
+            </div>
+          )}
+
+          <button
+            onClick={signOut}
+            className="mt-2 text-left text-muted-foreground hover:text-foreground text-[0.7rem] uppercase tracking-wider"
+          >
+            Log out
+          </button>
+        </div>
       </div>
     </div>
   );

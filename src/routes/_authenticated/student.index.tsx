@@ -1,0 +1,265 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { 
+  GraduationCap, Sparkles, Scale, Search, Landmark, FileText, 
+  Users, ArrowUpRight, BookOpen, ShieldCheck, Clock, CheckCircle2 
+} from "lucide-react";
+import { useUserRole } from "@/lib/user-role";
+import { getLocalConnections } from "@/lib/network-connections";
+
+export const Route = createFileRoute("/_authenticated/student/")({
+  head: () => ({
+    meta: [
+      { title: "Law Student Workspace — TRANA" },
+      { name: "description", content: "Academic legal research, AI drafting, case tracking, and professional networking for law scholars." },
+      { property: "og:title", content: "Law Student Workspace — TRANA" },
+    ],
+  }),
+  component: StudentOverviewPage,
+});
+
+function StudentOverviewPage() {
+  const { user } = Route.useRouteContext();
+  const { studentProfile } = useUserRole(user?.id, user?.email);
+
+  const [savedDocsCount, setSavedDocsCount] = useState(0);
+  const [trackedCasesCount, setTrackedCasesCount] = useState(0);
+  const [connectionsCount, setConnectionsCount] = useState(0);
+
+  useEffect(() => {
+    // Saved documents count
+    try {
+      const stored = localStorage.getItem("trana_saved_documents");
+      if (stored) {
+        const list = JSON.parse(stored);
+        if (Array.isArray(list)) setSavedDocsCount(list.length);
+      }
+    } catch {}
+
+    // Tracked cases count
+    try {
+      const raw = localStorage.getItem(`trana_tracked_cases_student_${user?.id}`);
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) setTrackedCasesCount(list.length);
+      }
+    } catch {}
+
+    // Active connections
+    try {
+      const myNorm = (user?.id || "").toLowerCase().trim();
+      const allConn = getLocalConnections();
+      const active = allConn.filter(
+        (c) =>
+          c.status === "accepted" &&
+          (c.fromUserId.toLowerCase().trim() === myNorm || c.toUserId.toLowerCase().trim() === myNorm)
+      );
+      setConnectionsCount(active.length);
+    } catch {}
+  }, [user?.id]);
+
+  const studentName = user?.name || user?.email?.split("@")[0] || "Law Student";
+  const university = studentProfile?.university || "National Law University, Delhi";
+  const degree = studentProfile?.degree || "5-Year B.A. LL.B. (Hons)";
+  const yearOfStudy = studentProfile?.yearOfStudy || "3rd Year Scholar";
+
+  return (
+    <div className="space-y-8 md:space-y-10">
+      {/* Top Banner */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#222222] pb-6">
+        <div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#888888] font-mono">
+            <span>Academic Portal</span>
+            <span>•</span>
+            <span className="text-purple-400 font-semibold">{degree}</span>
+          </div>
+          <h1 className="mt-2 font-display text-3xl md:text-5xl font-medium text-white">
+            Welcome back, {studentName}
+          </h1>
+          <p className="mt-2 text-xs md:text-sm text-[#999999] flex items-center gap-2">
+            <span>{university}</span>
+            <span>•</span>
+            <span className="text-white/80">{yearOfStudy}</span>
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            to="/student/drafter"
+            className="bg-white text-black px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] hover:bg-neutral-200 transition-colors flex items-center gap-2"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>New Research Draft</span>
+          </Link>
+          <Link
+            to="/student/network"
+            className="border border-[#333333] hover:border-white px-4 py-2.5 text-xs font-mono uppercase tracking-[0.1em] text-white hover:bg-[#181818] transition-colors flex items-center gap-2"
+          >
+            <Users className="h-3.5 w-3.5" />
+            <span>Network</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* ACADEMIC METRICS CARDS */}
+      <div>
+        <p className="text-[0.7rem] uppercase tracking-[0.2em] text-[#888888] font-mono mb-4">
+          Academic & Litigation Research Telemetry
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Documents */}
+          <div className="bg-[#141414] border border-[#262626] p-5">
+            <p className="text-[0.7rem] uppercase tracking-[0.15em] text-[#888888] font-mono">
+              Drafts Saved
+            </p>
+            <div className="mt-4 flex items-baseline justify-between">
+              <span className="font-display text-4xl font-semibold text-white">
+                {savedDocsCount}
+              </span>
+              <span className="text-xs text-purple-400 font-mono">AI Assisted</span>
+            </div>
+            <p className="mt-3 text-[0.7rem] text-[#777777]">
+              {savedDocsCount > 0 ? `${savedDocsCount} saved in workspace repository` : "Moot court memorials, writs & notices"}
+            </p>
+          </div>
+
+          {/* Card 2: Tracked Cases */}
+          <div className="bg-[#141414] border border-[#262626] p-5">
+            <p className="text-[0.7rem] uppercase tracking-[0.15em] text-[#888888] font-mono">
+              Tracked Cases
+            </p>
+            <div className="mt-4 flex items-baseline justify-between">
+              <span className="font-display text-4xl font-semibold text-white">
+                {trackedCasesCount}
+              </span>
+              <span className="text-xs text-emerald-400 font-mono">Live eCourts</span>
+            </div>
+            <p className="mt-3 text-[0.7rem] text-[#777777]">
+              {trackedCasesCount > 0 ? `${trackedCasesCount} active litigation matters` : "Track High Court & Supreme Court listings"}
+            </p>
+          </div>
+
+          {/* Card 3: Precedents */}
+          <div className="bg-[#141414] border border-[#262626] p-5">
+            <p className="text-[0.7rem] uppercase tracking-[0.15em] text-[#888888] font-mono">
+              Precedents Researched
+            </p>
+            <div className="mt-4 flex items-baseline justify-between">
+              <span className="font-display text-4xl font-semibold text-white">
+                BNS/BNSS
+              </span>
+              <span className="text-xs text-sky-400 font-mono">2023 Sanhitas</span>
+            </div>
+            <p className="mt-3 text-[0.7rem] text-[#777777]">
+              Comparative statutory citations & landmark ratios
+            </p>
+          </div>
+
+          {/* Card 4: Network Connections */}
+          <div className="bg-[#141414] border border-[#262626] p-5">
+            <p className="text-[0.7rem] uppercase tracking-[0.15em] text-[#888888] font-mono">
+              Network Connections
+            </p>
+            <div className="mt-4 flex items-baseline justify-between">
+              <span className="font-display text-4xl font-semibold text-white">
+                {connectionsCount}
+              </span>
+              <span className="text-xs text-purple-400 font-mono">Connected</span>
+            </div>
+            <p className="mt-3 text-[0.7rem] text-[#777777]">
+              {connectionsCount > 0 ? `${connectionsCount} verified advocates & scholars` : "Connect with advocates & student scholars"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* QUICK ACTIONS GRID */}
+      <div>
+        <p className="text-[0.7rem] uppercase tracking-[0.2em] text-[#888888] font-mono mb-4">
+          Student Tool Suite
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link
+            to="/student/drafter"
+            className="group bg-[#141414] border border-[#262626] hover:border-white p-6 transition-all shadow-md flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-xs text-[#888888] font-mono">
+                <span>AI Drafter</span>
+                <Sparkles className="h-4 w-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <h3 className="mt-3 font-display text-xl text-white group-hover:text-purple-300 transition-colors">
+                Draft Legal Pleadings
+              </h3>
+              <p className="mt-2 text-xs text-[#999999] leading-relaxed">
+                Generate moot court memorials, anticipatory bail applications under Section 482 BNSS, and statutory demand notices.
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-1.5 text-xs font-mono text-white group-hover:text-purple-300">
+              <span>Open Drafter</span>
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </div>
+          </Link>
+
+          <Link
+            to="/student/citations"
+            className="group bg-[#141414] border border-[#262626] hover:border-white p-6 transition-all shadow-md flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-xs text-[#888888] font-mono">
+                <span>Citation Finder</span>
+                <Search className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <h3 className="mt-3 font-display text-xl text-white group-hover:text-emerald-300 transition-colors">
+                Statutory Precedents
+              </h3>
+              <p className="mt-2 text-xs text-[#999999] leading-relaxed">
+                Instant section mapping from IPC/CrPC to BNS/BNSS/BSA, accompanied by Supreme Court ratios and landmark principles.
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-1.5 text-xs font-mono text-white group-hover:text-emerald-300">
+              <span>Search Citations</span>
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </div>
+          </Link>
+
+          <Link
+            to="/student/cases"
+            className="group bg-[#141414] border border-[#262626] hover:border-white p-6 transition-all shadow-md flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between text-xs text-[#888888] font-mono">
+                <span>Case Tracker</span>
+                <Scale className="h-4 w-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <h3 className="mt-3 font-display text-xl text-white group-hover:text-amber-300 transition-colors">
+                Litigation Diary
+              </h3>
+              <p className="mt-2 text-xs text-[#999999] leading-relaxed">
+                Track pending matters before High Courts and District Courts via 16-digit eCourts CNR numbers with live listing updates.
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-1.5 text-xs font-mono text-white group-hover:text-amber-300">
+              <span>Track Matters</span>
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* STATUTORY JURISDICTION & ACADEMIC NOTICE */}
+      <div className="border border-[#262626] bg-[#111111] p-6 text-xs text-[#888888] leading-relaxed flex items-start gap-4">
+        <ShieldCheck className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />
+        <div>
+          <span className="text-white font-medium block">Academic Research Notice • Section 29 Advocates Act 1961</span>
+          <p className="mt-1">
+            The TRANA Law Student Workspace is engineered strictly for legal scholarship, moot court competitions, trial advocacy simulations, and academic research. Client consultations and legal representation are legally restricted to verified advocates enrolled with the Bar Council of India.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+

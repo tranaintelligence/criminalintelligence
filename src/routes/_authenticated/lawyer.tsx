@@ -5,8 +5,9 @@ import {
   Menu, X, Scale, FileText, Search, Users, User, 
   Briefcase, ShieldCheck, ArrowRight, Clock, FolderOpen,
   LogOut, ExternalLink, Sparkles, BookOpen, AlertCircle, Calendar, MessageSquare,
-  Award, Building2, MapPin, Phone, Mail, CheckCircle2
+  Award, Building2, MapPin, Phone, Mail, CheckCircle2, GraduationCap
 } from "lucide-react";
+import { useUserRole } from "@/lib/user-role";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
@@ -360,6 +361,23 @@ function LawyerLayout() {
             <p className="mt-2 text-sm text-[#999999] leading-relaxed">
               In strict accordance with the Bar Council of India (BCI) rules, access to the <strong className="text-white">/lawyer</strong> professional litigation workspace requires verified State Bar Council enrollment credentials.
             </p>
+            {/* Quick Switcher for Students & Citizens */}
+            <div className="mt-4 bg-[#1A1A1A] border border-[#2D2D2D] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <GraduationCap className="h-5 w-5 text-purple-400 shrink-0" />
+                <div>
+                  <span className="text-white font-medium block">Are you a Law Student?</span>
+                  <span className="text-[#888888]">Access the dedicated Student Workspace with AI Drafter, Case Tracker & Network.</span>
+                </div>
+              </div>
+              <Link
+                to="/student"
+                className="bg-purple-950/60 border border-purple-500/50 hover:bg-purple-900/60 text-purple-200 px-3 py-1.5 font-mono uppercase tracking-wider text-center shrink-0 transition-colors"
+              >
+                Go to Student Portal →
+              </Link>
+            </div>
+
             <p className="mt-2 text-xs text-[#777777]">
               Signed in account: <span className="text-white font-mono">{user.email}</span>
             </p>
