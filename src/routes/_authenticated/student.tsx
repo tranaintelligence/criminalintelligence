@@ -196,7 +196,7 @@ function StudentLayout() {
               Law Student Enrollment Form
             </h1>
             <p className="mt-2 text-xs md:text-sm text-neutral-300 leading-relaxed">
-              Please enter your law college details and roll number to initialize your student academic workspace — AI Drafter for moot court memorials, Case Tracker, Statutory Precedent Search, and Student Network.
+              Please enter your law college details and roll number to initialize your student academic workspace: AI Drafter for moot court memorials, Case Tracker, Statutory Precedent Search, and Student Network.
             </p>
           </div>
 
