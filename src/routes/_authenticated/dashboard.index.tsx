@@ -67,7 +67,7 @@ const cards = [
     title: "Find a Legal Professional",
     badge: "Verified Advocates",
     body: "Connect with verified lawyers and legal experts. Arrange a consultation by call or chat.",
-    cta: "Find a Lawyer",
+    cta: "Find a Professional",
     to: "/dashboard/lawyers",
   },
 ] as const;

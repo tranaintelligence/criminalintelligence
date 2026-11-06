@@ -60,26 +60,43 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
       }
     }
 
-    // Attempt to log acceptance in Supabase if a user session exists
+    // Log acceptance in persistent local audit list and Supabase
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const u = session.user;
-        const { data: existing } = await supabase
-          .from("advocate_disclaimers")
-          .select("id")
-          .or(`user_id.eq.${u.id},user_email.eq.${u.email || ""}`)
-          .limit(1)
-          .maybeSingle();
+      const u = session?.user;
+      const userName = (u?.user_metadata?.full_name as string) || (u?.email ? u.email.split("@")[0] : "Web Visitor (Citizen)");
+      const userEmail = u?.email || "voluntary-access@visitor";
 
-        if (!existing) {
-          await supabase.from("advocate_disclaimers").insert({
-            user_id: u.id,
-            user_email: u.email,
-            user_name: (u.user_metadata?.full_name as string) || u.email?.split("@")[0] || "Citizen User",
-            notice_text: "Bar Council of India Statutory Disclaimer & User Volition Accepted",
-          });
-        }
+      // Always maintain persistent client-side audit log
+      if (typeof window !== "undefined") {
+        try {
+          const localLogs = JSON.parse(localStorage.getItem("trana_all_user_acknowledgements") || "[]");
+          const alreadyInLocal = localLogs.some((l: any) => l.user_id === u?.id || l.user_email === userEmail);
+          if (!alreadyInLocal) {
+            localLogs.unshift({
+              id: `ACK-${Date.now()}`,
+              user_id: u?.id || null,
+              user_email: userEmail,
+              user_name: userName,
+              notice_text: "Platform Statutory Disclaimer & User Volition Accepted",
+              accepted_at: new Date().toISOString(),
+            });
+            localStorage.setItem("trana_all_user_acknowledgements", JSON.stringify(localLogs));
+            window.dispatchEvent(new Event("trana_user_acknowledgement_logged"));
+          }
+        } catch {}
+      }
+
+      // Record in Supabase audit table
+      try {
+        await supabase.from("advocate_disclaimers").insert({
+          user_id: u?.id || null,
+          user_email: u?.email || null,
+          user_name: userName,
+          notice_text: "Platform Statutory Disclaimer & User Volition Accepted",
+        });
+      } catch (dbErr) {
+        console.warn("Could not insert platform disclaimer acknowledgement:", dbErr);
       }
     } catch {
       // ignore

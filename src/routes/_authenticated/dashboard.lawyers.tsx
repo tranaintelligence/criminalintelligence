@@ -12,10 +12,10 @@ import { getPublicLawyers, LawyerRecord } from "@/lib/trana-admin-api";
 export const Route = createFileRoute("/_authenticated/dashboard/lawyers")({
   head: () => ({
     meta: [
-      { title: "Citizens Dashboard — TRANA" },
-      { name: "description", content: "Connect with verified lawyers and arrange a consultation by call or chat." },
-      { property: "og:title", content: "Citizens Dashboard — TRANA" },
-      { property: "og:description", content: "Verified legal professionals across India." },
+      { title: "Find a Professional — TRANA" },
+      { name: "description", content: "Connect with verified legal professionals and arrange a consultation by call or chat." },
+      { property: "og:title", content: "Find a Professional — TRANA" },
+      { property: "og:description", content: "Verified legal professionals and advocates across India." },
     ],
   }),
   component: Lawyers,
@@ -432,7 +432,7 @@ function Lawyers() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#222222] pb-6">
         <div>
-          <h1 className="font-display text-4xl md:text-5xl font-medium text-white">Find a Legal Professional</h1>
+          <h1 className="font-display text-4xl md:text-5xl font-medium text-white">Find a Professional</h1>
           <p className="mt-2 text-sm text-[#999999]">
             Connect with verified advocates enrolled with State Bar Councils across India. Arrange a privileged consultation by call or chat.
           </p>

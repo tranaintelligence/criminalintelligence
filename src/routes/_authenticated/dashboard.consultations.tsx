@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { 
   Phone, MessageSquare, Send, ShieldCheck, User, 
   ArrowRight, Search, FileText, Lock, Check, CheckCheck, 
-  RotateCcw, Sparkles, AlertCircle, ShieldAlert
+  RotateCcw, Sparkles, AlertCircle, ShieldAlert, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -372,6 +372,40 @@ function Consultations() {
     navigate({ to: "/dashboard/lawyers" });
   }
 
+  async function handleDeleteChat() {
+    if (!activeChat) return;
+    if (!confirm(`Are you sure you want to permanently delete this chat conversation with ${activeChat.lawyerName}?`)) return;
+
+    try {
+      localStorage.removeItem(`trana_consult_chat_${activeChat.id}`);
+      const bareId = activeChat.id.replace(/^REF-/, "").replace(/^CONN-/, "");
+      localStorage.removeItem(`trana_consult_chat_${bareId}`);
+
+      const chatIndex = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
+      delete chatIndex[activeChat.id];
+      delete chatIndex[bareId];
+      localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
+
+      if (user?.id) {
+        localStorage.removeItem(`trana_requested_lawyers_${user.id}`);
+      }
+    } catch {}
+
+    try {
+      const bareId = activeChat.id.replace(/^REF-/, "").replace(/^CONN-/, "");
+      await supabase
+        .from("consultations")
+        .update({ status: "cancelled", note: JSON.stringify([]) })
+        .or(`id.eq.${activeChat.id},id.eq.${bareId}`);
+    } catch {}
+
+    setSelectedChatId("");
+    qc.invalidateQueries({ queryKey: ["consultations"] });
+    qc.invalidateQueries({ queryKey: ["citizen-consultations-lock"] });
+    window.dispatchEvent(new Event("trana_consult_chat_update"));
+    toast.success("Chat conversation deleted.");
+  }
+
   // Filter conversations list by search
   const filteredList = useMemo(() => {
     if (!searchQuery.trim()) return consultations;
@@ -571,6 +605,16 @@ function Consultations() {
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Conclude</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDeleteChat}
+                      className="border border-red-500/30 hover:border-red-500/60 bg-[#141414] hover:bg-red-950/30 px-3 py-1.5 text-xs text-neutral-400 hover:text-red-300 rounded font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Permanently delete this chat conversation"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Delete Chat</span>
                     </button>
                   </div>
                 </div>

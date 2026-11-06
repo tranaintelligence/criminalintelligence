@@ -65,7 +65,7 @@ const navItems = [
   { to: "/lawyer", label: "Overview", icon: Scale, exact: true },
   { to: "/lawyer/cases", label: "Case Tracker", icon: Calendar },
   { to: "/lawyer/referrals", label: "Client Referrals", icon: Briefcase },
-  { to: "/lawyer/inbox", label: "Case Inbox", icon: MessageSquare },
+  { to: "/lawyer/inbox", label: "Inbox", icon: MessageSquare },
   { to: "/lawyer/drafter", label: "AI Drafter", icon: Sparkles, badge: "In Development" },
   { to: "/lawyer/citations", label: "Citation Finder", icon: BookOpen, badge: "In Development" },
   { to: "/lawyer/research", label: "Case Research", icon: Search, badge: "Planned" },
@@ -339,39 +339,50 @@ function LawyerLayout() {
       }
 
       // 2. Synchronize into Supabase lawyers table
-      await supabase.from("lawyers").upsert({
-        user_id: user.id,
-        full_name: name,
-        email: cleanEmail,
-        phone: cleanPhone,
-        bar_reg_no: cleanBar,
-        state_bar_council: stateBarCouncil,
-        year_of_enrollment: Number(yearOfEnrollment) || 2021,
-        aibe_cop_number: aibeCopNumber.trim() || null,
-        bar_association: barAssociation,
-        specialisation: specialisationInput,
-        experience_years: Number(experienceYears) || 1,
-        city: cityInput.trim() || "New Delhi",
-        state: stateInput.trim() || "Delhi",
-        chamber_address: chamberAddress.trim() || null,
-        courts: JSON.stringify(["Supreme Court of India", "Delhi High Court"]),
-        offers_call: true,
-        offers_chat: true,
-        offers_in_person: false,
-        approved: true,
-        verification_status: "VERIFIED",
-      }).catch((e) => console.warn("Supabase upsert lawyer:", e));
-
-      // 3. Update Supabase user auth metadata
-      await supabase.auth.updateUser({
-        data: {
-          role: "lawyer",
+      try {
+        const { error: upsertErr } = await supabase.from("lawyers").upsert({
+          user_id: user.id,
           full_name: name,
+          email: cleanEmail,
+          phone: cleanPhone,
           bar_reg_no: cleanBar,
           state_bar_council: stateBarCouncil,
+          year_of_enrollment: Number(yearOfEnrollment) || 2021,
+          aibe_cop_number: aibeCopNumber.trim() || null,
+          bar_association: barAssociation,
+          specialisation: specialisationInput,
+          experience_years: Number(experienceYears) || 1,
+          city: cityInput.trim() || "New Delhi",
+          state: stateInput.trim() || "Delhi",
+          chamber_address: chamberAddress.trim() || null,
           courts: JSON.stringify(["Supreme Court of India", "Delhi High Court"]),
-        },
-      }).catch(() => {});
+          offers_call: true,
+          offers_chat: true,
+          offers_in_person: false,
+          approved: true,
+          verification_status: "VERIFIED",
+        });
+        if (upsertErr) {
+          console.warn("Supabase upsert lawyer:", upsertErr);
+        }
+      } catch (e) {
+        console.warn("Supabase upsert lawyer error:", e);
+      }
+
+      // 3. Update Supabase user auth metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            role: "lawyer",
+            full_name: name,
+            bar_reg_no: cleanBar,
+            state_bar_council: stateBarCouncil,
+            courts: JSON.stringify(["Supreme Court of India", "Delhi High Court"]),
+          },
+        });
+      } catch (authErr) {
+        console.warn("Supabase auth updateUser error:", authErr);
+      }
 
       // 4. Save local session state
       if (typeof window !== "undefined") {

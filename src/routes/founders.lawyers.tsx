@@ -318,7 +318,7 @@ function FoundersLawyersPage() {
         approved: addStatus === "VERIFIED",
         verification_status: addStatus,
         internal_rating: 5.0,
-      }).catch((e) => console.warn("Supabase add lawyer:", e));
+      });
 
       toast.success(`Advocate ${cleanName} (${cleanBar}) added to TRANA database.`);
       setIsAddModalOpen(false);

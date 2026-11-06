@@ -20,9 +20,10 @@ export const Route = createFileRoute("/founders/")({
 function FoundersOverview() {
   const [lastRefreshed, setLastRefreshed] = useState<string>("Just now");
   const [disclaimerSearch, setDisclaimerSearch] = useState<string>("");
+  const [ackFilter, setAckFilter] = useState<"all" | "platform" | "advocate">("all");
   const { credential } = useTranaCredential();
 
-  // Query users who checked the advocate notice disclaimer box
+  // Query users who checked the advocate notice disclaimer box or platform statutory disclaimer
   const {
     data: disclaimerLogs = [],
     refetch: refetchDisclaimers,
@@ -30,40 +31,55 @@ function FoundersOverview() {
   } = useQuery({
     queryKey: ["founders-advocate-disclaimers"],
     queryFn: async () => {
+      const records: Array<{
+        id: string;
+        user_id: string | null;
+        user_email: string | null;
+        user_name: string | null;
+        notice_text: string | null;
+        accepted_at: string;
+      }> = [];
+
+      // 1. Supabase database records
       try {
         const { data, error } = await supabase
           .from("advocate_disclaimers")
           .select("*")
           .order("accepted_at", { ascending: false });
-        if (error) {
-          console.warn("Could not load advocate disclaimers:", error);
-          return [];
+        if (data && data.length > 0) {
+          records.push(...(data as any));
         }
-        return (data || []) as Array<{
-          id: string;
-          user_id: string | null;
-          user_email: string | null;
-          user_name: string | null;
-          notice_text: string | null;
-          accepted_at: string;
-        }>;
       } catch (err) {
         console.warn("Error fetching advocate disclaimers:", err);
-        return [];
       }
+
+      // 2. Client-side persisted statutory disclaimer audit logs
+      if (typeof window !== "undefined") {
+        try {
+          const local = JSON.parse(localStorage.getItem("trana_all_user_acknowledgements") || "[]");
+          if (Array.isArray(local)) {
+            local.forEach((l) => {
+              if (!records.some((r) => r.id === l.id || (r.user_email && r.user_email === l.user_email && r.notice_text === l.notice_text))) {
+                records.push(l);
+              }
+            });
+          }
+        } catch {}
+      }
+
+      return records;
     },
     refetchInterval: 15000,
   });
 
-  // Deduplicate so each user account appears only ONCE in the founders dashboard
+  // Deduplicate records
   const uniqueDisclaimerLogs = useMemo(() => {
     const seen = new Set<string>();
     const list: typeof disclaimerLogs = [];
     for (const log of disclaimerLogs) {
-      const key =
-        (log.user_id && log.user_id.trim()) ||
-        (log.user_email && log.user_email.trim().toLowerCase()) ||
-        log.id;
+      const isPlatform = (log.notice_text || "").toLowerCase().includes("platform") || (log.notice_text || "").toLowerCase().includes("statutory");
+      const typeKey = isPlatform ? "platform" : "advocate";
+      const key = `${typeKey}-${log.user_id || ""}-${(log.user_email || "").toLowerCase()}-${log.id}`;
       if (!seen.has(key)) {
         seen.add(key);
         list.push(log);
@@ -72,15 +88,35 @@ function FoundersOverview() {
     return list;
   }, [disclaimerLogs]);
 
+  const platformCount = useMemo(() => {
+    return uniqueDisclaimerLogs.filter((l) => {
+      const t = (l.notice_text || "").toLowerCase();
+      return t.includes("platform") || t.includes("statutory");
+    }).length;
+  }, [uniqueDisclaimerLogs]);
+
+  const advocateCount = useMemo(() => {
+    return uniqueDisclaimerLogs.filter((l) => {
+      const t = (l.notice_text || "").toLowerCase();
+      return t.includes("advocate") || t.includes("elect to view");
+    }).length;
+  }, [uniqueDisclaimerLogs]);
+
   const filteredDisclaimers = useMemo(() => {
     return uniqueDisclaimerLogs.filter((log) => {
+      const t = (log.notice_text || "").toLowerCase();
+      const isPlatform = t.includes("platform") || t.includes("statutory");
+      if (ackFilter === "platform" && !isPlatform) return false;
+      if (ackFilter === "advocate" && isPlatform) return false;
+
       if (!disclaimerSearch.trim()) return true;
       const q = disclaimerSearch.toLowerCase();
       const nameMatch = (log.user_name || "").toLowerCase().includes(q);
       const emailMatch = (log.user_email || "").toLowerCase().includes(q);
-      return nameMatch || emailMatch;
+      const noticeMatch = (log.notice_text || "").toLowerCase().includes(q);
+      return nameMatch || emailMatch || noticeMatch;
     });
-  }, [uniqueDisclaimerLogs, disclaimerSearch]);
+  }, [uniqueDisclaimerLogs, disclaimerSearch, ackFilter]);
 
   // Query actual metrics with real counts from database and backend
   const { data: metrics, refetch, isFetching } = useQuery({
@@ -288,7 +324,7 @@ function FoundersOverview() {
         </div>
       </div>
 
-      {/* Advocate Disclaimer Acknowledgements Section */}
+      {/* Statutory Disclaimer & Advocate Notice Acknowledgements Section */}
       <div className="apple-glass-card p-6 font-mono">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-white/[0.08] pb-5">
           <div>
@@ -297,16 +333,53 @@ function FoundersOverview() {
                 STATUTORY COMPLIANCE · AUDIT TRAIL
               </span>
               <span className="apple-glass-pill px-2.5 py-0.5 text-[0.68rem] text-emerald-400 font-semibold border-emerald-500/30">
-                {uniqueDisclaimerLogs.length} Checked
+                {uniqueDisclaimerLogs.length} Logged
               </span>
             </div>
             <h2 className="font-display text-2xl font-medium text-white mt-1.5 flex items-center gap-2">
               <CheckSquare className="h-5 w-5 text-white" />
-              <span>Advocate Notice Acknowledgements</span>
+              <span>User Acknowledgement & Statutory Compliance List</span>
             </h2>
             <p className="text-xs text-neutral-400 mt-1 max-w-2xl leading-relaxed">
-              Users who checked &ldquo;I have read and understood this notice and voluntarily elect to view advocate details.&rdquo; before accessing the advocate directory.
+              Auditable records of all users who accepted the statutory disclaimer before using the platform, as well as citizens who voluntarily accessed the advocate directory.
             </p>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setAckFilter("all")}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                  ackFilter === "all"
+                    ? "bg-white text-black font-semibold shadow-sm"
+                    : "bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                All Records ({uniqueDisclaimerLogs.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAckFilter("platform")}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                  ackFilter === "platform"
+                    ? "bg-sky-400 text-black font-semibold shadow-sm"
+                    : "bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                Platform Disclaimer ({platformCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAckFilter("advocate")}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                  ackFilter === "advocate"
+                    ? "bg-emerald-400 text-black font-semibold shadow-sm"
+                    : "bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                Advocate Notice ({advocateCount})
+              </button>
+            </div>
           </div>
 
           <div className="w-full sm:w-64">
@@ -314,7 +387,7 @@ function FoundersOverview() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
               <input
                 type="text"
-                placeholder="Search user or email..."
+                placeholder="Search user, email or type..."
                 value={disclaimerSearch}
                 onChange={(e) => setDisclaimerSearch(e.target.value)}
                 className="apple-glass-input w-full pl-9 pr-3 py-2 text-xs text-white placeholder:text-neutral-500"
@@ -326,7 +399,7 @@ function FoundersOverview() {
         {filteredDisclaimers.length === 0 ? (
           <div className="py-12 text-center text-neutral-500 text-xs">
             {uniqueDisclaimerLogs.length === 0
-              ? "No acknowledgements recorded yet. When citizens click 'Find a Lawyer' and check the notice box, their verified records will appear here."
+              ? "No user acknowledgements recorded yet. When users accept the statutory disclaimer or view legal professionals, their auditable compliance records will appear here."
               : "No acknowledgements match your search query."}
           </div>
         ) : (
@@ -334,39 +407,58 @@ function FoundersOverview() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="text-neutral-400 uppercase tracking-wider text-[0.7rem]">
-                  <th className="py-3 px-3">Citizen Name</th>
+                  <th className="py-3 px-3">User Name</th>
                   <th className="py-3 px-3">Email Address</th>
+                  <th className="py-3 px-3">Acknowledgement Type</th>
                   <th className="py-3 px-3">Status</th>
                   <th className="py-3 px-3">Date & Time (IST)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
-                {filteredDisclaimers.map((log) => (
-                  <tr key={log.id} className="hover:bg-white/[0.04] transition-colors">
-                    <td className="py-3 px-3 text-white font-medium">
-                      {log.user_name || "Citizen Account"}
-                    </td>
-                    <td className="py-3 px-3 text-neutral-300">
-                      {log.user_email || "—"}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="apple-glass-pill inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[0.68rem] text-emerald-400 border-emerald-500/30">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-                        Checked & Agreed
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-neutral-400 whitespace-nowrap">
-                      {new Date(log.accepted_at).toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </td>
-                  </tr>
-                ))}
+                {filteredDisclaimers.map((log) => {
+                  const t = (log.notice_text || "").toLowerCase();
+                  const isPlatform = t.includes("platform") || t.includes("statutory");
+
+                  return (
+                    <tr key={log.id} className="hover:bg-white/[0.04] transition-colors">
+                      <td className="py-3 px-3 text-white font-medium">
+                        {log.user_name || "Platform User"}
+                      </td>
+                      <td className="py-3 px-3 text-neutral-300 font-mono text-[0.75rem]">
+                        {log.user_email || "—"}
+                      </td>
+                      <td className="py-3 px-3">
+                        {isPlatform ? (
+                          <span className="apple-glass-pill inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[0.68rem] text-sky-400 border-sky-500/30 bg-sky-950/20">
+                            <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]" />
+                            Platform Disclaimer
+                          </span>
+                        ) : (
+                          <span className="apple-glass-pill inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[0.68rem] text-emerald-400 border-emerald-500/30 bg-emerald-950/20">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                            Advocate Notice
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="apple-glass-pill inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[0.68rem] text-emerald-400 border-emerald-500/30">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                          Agreed & Recorded
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-neutral-400 whitespace-nowrap font-mono text-[0.7rem]">
+                        {new Date(log.accepted_at).toLocaleString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

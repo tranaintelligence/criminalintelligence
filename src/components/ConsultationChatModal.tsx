@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
   X, Send, Lock, MessageSquare, Phone, ShieldCheck, 
-  UserMinus, UserPlus, AlertCircle 
+  UserMinus, UserPlus, AlertCircle, Trash2 
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -334,6 +334,36 @@ export function ConsultationChatModal({
     onClose();
   }
 
+  async function handleDeleteChat() {
+    if (!window.confirm("Are you sure you want to permanently delete this chat conversation?")) return;
+
+    try {
+      localStorage.removeItem(storageKey);
+      const bareId = consultationId.replace(/^REF-/, "").replace(/^CONN-/, "");
+      localStorage.removeItem(`trana_consult_chat_${bareId}`);
+
+      const chatIndex = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
+      delete chatIndex[consultationId];
+      delete chatIndex[bareId];
+      localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
+    } catch {}
+
+    const dbId = consultationId.replace(/^REF-/, "").replace(/^CONN-/, "");
+    try {
+      await supabase
+        .from("consultations")
+        .update({ note: JSON.stringify([]), status: "cancelled" })
+        .or(`id.eq.${dbId},id.ilike.${dbId}%`);
+    } catch (e) {
+      console.warn("Supabase delete chat error:", e);
+    }
+
+    setMessages([]);
+    window.dispatchEvent(new Event("trana_consult_chat_update"));
+    toast.success("Chat conversation deleted.");
+    onClose();
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -385,6 +415,16 @@ export function ConsultationChatModal({
                 <span>Leave Case</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={handleDeleteChat}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[0.65rem] uppercase tracking-wider border border-red-500/30 hover:border-red-500/60 bg-[#161616] hover:bg-red-950/40 text-neutral-400 hover:text-red-300 font-mono transition-colors rounded cursor-pointer"
+              title="Permanently delete this chat conversation"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span className="hidden sm:inline">Delete Chat</span>
+            </button>
 
             <button
               onClick={onClose}

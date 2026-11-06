@@ -62,35 +62,50 @@ export function saveLocalConnections(list: ConnectionRecord[]) {
 export async function fetchAllConnections(currentUserId: string): Promise<ConnectionRecord[]> {
   const local = getLocalConnections();
 
-  // Also query Supabase consultations where consult_type = 'peer_connection'
+  // Query Supabase consultations where consult_type = 'peer_connection'
   try {
-    const { data: dbRows } = await supabase
+    const { data: dbRows, error: dbErr } = await supabase
       .from("consultations")
       .select("*")
       .eq("consult_type", "peer_connection")
       .order("created_at", { ascending: false });
 
-    if (dbRows && dbRows.length > 0) {
+    if (!dbErr && dbRows && dbRows.length > 0) {
       dbRows.forEach((row) => {
         let meta: any = {};
         try {
           if (row.note) meta = JSON.parse(row.note);
         } catch {}
 
+        const fromId = String(meta.fromUserId || row.user_id || "").toLowerCase().trim();
+        const toId = String(meta.toUserId || row.lawyer_id || "").toLowerCase().trim();
         const connId = `CONN-${row.id}`;
-        if (!local.some((c) => c.id === connId)) {
-          const fromId = meta.fromUserId || row.user_id;
-          const toId = meta.toUserId || row.lawyer_id;
-          const st = row.status === "confirmed" || row.status === "accepted" ? "accepted" : "pending";
+        const isAccepted = row.status === "confirmed" || row.status === "accepted";
+        const isDeclined = row.status === "denied" || row.status === "cancelled";
+        const st: "accepted" | "declined" | "pending" = isAccepted ? "accepted" : isDeclined ? "declined" : "pending";
 
+        // Find existing match in local by DB connId OR matching user pair
+        const existingIdx = local.findIndex((c) => {
+          if (c.id === connId) return true;
+          const cFrom = c.fromUserId.toLowerCase().trim();
+          const cTo = c.toUserId.toLowerCase().trim();
+          return (cFrom === fromId && cTo === toId) || (cFrom === toId && cTo === fromId);
+        });
+
+        if (existingIdx !== -1) {
+          // Reconcile ID and update status from DB truth
+          local[existingIdx].id = connId;
+          local[existingIdx].status = st;
+          local[existingIdx].updatedAt = row.created_at || new Date().toISOString();
+        } else {
           local.push({
             id: connId,
-            fromUserId: fromId,
+            fromUserId: meta.fromUserId || row.user_id,
             fromUserName: meta.fromUserName || "Professional Member",
             fromUserRole: meta.fromUserRole || "lawyer",
             fromUserRoleLabel: meta.fromUserRoleLabel || "Member",
             fromUserCity: meta.fromUserCity || "New Delhi",
-            toUserId: toId,
+            toUserId: meta.toUserId || row.lawyer_id,
             toUserName: meta.toUserName || row.lawyer_name || "Colleague",
             toUserRole: meta.toUserRole || "lawyer",
             status: st,
@@ -99,11 +114,32 @@ export async function fetchAllConnections(currentUserId: string): Promise<Connec
           });
         }
       });
-      saveLocalConnections(local);
     }
-  } catch {}
+  } catch (e) {
+    console.warn("fetchAllConnections fetch error:", e);
+  }
 
-  return local;
+  // Deduplicate array so each unique pair of users has strictly ONE record,
+  // prioritizing "accepted" over "pending" over "declined".
+  const pairSeen = new Map<string, ConnectionRecord>();
+  for (const c of local) {
+    const u1 = c.fromUserId.toLowerCase().trim();
+    const u2 = c.toUserId.toLowerCase().trim();
+    const pairKey = u1 < u2 ? `${u1}__${u2}` : `${u2}__${u1}`;
+
+    const prev = pairSeen.get(pairKey);
+    if (!prev) {
+      pairSeen.set(pairKey, c);
+    } else {
+      if (c.status === "accepted" && prev.status !== "accepted") {
+        pairSeen.set(pairKey, c);
+      }
+    }
+  }
+
+  const result = Array.from(pairSeen.values());
+  saveLocalConnections(result);
+  return result;
 }
 
 export function getConnectionStatusBetween(
@@ -114,7 +150,8 @@ export function getConnectionStatusBetween(
   const myNorm = myId.toLowerCase().trim();
   const otherNorm = otherId.toLowerCase().trim();
 
-  const found = connections.find((c) => {
+  // Find all matches between these two members
+  const matches = connections.filter((c) => {
     const fromNorm = c.fromUserId.toLowerCase().trim();
     const toNorm = c.toUserId.toLowerCase().trim();
     return (
@@ -123,20 +160,23 @@ export function getConnectionStatusBetween(
     );
   });
 
-  if (!found) return { status: "none" };
+  if (matches.length === 0) return { status: "none" };
 
-  if (found.status === "accepted") {
-    return { status: "connected", connection: found };
+  // Always prioritize accepted connection
+  const accepted = matches.find((m) => m.status === "accepted");
+  if (accepted) {
+    return { status: "connected", connection: accepted };
   }
 
-  if (found.status === "pending") {
-    if (found.fromUserId.toLowerCase().trim() === myNorm) {
-      return { status: "pending_sent", connection: found };
+  const pending = matches.find((m) => m.status === "pending");
+  if (pending) {
+    if (pending.fromUserId.toLowerCase().trim() === myNorm) {
+      return { status: "pending_sent", connection: pending };
     }
-    return { status: "pending_received", connection: found };
+    return { status: "pending_received", connection: pending };
   }
 
-  return { status: "none", connection: found };
+  return { status: "none", connection: matches[0] };
 }
 
 export async function sendConnectionRequest(params: {
@@ -174,8 +214,44 @@ export async function sendConnectionRequest(params: {
     }
   }
 
+  let newConnId = `CONN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  // Sync to Supabase consultations first to obtain DB primary key
+  try {
+    const { data: inserted, error: insErr } = await supabase
+      .from("consultations")
+      .insert({
+        user_id: params.fromUser.id,
+        lawyer_id: params.toUser.id,
+        lawyer_name: params.toUser.name,
+        consult_type: "peer_connection",
+        status: "pending",
+        note: JSON.stringify({
+          fromUserId: params.fromUser.id,
+          fromUserName: params.fromUser.name,
+          fromUserRole: params.fromUser.role,
+          fromUserRoleLabel: params.fromUser.roleLabel,
+          fromUserCity: params.fromUser.city,
+          toUserId: params.toUser.id,
+          toUserName: params.toUser.name,
+          toUserRole: params.toUser.role,
+          toUserRoleLabel: params.toUser.roleLabel,
+          toUserCity: params.toUser.city,
+        }),
+        intake_brief: `Connection Request from ${params.fromUser.name} (${params.fromUser.roleLabel}) to ${params.toUser.name}`,
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (inserted?.id) {
+      newConnId = `CONN-${inserted.id}`;
+    }
+  } catch (err) {
+    console.warn("Supabase peer_connection insert error:", err);
+  }
+
   const newConn: ConnectionRecord = {
-    id: `CONN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: newConnId,
     fromUserId: params.fromUser.id,
     fromUserName: params.fromUser.name,
     fromUserRole: params.fromUser.role,
@@ -194,20 +270,6 @@ export async function sendConnectionRequest(params: {
 
   local.unshift(newConn);
   saveLocalConnections(local);
-
-  // Sync to Supabase consultations for cross-account notification
-  try {
-    await supabase.from("consultations").insert({
-      user_id: params.fromUser.id,
-      lawyer_id: params.toUser.id,
-      lawyer_name: params.toUser.name,
-      consult_type: "peer_connection",
-      status: "pending",
-      note: JSON.stringify(newConn),
-      intake_brief: `Connection Request from ${params.fromUser.name} (${params.fromUser.roleLabel}) to ${params.toUser.name}`,
-    });
-  } catch {}
-
   return newConn;
 }
 
@@ -224,7 +286,7 @@ export async function acceptConnectionRequest(connectionId: string): Promise<voi
   conn.updatedAt = new Date().toISOString();
   saveLocalConnections(local);
 
-  // Also establish chat channel
+  // Establish chat channel for both parties
   const chatKey = `trana_consult_chat_${conn.id}`;
   const initialMessages = [
     {
@@ -248,32 +310,61 @@ export async function acceptConnectionRequest(connectionId: string): Promise<voi
       lastUpdated: new Date().toISOString(),
     };
     localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
+    window.dispatchEvent(new Event("trana_consult_chat_update"));
   } catch {}
 
-  // Update Supabase if exists
+  // Update Supabase consultations table with confirmed status
   try {
     const rawId = connectionId.replace(/^CONN-/, "");
     await supabase
       .from("consultations")
-      .update({ status: "confirmed" })
-      .or(`id.eq.${rawId},user_id.eq.${conn.fromUserId}`);
-  } catch {}
+      .update({
+        status: "confirmed",
+        note: JSON.stringify({ ...conn, status: "accepted" }),
+      })
+      .or(`id.eq.${rawId},and(user_id.eq.${conn.fromUserId},lawyer_id.eq.${conn.toUserId}),and(user_id.eq.${conn.toUserId},lawyer_id.eq.${conn.fromUserId})`);
+  } catch (err) {
+    console.warn("acceptConnectionRequest Supabase update error:", err);
+  }
 }
 
 export async function declineConnectionRequest(connectionId: string): Promise<void> {
   const local = getLocalConnections();
+  const index = local.findIndex((c) => c.id === connectionId);
+  const conn = index !== -1 ? local[index] : null;
+
   const updated = local.filter((c) => c.id !== connectionId);
   saveLocalConnections(updated);
 
   try {
     const rawId = connectionId.replace(/^CONN-/, "");
-    await supabase.from("consultations").delete().eq("id", rawId);
+    if (conn) {
+      await supabase
+        .from("consultations")
+        .update({ status: "denied" })
+        .or(`id.eq.${rawId},and(user_id.eq.${conn.fromUserId},lawyer_id.eq.${conn.toUserId}),and(user_id.eq.${conn.toUserId},lawyer_id.eq.${conn.fromUserId})`);
+    } else {
+      await supabase.from("consultations").delete().eq("id", rawId);
+    }
   } catch {}
 }
 
 export async function removeConnection(connectionId: string): Promise<void> {
   const local = getLocalConnections();
+  const index = local.findIndex((c) => c.id === connectionId);
+  const conn = index !== -1 ? local[index] : null;
+
   const updated = local.filter((c) => c.id !== connectionId);
   saveLocalConnections(updated);
+
+  try {
+    const rawId = connectionId.replace(/^CONN-/, "");
+    if (conn) {
+      await supabase
+        .from("consultations")
+        .update({ status: "cancelled" })
+        .or(`id.eq.${rawId},and(user_id.eq.${conn.fromUserId},lawyer_id.eq.${conn.toUserId}),and(user_id.eq.${conn.toUserId},lawyer_id.eq.${conn.fromUserId})`);
+    }
+  } catch {}
 }
 

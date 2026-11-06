@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   MessageSquare, Search, Phone, Lock, ShieldCheck, 
   Send, UserMinus, FileText, ChevronRight, AlertCircle, 
-  Clock, CheckCircle2, User, Scale, Users 
+  Clock, CheckCircle2, User, Scale, Users, X, ArrowRight, Trash2 
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,9 +23,9 @@ export const Route = createFileRoute("/_authenticated/lawyer/inbox")({
   }),
   head: () => ({
     meta: [
-      { title: "Case & Colleague Inbox — Legal Professional Workspace — TRANA" },
+      { title: "Inbox — Legal Professional Workspace — TRANA" },
       { name: "description", content: "Direct case communications, client consultations, and verified peer advocate network inbox." },
-      { property: "og:title", content: "Case & Colleague Inbox — Legal Professional Workspace — TRANA" },
+      { property: "og:title", content: "Inbox — Legal Professional Workspace — TRANA" },
     ],
   }),
   component: LawyerCaseInboxPage,
@@ -524,6 +524,39 @@ function LawyerCaseInboxPage() {
     toast.warning(`You have withdrawn from the case for ${activeCase.client}. Client is now free to consult another lawyer.`);
   }
 
+  async function handleDeleteChat(caseId: string) {
+    if (!confirm("Are you sure you want to delete this chat conversation? This cannot be undone.")) return;
+    try {
+      localStorage.removeItem(`trana_consult_chat_${caseId}`);
+      const bareId = caseId.replace(/^REF-/, "").replace(/^CONN-/, "");
+      localStorage.removeItem(`trana_consult_chat_${bareId}`);
+
+      const chatIndex = JSON.parse(localStorage.getItem("trana_all_consultation_chats_index") || "{}");
+      delete chatIndex[caseId];
+      delete chatIndex[bareId];
+      localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
+
+      const referrals = JSON.parse(localStorage.getItem("trana_client_referrals") || "[]");
+      const updatedReferrals = referrals.filter((r: any) => r.id !== caseId && r.id !== bareId);
+      localStorage.setItem("trana_client_referrals", JSON.stringify(updatedReferrals));
+    } catch {}
+
+    try {
+      const bareId = caseId.replace(/^REF-/, "").replace(/^CONN-/, "");
+      await supabase
+        .from("consultations")
+        .update({ note: JSON.stringify([]), status: "cancelled" })
+        .or(`id.eq.${caseId},id.eq.${bareId}`);
+    } catch {}
+
+    setMessages([]);
+    setSelectedCaseId("");
+    qc.invalidateQueries({ queryKey: ["consultations"] });
+    qc.invalidateQueries({ queryKey: ["lawyer-referrals-consultations"] });
+    window.dispatchEvent(new Event("trana_consult_chat_update"));
+    toast.success("Chat conversation deleted.");
+  }
+
   const clientCasesCount = cases.filter((c) => c.category === "client").length;
   const peerCasesCount = cases.filter((c) => c.category === "peer").length;
 
@@ -550,7 +583,7 @@ function LawyerCaseInboxPage() {
             CONFIDENTIAL CASE & PEER NETWORK INBOX
           </span>
           <h1 className="font-display text-4xl md:text-5xl font-medium text-white mt-1">
-            Case & Colleague Inbox
+            Inbox
           </h1>
           <p className="mt-1.5 text-xs text-[#999999]">
             Active client consultations, peer advocate collaboration channels, and transmitted case referrals.
@@ -775,6 +808,15 @@ function LawyerCaseInboxPage() {
                     <span>Leave Case</span>
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => handleDeleteChat(activeCase.id)}
+                  className="border border-red-500/30 hover:border-red-500/60 bg-[#161616] hover:bg-red-950/40 text-neutral-400 hover:text-red-300 px-3 py-1.5 text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors rounded cursor-pointer"
+                  title="Permanently delete this chat conversation"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete Chat</span>
+                </button>
                 <Link
                   to="/lawyer/drafter"
                   className="border border-white/30 px-3 py-1.5 text-xs uppercase tracking-wider text-white hover:border-white transition-colors"

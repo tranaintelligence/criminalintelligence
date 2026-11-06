@@ -254,6 +254,9 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
     try {
       await acceptConnectionRequest(conn.id);
       await refetchConnections();
+      qc.invalidateQueries({ queryKey: ["network-view-connections"] });
+      qc.invalidateQueries({ queryKey: ["consultations"] });
+      window.dispatchEvent(new Event("trana_consult_chat_update"));
       toast.success(`Connected with ${conn.fromUserName}!`);
     } catch (err: any) {
       toast.error(err.message || "Failed to accept connection.");

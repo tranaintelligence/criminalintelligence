@@ -239,42 +239,55 @@ function LawyerProfilePage() {
       }
 
       // 3. Update Supabase lawyers table
-      await supabase.from("lawyers").upsert({
-        user_id: user.id,
-        full_name: fullName,
-        email: email || user.email,
-        phone: phone,
-        bar_reg_no: cleanBar,
-        state_bar_council: stateBarCouncil,
-        year_of_enrollment: Number(yearOfEnrollment) || 2021,
-        aibe_cop_number: aibeCopNumber.trim() || null,
-        bar_association: barAssociation,
-        experience_years: Number(experienceYears) || 1,
-        city: city,
-        state: selectedState,
-        chamber_address: chamberAddress.trim() || null,
-        courts: JSON.stringify(selectedCourts),
-        bio: bio,
-        avatar_url: avatarPreview || null,
-        specialisation: specString,
-        offers_call: offersCall,
-        offers_chat: offersChat,
-        offers_in_person: false,
-        approved: isApproved,
-      }).catch((err) => console.warn("lawyers upsert:", err));
-
-      // 4. Update auth user metadata
-      await supabase.auth.updateUser({
-        data: {
+      try {
+        const { error: upsertErr } = await supabase.from("lawyers").upsert({
+          user_id: user.id,
           full_name: fullName,
+          email: email || user.email,
+          phone: phone,
           bar_reg_no: cleanBar,
           state_bar_council: stateBarCouncil,
+          year_of_enrollment: Number(yearOfEnrollment) || 2021,
+          aibe_cop_number: aibeCopNumber.trim() || null,
+          bar_association: barAssociation,
+          experience_years: Number(experienceYears) || 1,
+          city: city,
+          state: selectedState,
+          chamber_address: chamberAddress.trim() || null,
           courts: JSON.stringify(selectedCourts),
           bio: bio,
-        },
-      }).catch((err) => console.warn("auth updateUser:", err));
+          avatar_url: avatarPreview || null,
+          specialisation: specString,
+          offers_call: offersCall,
+          offers_chat: offersChat,
+          offers_in_person: false,
+          approved: isApproved,
+        });
+        if (upsertErr) {
+          console.warn("lawyers upsert error:", upsertErr);
+        }
+      } catch (err) {
+        console.warn("lawyers upsert catch:", err);
+      }
 
-      await supabase.auth.refreshSession().catch(() => {});
+      // 4. Update auth user metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: fullName,
+            bar_reg_no: cleanBar,
+            state_bar_council: stateBarCouncil,
+            courts: JSON.stringify(selectedCourts),
+            bio: bio,
+          },
+        });
+      } catch (err) {
+        console.warn("auth updateUser:", err);
+      }
+
+      try {
+        await supabase.auth.refreshSession();
+      } catch {}
       await refetch();
       toast.success("Advocate profile & Bar credentials updated successfully!");
     } catch (err) {

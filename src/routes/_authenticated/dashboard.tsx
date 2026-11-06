@@ -21,7 +21,7 @@ const nav = [
   { to: "/dashboard", label: "Home", exact: true },
   { to: "/dashboard/chat", label: "Legal First Aid" },
   { to: "/dashboard/analyse", label: "Complaint Analyser" },
-  { to: "/dashboard/lawyers", label: "Find a Lawyer" },
+  { to: "/dashboard/lawyers", label: "Find a Professional" },
   { to: "/dashboard/consultations", label: "My Consultations" },
   { to: "/dashboard/help", label: "Help & Support" },
 ] as const;
