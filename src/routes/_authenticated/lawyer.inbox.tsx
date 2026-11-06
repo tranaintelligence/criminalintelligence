@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   MessageSquare, Search, Phone, Lock, ShieldCheck, 
   Send, UserMinus, FileText, ChevronRight, AlertCircle, 
-  Clock, CheckCircle2, User 
+  Clock, CheckCircle2, User, Scale, Users 
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
