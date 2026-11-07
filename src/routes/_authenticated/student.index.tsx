@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { 
   GraduationCap, Sparkles, Scale, Search, Landmark, FileText, 
-  Users, ArrowUpRight, BookOpen, ShieldCheck, Clock, CheckCircle2 
+  Users, ArrowUpRight, BookOpen, ShieldCheck, Clock, CheckCircle2, Award 
 } from "lucide-react";
 import { useUserRole } from "@/lib/user-role";
 import { getLocalConnections } from "@/lib/network-connections";
@@ -22,8 +22,14 @@ function StudentOverviewPage() {
   const { user } = Route.useRouteContext();
   const { studentProfile } = useUserRole(user?.id, user?.email);
 
+  const isIntern = Boolean(
+    studentProfile?.isIntern ||
+    (typeof window !== "undefined" && localStorage.getItem("trana_is_intern") === "true")
+  );
+
   const [savedDocsCount, setSavedDocsCount] = useState(0);
   const [trackedCasesCount, setTrackedCasesCount] = useState(0);
+  const [publicationsCount, setPublicationsCount] = useState(0);
   const [connectionsCount, setConnectionsCount] = useState(0);
 
   useEffect(() => {
@@ -44,6 +50,19 @@ function StudentOverviewPage() {
         if (Array.isArray(list)) setTrackedCasesCount(list.length);
       }
     } catch {}
+
+    // Publications count
+    try {
+      const pubRaw = localStorage.getItem("trana_student_publications_feed");
+      if (pubRaw) {
+        const pList = JSON.parse(pubRaw);
+        if (Array.isArray(pList)) setPublicationsCount(pList.length);
+      } else {
+        setPublicationsCount(4);
+      }
+    } catch {
+      setPublicationsCount(4);
+    }
 
     // Active connections
     try {
@@ -101,11 +120,18 @@ function StudentOverviewPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <Link
-            to="/student/drafter"
+            to="/student/publications"
             className="bg-white text-black px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.15em] hover:bg-neutral-200 transition-all flex items-center gap-2 shadow-md hover:shadow-[0_0_20px_rgba(255,255,255,0.25)]"
           >
+            <Award className="h-3.5 w-3.5" />
+            <span>Research & Awards</span>
+          </Link>
+          <Link
+            to="/student/drafter"
+            className="apple-glass-pill px-4 py-2.5 text-xs font-mono uppercase tracking-[0.1em] text-neutral-300 hover:text-white transition-all flex items-center gap-2 shadow-sm"
+          >
             <Sparkles className="h-3.5 w-3.5" />
-            <span>New Research Draft</span>
+            <span>AI Drafter</span>
           </Link>
           <Link
             to="/student/network"
@@ -126,7 +152,7 @@ function StudentOverviewPage() {
       {/* ACADEMIC METRICS CARDS */}
       <div>
         <p className="text-[0.7rem] uppercase tracking-[0.2em] text-neutral-400 font-mono mb-4">
-          Academic & Litigation Research Telemetry
+          {isIntern ? "Legal Intern & Litigation Telemetry" : "Academic & Legal Research Telemetry"}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -146,21 +172,38 @@ function StudentOverviewPage() {
             </p>
           </div>
 
-          {/* Card 2: Tracked Cases */}
-          <div className="apple-glass-card p-6 flex flex-col justify-between group">
-            <p className="text-[0.7rem] uppercase tracking-[0.15em] text-neutral-400 font-mono">
-              Tracked Cases
-            </p>
-            <div className="mt-4 flex items-baseline justify-between">
-              <span className="font-display text-4xl font-semibold text-white">
-                {trackedCasesCount}
-              </span>
-              <span className="text-xs text-emerald-400 font-mono">Live eCourts</span>
+          {/* Card 2: Tracked Cases (for Interns) OR Research Papers (for Students) */}
+          {isIntern ? (
+            <div className="apple-glass-card p-6 flex flex-col justify-between group">
+              <p className="text-[0.7rem] uppercase tracking-[0.15em] text-neutral-400 font-mono">
+                Tracked Cases
+              </p>
+              <div className="mt-4 flex items-baseline justify-between">
+                <span className="font-display text-4xl font-semibold text-white">
+                  {trackedCasesCount}
+                </span>
+                <span className="text-xs text-emerald-400 font-mono">Live eCourts</span>
+              </div>
+              <p className="mt-3 text-[0.7rem] text-neutral-400 border-t border-white/[0.06] pt-2">
+                {trackedCasesCount > 0 ? `${trackedCasesCount} active litigation matters` : "Track High Court & Supreme Court listings"}
+              </p>
             </div>
-            <p className="mt-3 text-[0.7rem] text-neutral-400 border-t border-white/[0.06] pt-2">
-              {trackedCasesCount > 0 ? `${trackedCasesCount} active litigation matters` : "Track High Court & Supreme Court listings"}
-            </p>
-          </div>
+          ) : (
+            <div className="apple-glass-card p-6 flex flex-col justify-between group">
+              <p className="text-[0.7rem] uppercase tracking-[0.15em] text-neutral-400 font-mono">
+                Research & Awards
+              </p>
+              <div className="mt-4 flex items-baseline justify-between">
+                <span className="font-display text-4xl font-semibold text-white">
+                  {publicationsCount}
+                </span>
+                <span className="text-xs text-purple-400 font-mono">Peer Archive</span>
+              </div>
+              <p className="mt-3 text-[0.7rem] text-neutral-400 border-t border-white/[0.06] pt-2">
+                Moot court awards, research papers & articles
+              </p>
+            </div>
+          )}
 
           {/* Card 3: Precedents */}
           <div className="apple-glass-card p-6 flex flex-col justify-between group">
@@ -199,7 +242,7 @@ function StudentOverviewPage() {
       {/* QUICK ACTIONS GRID */}
       <div>
         <p className="text-[0.7rem] uppercase tracking-[0.2em] text-neutral-400 font-mono mb-4">
-          Student Tool Suite
+          {isIntern ? "Legal Intern Tool Suite" : "Law Student Tool Suite"}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -247,27 +290,51 @@ function StudentOverviewPage() {
             </div>
           </Link>
 
-          <Link
-            to="/student/cases"
-            className="group apple-glass-card p-6 flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between text-xs text-neutral-400 font-mono">
-                <span>Case Tracker</span>
-                <Scale className="h-4 w-4 text-amber-400 group-hover:scale-110 transition-transform" />
+          {isIntern ? (
+            <Link
+              to="/student/cases"
+              className="group apple-glass-card p-6 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs text-neutral-400 font-mono">
+                  <span>Case Tracker</span>
+                  <Scale className="h-4 w-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <h3 className="mt-3 font-display text-xl text-white group-hover:text-amber-300 transition-colors">
+                  Litigation Diary
+                </h3>
+                <p className="mt-2 text-xs text-neutral-300 leading-relaxed font-light">
+                  Track pending matters before High Courts and District Courts via 16-digit eCourts CNR numbers with live listing updates.
+                </p>
               </div>
-              <h3 className="mt-3 font-display text-xl text-white group-hover:text-amber-300 transition-colors">
-                Litigation Diary
-              </h3>
-              <p className="mt-2 text-xs text-neutral-300 leading-relaxed font-light">
-                Track pending matters before High Courts and District Courts via 16-digit eCourts CNR numbers with live listing updates.
-              </p>
-            </div>
-            <div className="mt-6 flex items-center gap-1.5 text-xs font-mono text-neutral-300 group-hover:text-white border-t border-white/[0.06] pt-3">
-              <span>Track Matters</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </div>
-          </Link>
+              <div className="mt-6 flex items-center gap-1.5 text-xs font-mono text-neutral-300 group-hover:text-white border-t border-white/[0.06] pt-3">
+                <span>Track Matters</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </div>
+            </Link>
+          ) : (
+            <Link
+              to="/student/publications"
+              className="group apple-glass-card p-6 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs text-neutral-400 font-mono">
+                  <span>Publications & Awards</span>
+                  <Award className="h-4 w-4 text-purple-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <h3 className="mt-3 font-display text-xl text-white group-hover:text-purple-300 transition-colors">
+                  Research & Achievements
+                </h3>
+                <p className="mt-2 text-xs text-neutral-300 leading-relaxed font-light">
+                  Publish research papers, moot awards, and commentary visible across student and advocate networks.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center gap-1.5 text-xs font-mono text-neutral-300 group-hover:text-white border-t border-white/[0.06] pt-3">
+                <span>Open Archive</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </div>
+            </Link>
+          )}
         </div>
       </div>
 

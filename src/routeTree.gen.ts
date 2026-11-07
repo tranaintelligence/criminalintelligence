@@ -54,6 +54,7 @@ import { Route as AuthenticatedStudentDocumentsRouteImport } from './routes/_aut
 import { Route as AuthenticatedStudentDrafterRouteImport } from './routes/_authenticated/student.drafter'
 import { Route as AuthenticatedStudentNetworkRouteImport } from './routes/_authenticated/student.network'
 import { Route as AuthenticatedStudentProfileRouteImport } from './routes/_authenticated/student.profile'
+import { Route as AuthenticatedStudentPublicationsRouteImport } from './routes/_authenticated/student.publications'
 import { Route as AuthenticatedStudentResearchRouteImport } from './routes/_authenticated/student.research'
 import { Route as FoundersUsersIndexRouteImport } from './routes/founders.users.index'
 import { Route as FoundersUsersUserIdRouteImport } from './routes/founders.users.$userId'
@@ -308,6 +309,12 @@ const AuthenticatedStudentProfileRoute =
     path: '/profile',
     getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
+const AuthenticatedStudentPublicationsRoute =
+  AuthenticatedStudentPublicationsRouteImport.update({
+    id: '/publications',
+    path: '/publications',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
 const AuthenticatedStudentResearchRoute =
   AuthenticatedStudentResearchRouteImport.update({
     id: '/research',
@@ -373,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/student/drafter': typeof AuthenticatedStudentDrafterRoute
   '/student/network': typeof AuthenticatedStudentNetworkRoute
   '/student/profile': typeof AuthenticatedStudentProfileRoute
+  '/student/publications': typeof AuthenticatedStudentPublicationsRoute
   '/student/research': typeof AuthenticatedStudentResearchRoute
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -418,6 +426,7 @@ export interface FileRoutesByTo {
   '/student/drafter': typeof AuthenticatedStudentDrafterRoute
   '/student/network': typeof AuthenticatedStudentNetworkRoute
   '/student/profile': typeof AuthenticatedStudentProfileRoute
+  '/student/publications': typeof AuthenticatedStudentPublicationsRoute
   '/student/research': typeof AuthenticatedStudentResearchRoute
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -470,6 +479,7 @@ export interface FileRoutesById {
   '/_authenticated/student/drafter': typeof AuthenticatedStudentDrafterRoute
   '/_authenticated/student/network': typeof AuthenticatedStudentNetworkRoute
   '/_authenticated/student/profile': typeof AuthenticatedStudentProfileRoute
+  '/_authenticated/student/publications': typeof AuthenticatedStudentPublicationsRoute
   '/_authenticated/student/research': typeof AuthenticatedStudentResearchRoute
   '/founders/users/$userId': typeof FoundersUsersUserIdRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -522,6 +532,7 @@ export interface FileRouteTypes {
     | '/student/drafter'
     | '/student/network'
     | '/student/profile'
+    | '/student/publications'
     | '/student/research'
     | '/founders/users/$userId'
     | '/dashboard/'
@@ -567,6 +578,7 @@ export interface FileRouteTypes {
     | '/student/drafter'
     | '/student/network'
     | '/student/profile'
+    | '/student/publications'
     | '/student/research'
     | '/founders/users/$userId'
     | '/dashboard'
@@ -618,6 +630,7 @@ export interface FileRouteTypes {
     | '/_authenticated/student/drafter'
     | '/_authenticated/student/network'
     | '/_authenticated/student/profile'
+    | '/_authenticated/student/publications'
     | '/_authenticated/student/research'
     | '/founders/users/$userId'
     | '/_authenticated/dashboard/'
@@ -954,6 +967,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentProfileRouteImport
       parentRoute: typeof AuthenticatedStudentRoute
     }
+    '/_authenticated/student/publications': {
+      id: '/_authenticated/student/publications'
+      path: '/publications'
+      fullPath: '/student/publications'
+      preLoaderRoute: typeof AuthenticatedStudentPublicationsRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
     '/_authenticated/student/research': {
       id: '/_authenticated/student/research'
       path: '/research'
@@ -1065,6 +1085,7 @@ interface AuthenticatedStudentRouteChildren {
   AuthenticatedStudentDrafterRoute: typeof AuthenticatedStudentDrafterRoute
   AuthenticatedStudentNetworkRoute: typeof AuthenticatedStudentNetworkRoute
   AuthenticatedStudentProfileRoute: typeof AuthenticatedStudentProfileRoute
+  AuthenticatedStudentPublicationsRoute: typeof AuthenticatedStudentPublicationsRoute
   AuthenticatedStudentResearchRoute: typeof AuthenticatedStudentResearchRoute
   AuthenticatedStudentIndexRoute: typeof AuthenticatedStudentIndexRoute
 }
@@ -1076,6 +1097,7 @@ const AuthenticatedStudentRouteChildren: AuthenticatedStudentRouteChildren = {
   AuthenticatedStudentDrafterRoute: AuthenticatedStudentDrafterRoute,
   AuthenticatedStudentNetworkRoute: AuthenticatedStudentNetworkRoute,
   AuthenticatedStudentProfileRoute: AuthenticatedStudentProfileRoute,
+  AuthenticatedStudentPublicationsRoute: AuthenticatedStudentPublicationsRoute,
   AuthenticatedStudentResearchRoute: AuthenticatedStudentResearchRoute,
   AuthenticatedStudentIndexRoute: AuthenticatedStudentIndexRoute,
 }

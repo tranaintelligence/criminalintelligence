@@ -46,8 +46,12 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
+  const [isInternLogin, setIsInternLogin] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("trana_is_intern") === "true";
+  });
   const googleBtnRef = useRef<HTMLDivElement>(null);
-  const dest = redirect ?? "/dashboard/chat";
+  const dest = redirect ?? (isInternLogin ? "/student" : "/dashboard/chat");
 
   // 1. If already signed in via TRANA or Supabase, immediately navigate to destination
   useEffect(() => {
@@ -90,8 +94,10 @@ function AuthPage() {
       if (authData.session_token && authData.user) {
         localStorage.setItem("trana_session_token", authData.session_token);
         localStorage.setItem("trana_user", JSON.stringify(authData.user));
+        localStorage.setItem("trana_is_intern", isInternLogin ? "true" : "false");
         void syncUserStatutoryAcknowledgement(authData.user as any);
-        navigate({ to: dest, replace: true });
+        const finalDest = redirect || (isInternLogin ? "/student" : "/dashboard/chat");
+        navigate({ to: finalDest, replace: true });
       } else {
         throw new Error("Invalid session response received from backend.");
       }
@@ -178,8 +184,34 @@ function AuthPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           {dest?.includes("lawyer")
             ? "Sign in with your Google account to access the Advocate Workspace."
-            : "Sign in with your Google account to access Legal First Aid and FIR analysis."}
+            : "Sign in with your Google account to access Legal First Aid, student research tools, and case analysis."}
         </p>
+
+        {/* Legal Intern Checkbox */}
+        <div className="mt-6">
+          <label className="flex items-start gap-3 p-3.5 rounded-xl border border-border bg-card/60 hover:bg-card/90 transition-all cursor-pointer select-none group">
+            <input
+              type="checkbox"
+              checked={isInternLogin}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsInternLogin(checked);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("trana_is_intern", checked ? "true" : "false");
+                }
+              }}
+              className="mt-0.5 h-4 w-4 rounded border-muted-foreground/40 bg-background text-primary accent-primary focus:ring-1 focus:ring-primary cursor-pointer shrink-0"
+            />
+            <div className="text-xs">
+              <span className="font-semibold text-foreground group-hover:text-primary transition-colors block">
+                Log in as Legal Intern
+              </span>
+              <span className="text-muted-foreground leading-relaxed block mt-0.5">
+                Check this if you are an interning student. Enables litigation Case Tracker in the student workspace.
+              </span>
+            </div>
+          </label>
+        </div>
 
         {/* Google Sign-In Container */}
         <div className="mt-8 flex flex-col items-center justify-center">

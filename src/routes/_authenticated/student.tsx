@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { 
   GraduationCap, BookOpen, Scale, Search, FileText, 
-  Sparkles, Users, ArrowUpRight, LogOut, ChevronRight, Menu, X, Landmark, ShieldCheck, User, Hash, Compass
+  Sparkles, Users, ArrowUpRight, LogOut, ChevronRight, Menu, X, Landmark, ShieldCheck, User, Hash, Compass,
+  Award, Upload, Image as ImageIcon, CheckCircle2, Lock, Trash2
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,17 +12,6 @@ import { useUserRole, StudentProfile } from "@/lib/user-role";
 export const Route = createFileRoute("/_authenticated/student")({
   component: StudentLayout,
 });
-
-const studentNav = [
-  { to: "/student", label: "Overview", icon: BookOpen, exact: true },
-  { to: "/student/drafter", label: "AI Drafter", icon: Sparkles },
-  { to: "/student/cases", label: "Case Tracker", icon: Scale },
-  { to: "/student/citations", label: "Citation Finder", icon: Search },
-  { to: "/student/research", label: "Case Research", icon: Landmark },
-  { to: "/student/documents", label: "My Documents", icon: FileText },
-  { to: "/student/network", label: "Professional Network", icon: Users },
-  { to: "/student/profile", label: "My Profile", icon: User },
-];
 
 function StudentLayout() {
   const { user } = Route.useRouteContext();
@@ -32,15 +22,37 @@ function StudentLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Intern status detection (from profile or explicit login checkbox)
+  const isIntern = Boolean(
+    studentProfile?.isIntern ||
+    (typeof window !== "undefined" && localStorage.getItem("trana_is_intern") === "true")
+  );
+
+  // Dynamic Navigation based on Intern status
+  const navItems = useMemo(() => {
+    return [
+      { to: "/student", label: "Overview", icon: BookOpen, exact: true },
+      { to: "/student/drafter", label: "AI Drafter", icon: Sparkles },
+      ...(isIntern ? [{ to: "/student/cases", label: "Case Tracker", icon: Scale }] : []),
+      { to: "/student/publications", label: "Research & Achievements", icon: Award },
+      { to: "/student/citations", label: "Citation Finder", icon: Search },
+      { to: "/student/research", label: "Case Research", icon: Landmark },
+      { to: "/student/documents", label: "My Documents", icon: FileText },
+      { to: "/student/network", label: "Professional Network", icon: Users },
+      { to: "/student/profile", label: "My Profile", icon: User },
+    ];
+  }, [isIntern]);
+
   // Filter items by search query if user types in search
   const filteredNav = searchQuery.trim()
-    ? studentNav.filter((item) =>
+    ? navItems.filter((item) =>
         item.label.toLowerCase().includes(searchQuery.toLowerCase().trim())
       )
-    : studentNav;
+    : navItems;
 
   // Find active route index
   const activeRouteIndex = filteredNav.findIndex((item) => {
@@ -61,11 +73,17 @@ function StudentLayout() {
   const [studentId, setStudentId] = useState(studentProfile?.studentIdNumber || "");
   const [focus, setFocus] = useState(studentProfile?.focus || "");
   const [bio, setBio] = useState(studentProfile?.bio || "");
+  const [collegeIdUrl, setCollegeIdUrl] = useState(studentProfile?.collegeIdUrl || "");
+  const [collegeIdFileName, setCollegeIdFileName] = useState(studentProfile?.collegeIdFileName || "");
+  const [isInternEnroll, setIsInternEnroll] = useState(
+    studentProfile?.isIntern || (typeof window !== "undefined" && localStorage.getItem("trana_is_intern") === "true")
+  );
+  const [internFirm, setInternFirm] = useState(studentProfile?.internFirmOrChamber || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    document.title = "Law Student Workspace — TRANA";
-  }, [location.pathname]);
+    document.title = isIntern ? "Legal Intern Workspace — TRANA" : "Law Student Workspace — TRANA";
+  }, [location.pathname, isIntern]);
 
   useEffect(() => {
     if (studentProfile) {
@@ -77,6 +95,10 @@ function StudentLayout() {
       if (studentProfile.city) setCity(studentProfile.city);
       if (studentProfile.focus) setFocus(studentProfile.focus);
       if (studentProfile.bio) setBio(studentProfile.bio);
+      if (studentProfile.collegeIdUrl) setCollegeIdUrl(studentProfile.collegeIdUrl);
+      if (studentProfile.collegeIdFileName) setCollegeIdFileName(studentProfile.collegeIdFileName);
+      if (studentProfile.isIntern !== undefined) setIsInternEnroll(studentProfile.isIntern);
+      if (studentProfile.internFirmOrChamber) setInternFirm(studentProfile.internFirmOrChamber);
     }
   }, [studentProfile]);
 
@@ -85,9 +107,66 @@ function StudentLayout() {
     studentProfile.university &&
     studentProfile.university.trim() &&
     studentProfile.studentIdNumber &&
-    studentProfile.studentIdNumber.trim()
+    studentProfile.studentIdNumber.trim() &&
+    studentProfile.collegeIdUrl
   );
   const isProfileRoute = location.pathname.startsWith("/student/profile");
+
+  // Handle College ID File Upload
+  function handleCollegeIdUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      toast.error("Please upload a valid image (PNG, JPG, WebP) or PDF of your student ID.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) return;
+
+      // If image, compress via canvas to avoid blowing localStorage quota
+      if (file.type.startsWith("image/")) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL("image/jpeg", 0.82);
+            setCollegeIdUrl(compressed);
+            setCollegeIdFileName(file.name);
+            toast.success(`College ID photo loaded: ${file.name}`);
+          } else {
+            setCollegeIdUrl(rawDataUrl);
+            setCollegeIdFileName(file.name);
+          }
+        };
+        img.src = rawDataUrl;
+      } else {
+        setCollegeIdUrl(rawDataUrl);
+        setCollegeIdFileName(file.name);
+        toast.success(`College ID document attached: ${file.name}`);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function handleEnrollSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +176,10 @@ function StudentLayout() {
     }
     if (!studentId.trim()) {
       toast.error("Please enter your student ID or college roll number.");
+      return;
+    }
+    if (!collegeIdUrl) {
+      toast.error("Please upload a clear photograph or scan of your College ID card for verification.");
       return;
     }
 
@@ -111,10 +194,18 @@ function StudentLayout() {
         city: city.trim() || "New Delhi",
         focus: focus.trim(),
         bio: bio.trim(),
+        collegeIdUrl,
+        collegeIdFileName: collegeIdFileName || "college_id_card.jpg",
+        isIntern: Boolean(isInternEnroll),
+        internFirmOrChamber: isInternEnroll ? internFirm.trim() : undefined,
+        verificationStatus: "PENDING_VERIFICATION",
       };
 
       await enrollAsStudent(profile);
-      toast.success("Student scholar credentials saved! Welcome to TRANA.");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("trana_is_intern", isInternEnroll ? "true" : "false");
+      }
+      toast.success("Student credentials & College ID submitted for verification! Welcome to TRANA.");
     } catch (err: any) {
       toast.error(err.message || "Failed to complete student enrollment.");
     } finally {
@@ -280,6 +371,119 @@ function StudentLayout() {
               </div>
             </div>
 
+            {/* College ID Photo Upload (Required for Founders Verification) */}
+            <div className="pt-2">
+              <label className="block text-[0.7rem] uppercase tracking-wider text-purple-300 font-mono mb-1.5 flex items-center gap-1.5">
+                <Upload className="h-3.5 w-3.5 text-purple-400" />
+                <span>Upload College ID Card (Photo / Scan) *</span>
+              </label>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleCollegeIdUpload}
+                className="hidden"
+              />
+
+              {collegeIdUrl ? (
+                <div className="p-3.5 rounded-xl border border-purple-500/40 bg-purple-950/20 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {collegeIdUrl.startsWith("data:image/") ? (
+                      <img
+                        src={collegeIdUrl}
+                        alt="College ID Preview"
+                        className="w-14 h-10 object-cover rounded-lg border border-white/20 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-14 h-10 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-purple-300 shrink-0">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white truncate">
+                        {collegeIdFileName || "Student_College_ID.jpg"}
+                      </p>
+                      <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span>Ready for Founders ID Verification</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="apple-glass-pill px-3 py-1 text-[11px] font-mono text-neutral-300 hover:text-white cursor-pointer"
+                    >
+                      Replace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCollegeIdUrl("");
+                        setCollegeIdFileName("");
+                      }}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                      title="Remove file"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-5 rounded-xl border-2 border-dashed border-white/20 hover:border-purple-400/60 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer text-center group"
+                >
+                  <div className="h-10 w-10 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-300 mx-auto mb-2 group-hover:scale-105 transition-transform">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                  <p className="text-xs font-medium text-white group-hover:text-purple-300 transition-colors">
+                    Click to browse and upload College ID Photo
+                  </p>
+                  <p className="text-[10px] text-neutral-400 font-mono mt-1">
+                    Supports JPG, PNG, WebP or PDF. Verified by TRANA Founders.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Legal Intern Status Checkbox */}
+            <div className="pt-2">
+              <label className="flex items-start gap-3 p-3.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={isInternEnroll}
+                  onChange={(e) => setIsInternEnroll(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-white/30 bg-black text-purple-500 accent-purple-500 focus:ring-1 focus:ring-purple-400 cursor-pointer shrink-0"
+                />
+                <div className="text-xs">
+                  <span className="font-semibold text-white group-hover:text-purple-300 transition-colors block">
+                    I am interning with an Advocate, Chamber, or Law Firm
+                  </span>
+                  <span className="text-neutral-400 leading-relaxed block mt-0.5">
+                    Enables the litigation eCourts Case Tracker in your workspace. (Standard law students have access to AI Drafter, Citation Finder, Case Research, and Research & Achievements).
+                  </span>
+                </div>
+              </label>
+
+              {isInternEnroll && (
+                <div className="mt-3 pl-7">
+                  <label className="block text-[0.7rem] uppercase tracking-wider text-purple-300 font-mono mb-1">
+                    Chamber / Law Firm / Senior Advocate Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={internFirm}
+                    onChange={(e) => setInternFirm(e.target.value)}
+                    placeholder="e.g. Chamber of Senior Advocate, Delhi High Court"
+                    className="w-full apple-glass-input px-3.5 py-2 text-xs text-white placeholder-neutral-500"
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="pt-4 flex items-center justify-between gap-4 border-t border-white/[0.08]">
               <Link
                 to="/dashboard"
@@ -293,7 +497,7 @@ function StudentLayout() {
                 className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.15em] transition-all flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>{isSubmitting ? "Enrolling..." : "Launch Student Workspace"}</span>
+                <span>{isSubmitting ? "Enrolling..." : "Submit Verification & Launch"}</span>
               </button>
             </div>
           </form>
@@ -326,11 +530,11 @@ function StudentLayout() {
                 TRANA
               </Link>
               <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                STUDENT
+                {isIntern ? "LEGAL INTERN" : "STUDENT"}
               </span>
             </div>
             <div className="text-[11px] text-neutral-400 font-sans truncate leading-none mt-0.5">
-              Law Student Workspace
+              {isIntern ? "Legal Intern Workspace" : "Law Student Workspace"}
             </div>
           </div>
         </div>
@@ -446,7 +650,9 @@ function StudentLayout() {
             <img src="/favicon.svg" alt="TRANA" className="w-full h-full object-cover" />
           </div>
           <span className="font-display text-base tracking-[0.15em] text-[#F0F0F0]">TRANA</span>
-          <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">STUDENT</span>
+          <span className="apple-glass-pill text-[9px] px-1.5 py-0.5 text-neutral-300 font-mono">
+            {isIntern ? "LEGAL INTERN" : "STUDENT"}
+          </span>
         </div>
         <button
           type="button"

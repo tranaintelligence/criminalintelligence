@@ -22,6 +22,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Trash2,
+  GraduationCap,
+  Eye,
+  X,
+  XCircle,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useTranaCredential } from "@/lib/trana-auth";
 import {
@@ -59,6 +64,8 @@ function FounderUserDetailPage() {
 
   const { credential } = useTranaCredential();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [studentUpdateTrigger, setStudentUpdateTrigger] = useState(0);
 
   // 1. Fetch user detail & founder stats
   const {
@@ -76,6 +83,96 @@ function FounderUserDetailPage() {
     enabled: Boolean(credential && userId),
     staleTime: 30000,
   });
+
+  // Check if student verification data exists for this user
+  const studentInfo = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const allStudentsRaw = localStorage.getItem("trana_all_registered_students");
+      if (allStudentsRaw) {
+        const parsed = JSON.parse(allStudentsRaw);
+        if (Array.isArray(parsed)) {
+          const found = parsed.find(
+            (s: any) =>
+              s.id === userId ||
+              (s.email && s.email.toLowerCase() === userId.toLowerCase()) ||
+              (userDetail?.email && s.email && s.email.toLowerCase() === userDetail.email.toLowerCase())
+          );
+          if (found) return found;
+        }
+      }
+      const cur = localStorage.getItem("trana_student_profile");
+      if (cur) {
+        const cp = JSON.parse(cur);
+        if (cp.studentIdNumber && (userId.includes("student") || (userDetail?.email && cp.email === userDetail.email))) {
+          return cp;
+        }
+      }
+    } catch {}
+    return null;
+  }, [userId, userDetail, studentUpdateTrigger]);
+
+  function handleApprove() {
+    if (!studentInfo) return;
+    try {
+      if (typeof window !== "undefined") {
+        const stored = JSON.parse(localStorage.getItem("trana_all_registered_students") || "[]");
+        const updated = stored.map((s: any) => {
+          if (s.id === studentInfo.id || (s.email && studentInfo.email && s.email.toLowerCase() === studentInfo.email.toLowerCase())) {
+            return { ...s, verificationStatus: "VERIFIED", isVerified: true };
+          }
+          return s;
+        });
+        localStorage.setItem("trana_all_registered_students", JSON.stringify(updated));
+
+        const curProfile = localStorage.getItem("trana_student_profile");
+        if (curProfile) {
+          try {
+            const p = JSON.parse(curProfile);
+            if (p.fullName === studentInfo.name || p.studentIdNumber === studentInfo.rollNo || p.studentIdNumber === studentInfo.studentIdNumber) {
+              p.verificationStatus = "VERIFIED";
+              localStorage.setItem("trana_student_profile", JSON.stringify(p));
+            }
+          } catch {}
+        }
+        window.dispatchEvent(new Event("trana_role_updated"));
+      }
+      setStudentUpdateTrigger((p) => p + 1);
+      toast.success("Student College ID verified and approved!");
+    } catch {
+      toast.error("Failed to approve student verification.");
+    }
+  }
+
+  function handleReject() {
+    if (!studentInfo) return;
+    try {
+      if (typeof window !== "undefined") {
+        const stored = JSON.parse(localStorage.getItem("trana_all_registered_students") || "[]");
+        const updated = stored.map((s: any) => {
+          if (s.id === studentInfo.id || (s.email && studentInfo.email && s.email.toLowerCase() === studentInfo.email.toLowerCase())) {
+            return { ...s, verificationStatus: "REJECTED", isVerified: false };
+          }
+          return s;
+        });
+        localStorage.setItem("trana_all_registered_students", JSON.stringify(updated));
+
+        const curProfile = localStorage.getItem("trana_student_profile");
+        if (curProfile) {
+          try {
+            const p = JSON.parse(curProfile);
+            p.verificationStatus = "REJECTED";
+            localStorage.setItem("trana_student_profile", JSON.stringify(p));
+          } catch {}
+        }
+        window.dispatchEvent(new Event("trana_role_updated"));
+      }
+      setStudentUpdateTrigger((p) => p + 1);
+      toast.error("Student College ID rejected.");
+    } catch {
+      toast.error("Failed to reject student verification.");
+    }
+  }
 
   // 2. Fetch full chat sessions & message histories
   const {
@@ -354,6 +451,142 @@ function FounderUserDetailPage() {
         </div>
       </div>
 
+      {/* Student Scholar & College ID Verification Card */}
+      {studentInfo && (
+        <div className="p-6 rounded-2xl bg-[#14121d] border border-purple-500/30 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-xl font-medium text-white flex items-center gap-2">
+                  <span>Student Scholar Verification</span>
+                  <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${
+                    studentInfo.isIntern ? "border-purple-500/40 text-purple-300 bg-purple-950/40" : "border-sky-500/40 text-sky-300 bg-sky-950/40"
+                  }`}>
+                    {studentInfo.isIntern ? "Legal Intern" : "Law Student"}
+                  </span>
+                </h3>
+                <p className="text-xs text-neutral-400 font-mono">
+                  {studentInfo.affiliation || studentInfo.university || "Law College"} • Roll: {studentInfo.rollNo || studentInfo.studentIdNumber || "N/A"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {studentInfo.verificationStatus === "VERIFIED" ? (
+                <span className="apple-glass-pill px-3 py-1 text-xs font-mono text-emerald-400 border-emerald-500/40 bg-emerald-950/30 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>College ID Verified</span>
+                </span>
+              ) : studentInfo.verificationStatus === "REJECTED" ? (
+                <span className="apple-glass-pill px-3 py-1 text-xs font-mono text-rose-400 border-rose-500/40 bg-rose-950/30 flex items-center gap-1.5">
+                  <XCircle className="h-3.5 w-3.5" />
+                  <span>Verification Rejected</span>
+                </span>
+              ) : (
+                <span className="apple-glass-pill px-3 py-1 text-xs font-mono text-amber-300 border-amber-500/40 bg-amber-950/30 flex items-center gap-1.5 animate-pulse">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Pending Founders Review</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-3 md:col-span-2 text-xs">
+              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block">
+                    University / Law Faculty
+                  </span>
+                  <span className="text-white font-medium">
+                    {studentInfo.affiliation || studentInfo.university || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block">
+                    Roll Number / ID
+                  </span>
+                  <span className="text-purple-300 font-mono font-medium">
+                    {studentInfo.rollNo || studentInfo.studentIdNumber || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block">
+                    Degree Program
+                  </span>
+                  <span className="text-neutral-300">
+                    {studentInfo.roleLabel || studentInfo.degree || "LL.B"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block">
+                    Intern Chamber / Firm
+                  </span>
+                  <span className="text-neutral-300">
+                    {studentInfo.internFirmOrChamber || (studentInfo.isIntern ? "Active Legal Internship" : "None")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleReject}
+                  className="apple-glass-pill px-4 py-2 text-xs font-mono text-rose-300 hover:bg-rose-500/20 border-rose-500/30 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  <span>Reject ID</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  className="bg-emerald-400 text-black hover:bg-emerald-300 px-5 py-2 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Approve Student Verification</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block mb-2">
+                Uploaded College ID Picture
+              </span>
+              {studentInfo.collegeIdUrl ? (
+                <div className="rounded-xl overflow-hidden border border-white/20 bg-black/60 relative group">
+                  {studentInfo.collegeIdUrl.startsWith("data:image/") ? (
+                    <img
+                      src={studentInfo.collegeIdUrl}
+                      alt="Student ID Preview"
+                      className="w-full h-40 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                      onClick={() => setZoomImage(studentInfo.collegeIdUrl)}
+                    />
+                  ) : (
+                    <div className="p-6 text-center text-xs text-neutral-300">
+                      <FileText className="h-8 w-8 text-purple-400 mx-auto mb-2" />
+                      <p>{studentInfo.collegeIdFileName || "College_ID.pdf"}</p>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setZoomImage(studentInfo.collegeIdUrl)}
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-black text-white text-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="p-8 rounded-xl border border-white/10 bg-white/[0.02] text-center text-xs text-neutral-400 font-mono">
+                  No College ID photo uploaded.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Models Breakdown & Attachments Banner */}
       {stats?.models_used && Object.keys(stats.models_used).length > 0 && (
         <div className="p-4 rounded-xl bg-[#111111] border border-[#222222] flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -603,6 +836,26 @@ function FounderUserDetailPage() {
           </div>
         )}
       </div>
+
+      {/* FULLSCREEN IMAGE LIGHTBOX MODAL */}
+      {zoomImage && (
+        <div
+          onClick={() => setZoomImage(null)}
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <button
+            onClick={() => setZoomImage(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white cursor-pointer z-50"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={zoomImage}
+            alt="College ID Fullscreen"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+          />
+        </div>
+      )}
     </div>
   );
 }

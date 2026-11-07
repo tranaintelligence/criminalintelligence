@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   GraduationCap, Sparkles, Building2, MapPin, Save, 
-  ArrowLeft, CheckCircle2, ShieldCheck, BookOpen, User, Hash, Compass
+  ArrowLeft, CheckCircle2, ShieldCheck, BookOpen, User, Hash, Compass,
+  Upload, Image as ImageIcon, Trash2, Scale, Clock, AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole, StudentProfile } from "@/lib/user-role";
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/student/profile")({
 function StudentProfilePage() {
   const { user } = Route.useRouteContext();
   const { studentProfile, enrollAsStudent } = useUserRole(user?.id, user?.email);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [fullName, setFullName] = useState(
     studentProfile?.fullName || user?.name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || ""
@@ -34,6 +36,12 @@ function StudentProfilePage() {
     studentProfile?.focus || "Constitutional Law, Criminal Procedure (BNSS), Moot Court"
   );
   const [bio, setBio] = useState(studentProfile?.bio || "");
+  const [collegeIdUrl, setCollegeIdUrl] = useState(studentProfile?.collegeIdUrl || "");
+  const [collegeIdFileName, setCollegeIdFileName] = useState(studentProfile?.collegeIdFileName || "");
+  const [isInternProfile, setIsInternProfile] = useState(
+    studentProfile?.isIntern || (typeof window !== "undefined" && localStorage.getItem("trana_is_intern") === "true")
+  );
+  const [internFirm, setInternFirm] = useState(studentProfile?.internFirmOrChamber || "");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -46,8 +54,66 @@ function StudentProfilePage() {
       if (studentProfile.city) setCity(studentProfile.city);
       if (studentProfile.focus) setFocus(studentProfile.focus);
       if (studentProfile.bio) setBio(studentProfile.bio);
+      if (studentProfile.collegeIdUrl) setCollegeIdUrl(studentProfile.collegeIdUrl);
+      if (studentProfile.collegeIdFileName) setCollegeIdFileName(studentProfile.collegeIdFileName);
+      if (studentProfile.isIntern !== undefined) setIsInternProfile(studentProfile.isIntern);
+      if (studentProfile.internFirmOrChamber) setInternFirm(studentProfile.internFirmOrChamber);
     }
   }, [studentProfile]);
+
+  function handleCollegeIdUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      toast.error("Please upload an image (PNG, JPG, WebP) or PDF of your student ID card.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) return;
+
+      if (file.type.startsWith("image/")) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL("image/jpeg", 0.82);
+            setCollegeIdUrl(compressed);
+            setCollegeIdFileName(file.name);
+            toast.success(`College ID photo uploaded: ${file.name}`);
+          } else {
+            setCollegeIdUrl(rawDataUrl);
+            setCollegeIdFileName(file.name);
+          }
+        };
+        img.src = rawDataUrl;
+      } else {
+        setCollegeIdUrl(rawDataUrl);
+        setCollegeIdFileName(file.name);
+        toast.success(`College ID file selected: ${file.name}`);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -72,10 +138,19 @@ function StudentProfilePage() {
         city: city.trim() || "New Delhi",
         focus: focus.trim(),
         bio: bio.trim(),
+        collegeIdUrl,
+        collegeIdFileName: collegeIdFileName || "college_id.jpg",
+        isIntern: Boolean(isInternProfile),
+        internFirmOrChamber: isInternProfile ? internFirm.trim() : undefined,
+        verificationStatus: studentProfile?.verificationStatus || "PENDING_VERIFICATION",
       };
 
       await enrollAsStudent(updated);
-      toast.success("Student profile and roll number updated successfully!");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("trana_is_intern", isInternProfile ? "true" : "false");
+        window.dispatchEvent(new Event("trana_role_updated"));
+      }
+      toast.success("Student profile, College ID & intern credentials updated successfully!");
     } catch (err: any) {
       toast.error(err.message || "Failed to save student profile.");
     } finally {
@@ -253,6 +328,136 @@ function StudentProfilePage() {
               />
             </div>
 
+            {/* College ID Photo Upload & Verification Status */}
+            <div className="pt-2 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[0.7rem] uppercase tracking-wider text-purple-300 font-mono flex items-center gap-1.5">
+                  <Upload className="h-3.5 w-3.5 text-purple-400" />
+                  <span>College ID Card (For Founders Verification)</span>
+                </label>
+                {studentProfile?.verificationStatus === "VERIFIED" ? (
+                  <span className="apple-glass-pill px-2.5 py-0.5 text-[10px] font-mono text-emerald-400 border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span>ID Verified</span>
+                  </span>
+                ) : studentProfile?.verificationStatus === "REJECTED" ? (
+                  <span className="apple-glass-pill px-2.5 py-0.5 text-[10px] font-mono text-rose-400 border-rose-500/30 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    <span>Rejected - Re-upload</span>
+                  </span>
+                ) : (
+                  <span className="apple-glass-pill px-2.5 py-0.5 text-[10px] font-mono text-amber-300 border-amber-500/30 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Pending Founders Review</span>
+                  </span>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleCollegeIdUpload}
+                className="hidden"
+              />
+
+              {collegeIdUrl ? (
+                <div className="p-3.5 rounded-xl border border-purple-500/40 bg-purple-950/20 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {collegeIdUrl.startsWith("data:image/") ? (
+                      <img
+                        src={collegeIdUrl}
+                        alt="College ID Preview"
+                        className="w-16 h-12 object-cover rounded-lg border border-white/20 shrink-0 shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-16 h-12 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-purple-300 shrink-0">
+                        <BookOpen className="h-5 w-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white truncate">
+                        {collegeIdFileName || "College_ID_Card.jpg"}
+                      </p>
+                      <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
+                        Uploaded for student verification
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="apple-glass-pill px-3 py-1 text-[11px] font-mono text-neutral-300 hover:text-white cursor-pointer"
+                    >
+                      Update ID
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCollegeIdUrl("");
+                        setCollegeIdFileName("");
+                      }}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                      title="Remove file"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-5 rounded-xl border-2 border-dashed border-white/20 hover:border-purple-400/60 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer text-center group"
+                >
+                  <div className="h-10 w-10 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-300 mx-auto mb-2 group-hover:scale-105 transition-transform">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                  <p className="text-xs font-medium text-white group-hover:text-purple-300 transition-colors">
+                    Upload or Update College ID Card
+                  </p>
+                  <p className="text-[10px] text-neutral-400 font-mono mt-1">
+                    Visible to Founders for verification. JPG, PNG or PDF.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Legal Intern Checkbox */}
+            <div className="pt-2 border-t border-white/[0.06]">
+              <label className="flex items-start gap-3 p-3.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={isInternProfile}
+                  onChange={(e) => setIsInternProfile(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-white/30 bg-black text-purple-500 accent-purple-500 focus:ring-1 focus:ring-purple-400 cursor-pointer shrink-0"
+                />
+                <div className="text-xs">
+                  <span className="font-semibold text-white group-hover:text-purple-300 transition-colors block">
+                    Legal Intern Mode (Enables Litigation Case Tracker)
+                  </span>
+                  <span className="text-neutral-400 leading-relaxed block mt-0.5">
+                    Check this if you are actively interning with an advocate or chamber to track real eCourts litigation proceedings.
+                  </span>
+                </div>
+              </label>
+
+              {isInternProfile && (
+                <div className="mt-3 pl-7">
+                  <label className="block text-[0.7rem] uppercase tracking-wider text-purple-300 font-mono mb-1">
+                    Senior Advocate / Chamber / Firm Name
+                  </label>
+                  <input
+                    type="text"
+                    value={internFirm}
+                    onChange={(e) => setInternFirm(e.target.value)}
+                    placeholder="e.g. Chamber of Senior Advocate, Delhi High Court"
+                    className="w-full apple-glass-input px-3.5 py-2 text-xs text-white placeholder-neutral-500"
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="pt-4 border-t border-white/[0.08] flex items-center justify-between">
               <span className="text-[11px] text-neutral-400 font-mono">
                 Email: {user.email}
@@ -277,7 +482,7 @@ function StudentProfilePage() {
                 Network ID Card
               </span>
               <span className="apple-glass-pill text-[9px] px-2 py-0.5 text-purple-300 font-mono">
-                STUDENT
+                {isInternProfile ? "LEGAL INTERN" : "STUDENT"}
               </span>
             </div>
 
@@ -331,6 +536,35 @@ function StudentProfilePage() {
                   <div className="pt-1 border-t border-white/[0.06] flex items-center gap-1 text-[11px] text-neutral-400 font-mono">
                     <MapPin className="h-3 w-3 text-neutral-500" />
                     <span>{city}</span>
+                  </div>
+                )}
+
+                {isInternProfile && internFirm && (
+                  <div className="pt-1 border-t border-white/[0.06] text-[11px] text-purple-300 font-mono flex items-center gap-1">
+                    <Scale className="h-3 w-3 text-purple-400 shrink-0" />
+                    <span className="truncate">{internFirm}</span>
+                  </div>
+                )}
+
+                {collegeIdUrl && (
+                  <div className="pt-2 border-t border-white/[0.06]">
+                    <span className="text-[9px] uppercase tracking-wider text-neutral-400 font-mono block mb-1">
+                      College ID Document
+                    </span>
+                    <div className="rounded-lg overflow-hidden border border-white/10 bg-black/40">
+                      {collegeIdUrl.startsWith("data:image/") ? (
+                        <img
+                          src={collegeIdUrl}
+                          alt="ID Card"
+                          className="w-full h-24 object-cover"
+                        />
+                      ) : (
+                        <div className="p-3 text-xs text-neutral-300 flex items-center gap-2">
+                          <BookOpen className="h-4 w-4 text-purple-400" />
+                          <span className="truncate">{collegeIdFileName || "College ID File"}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

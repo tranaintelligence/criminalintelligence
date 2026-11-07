@@ -13,6 +13,11 @@ export interface StudentProfile {
   city?: string;
   focus?: string;
   bio?: string;
+  collegeIdUrl?: string; // Data URL or photo of College ID card
+  collegeIdFileName?: string;
+  verificationStatus?: "PENDING_VERIFICATION" | "VERIFIED" | "REJECTED";
+  isIntern?: boolean; // If true, enables Case Tracker
+  internFirmOrChamber?: string;
   enrolledAt?: string;
 }
 
@@ -171,6 +176,9 @@ export function useUserRole(userId?: string | null, email?: string | null) {
             localStorage.setItem(`trana_user_role_${userId}`, "student");
           }
           localStorage.setItem("trana_student_profile", JSON.stringify(enriched));
+          if (enriched.isIntern !== undefined) {
+            localStorage.setItem("trana_is_intern", enriched.isIntern ? "true" : "false");
+          }
         }
 
         // Also persist in Supabase user metadata
@@ -181,22 +189,28 @@ export function useUserRole(userId?: string | null, email?: string | null) {
           },
         }).catch(() => {});
 
-        // Also register in central directory for networking
+        // Also register in central directory for networking & founders review
         try {
           const stored = JSON.parse(localStorage.getItem("trana_all_registered_students") || "[]");
           const entry = {
             id: userId || "student-" + Date.now(),
             name: enriched.fullName || "Law Student",
             role: "student",
-            roleLabel: `Law Student (${enriched.degree})`,
+            roleLabel: enriched.isIntern ? `Legal Intern (${enriched.degree})` : `Law Student (${enriched.degree})`,
             affiliation: enriched.university,
             city: enriched.city || "New Delhi",
             experienceOrYear: enriched.yearOfStudy,
             specialisationOrInterests: enriched.focus || "Constitutional Law, Criminal Procedure & Statutory AI Research",
             rollNo: enriched.studentIdNumber || "",
             bio: enriched.bio || "",
-            isVerified: true,
+            collegeIdUrl: enriched.collegeIdUrl || null,
+            collegeIdFileName: enriched.collegeIdFileName || null,
+            verificationStatus: enriched.verificationStatus || "PENDING_VERIFICATION",
+            isIntern: Boolean(enriched.isIntern),
+            internFirmOrChamber: enriched.internFirmOrChamber || "",
+            isVerified: enriched.verificationStatus === "VERIFIED",
             email: email,
+            enrolledAt: enriched.enrolledAt,
           };
           const updated = stored.filter((s: any) => s.id !== (userId || entry.id));
           updated.push(entry);

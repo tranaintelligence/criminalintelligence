@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { 
   Scale, Search, Calendar, Landmark, FileText, 
-  Trash2, RefreshCw, CheckCircle2, AlertCircle, ArrowUpRight, GraduationCap
+  Trash2, RefreshCw, CheckCircle2, AlertCircle, ArrowUpRight, GraduationCap,
+  Lock, Award
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -28,7 +29,13 @@ export const Route = createFileRoute("/_authenticated/student/cases")({
 
 function StudentCaseTrackerPage() {
   const { user } = Route.useRouteContext();
-  const { studentProfile } = useUserRole(user?.id, user?.email);
+  const { studentProfile, enrollAsStudent } = useUserRole(user?.id, user?.email);
+  const navigate = useNavigate();
+
+  const isIntern = Boolean(
+    studentProfile?.isIntern ||
+    (typeof window !== "undefined" && localStorage.getItem("trana_is_intern") === "true")
+  );
 
   const [cnrInput, setCnrInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +49,81 @@ function StudentCaseTrackerPage() {
       if (local.length > 0) setActiveCase(local[0]);
     }
   }, [user?.id]);
+
+  async function handleEnableIntern() {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("trana_is_intern", "true");
+      }
+      if (studentProfile) {
+        await enrollAsStudent({
+          ...studentProfile,
+          isIntern: true,
+        });
+      }
+      toast.success("Legal Intern status enabled! Case Tracker is now active.");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("trana_role_updated"));
+      }
+    } catch {
+      toast.error("Failed to enable intern status.");
+    }
+  }
+
+  // Guard: If not an intern, show restricted view
+  if (!isIntern) {
+    return (
+      <div className="space-y-8 max-w-3xl mx-auto py-12">
+        <div className="apple-glass-card p-8 md:p-10 text-center space-y-6">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-md">
+            <Lock className="h-8 w-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="apple-glass-pill px-3 py-1 text-xs font-mono text-amber-300">
+              Legal Intern Access Only
+            </span>
+            <h1 className="font-display text-2xl md:text-3xl font-medium text-white">
+              Case Tracker is Reserved for Legal Interns
+            </h1>
+            <p className="text-xs md:text-sm text-neutral-300 leading-relaxed max-w-xl mx-auto font-light">
+              Under TRANA clinical guidelines, the live eCourts Case Tracker is provisioned for law students currently interning with practicing advocates, chambers, or law firms. Standard law students have access to AI Drafter, Citation Finder, Case Research, and the Research & Achievements portal.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.03] text-left text-xs text-neutral-300 space-y-2 max-w-lg mx-auto">
+            <p className="font-semibold text-white">Are you interning under an advocate?</p>
+            <p className="text-neutral-400">
+              You can enable Legal Intern mode to unlock CNR search, court cause lists, and daily case diary syncing immediately.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+            <button
+              onClick={handleEnableIntern}
+              className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-[0.15em] transition-all flex items-center gap-2 cursor-pointer shadow-md"
+            >
+              <Scale className="h-4 w-4" />
+              <span>Enable Legal Intern Mode</span>
+            </button>
+            <Link
+              to="/student/publications"
+              className="apple-glass-pill px-5 py-2.5 text-xs font-mono uppercase tracking-wider text-purple-300 hover:text-white flex items-center gap-2"
+            >
+              <Award className="h-4 w-4" />
+              <span>Research & Achievements</span>
+            </Link>
+            <Link
+              to="/student"
+              className="text-xs uppercase tracking-wider text-neutral-400 hover:text-white transition-colors"
+            >
+              Back to Overview
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function handleSearchCnr(cnrToLookup?: string) {
     const targetCnr = (cnrToLookup || cnrInput).trim();

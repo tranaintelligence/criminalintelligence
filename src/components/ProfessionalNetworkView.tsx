@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Search, UserCheck, Clock, Check, X, MessageSquare,
   GraduationCap, Scale, Building2, MapPin, Send, ShieldCheck,
-  ChevronRight, ExternalLink, Sparkles, Filter, AlertCircle, Share2
+  ChevronRight, ExternalLink, Sparkles, Filter, AlertCircle, Share2,
+  Award, Heart, Copy, FileText
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,13 @@ import {
   getConnectionStatusBetween,
 } from "@/lib/network-connections";
 import { ConsultationChatModal } from "@/components/ConsultationChatModal";
+import {
+  StudentPublication,
+  PublicationCategory,
+  getStoredPublications,
+  toggleLikePublication,
+  generateBluebookCitation,
+} from "@/lib/student-publications";
 
 interface ProfessionalNetworkViewProps {
   currentUser: {
@@ -40,10 +48,25 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"discover" | "invitations" | "connections">("discover");
+  const [activeTab, setActiveTab] = useState<"discover" | "publications" | "invitations" | "connections">("discover");
   const [roleFilter, setRoleFilter] = useState<"all" | "lawyers" | "students">("all");
   const [search, setSearch] = useState("");
   const [selectedCity, setSelectedCity] = useState("All");
+
+  // Publications state
+  const [publications, setPublications] = useState<StudentPublication[]>([]);
+  const [pubCategory, setPubCategory] = useState<PublicationCategory | "ALL">("ALL");
+  const [copiedPubId, setCopiedPubId] = useState<string | null>(null);
+  const [readingPubModal, setReadingPubModal] = useState<StudentPublication | null>(null);
+
+  useEffect(() => {
+    function loadPubs() {
+      setPublications(getStoredPublications());
+    }
+    loadPubs();
+    window.addEventListener("trana_publications_changed", loadPubs);
+    return () => window.removeEventListener("trana_publications_changed", loadPubs);
+  }, []);
 
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -395,6 +418,65 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
     }
   }
 
+  function handleLikePub(pubId: string) {
+    const res = toggleLikePublication(pubId, currentUser.id);
+    setPublications((prev) =>
+      prev.map((p) => {
+        if (p.id !== pubId) return p;
+        const liked = p.likedBy || [];
+        const isLiked = liked.includes(currentUser.id);
+        return {
+          ...p,
+          likesCount: res.likesCount,
+          likedBy: isLiked ? liked.filter((id) => id !== currentUser.id) : [...liked, currentUser.id],
+        };
+      })
+    );
+    toast.success(res.isLiked ? "Applauded publication!" : "Removed applause");
+  }
+
+  function handleCopyPubCitation(pub: StudentPublication) {
+    const citation = generateBluebookCitation(pub);
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(citation);
+      setCopiedPubId(pub.id);
+      toast.success("Bluebook / Academic citation copied to clipboard!");
+      setTimeout(() => setCopiedPubId(null), 3000);
+    }
+  }
+
+  async function handleConnectAuthor(pub: StudentPublication) {
+    const targetMember: NetworkMember = {
+      id: pub.authorId,
+      name: pub.authorName,
+      role: "student",
+      roleLabel: pub.authorRole,
+      affiliation: pub.authorCollege,
+      city: "New Delhi",
+      experienceOrYear: pub.authorRole,
+      specialisationOrInterests: pub.tags.join(", "),
+      bio: pub.abstract,
+      email: pub.authorEmail,
+    };
+    await handleSendRequest(targetMember);
+  }
+
+  const filteredPublications = useMemo(() => {
+    return publications.filter((p) => {
+      const matchCat = pubCategory === "ALL" || p.category === pubCategory;
+      const q = search.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        p.title.toLowerCase().includes(q) ||
+        p.authorName.toLowerCase().includes(q) ||
+        p.authorCollege.toLowerCase().includes(q) ||
+        p.abstract.toLowerCase().includes(q) ||
+        p.tags.some((t) => t.toLowerCase().includes(q));
+
+      return matchCat && matchSearch;
+    });
+  }, [publications, pubCategory, search]);
+
   return (
     <div className="space-y-8">
       {/* Top Banner */}
@@ -440,7 +522,7 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
         </div>
       </div>
 
-      {/* Main Navigation Tabs (Discover, Invitations, My Connections) */}
+      {/* Main Navigation Tabs (Discover, Research, Invitations, My Connections) */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
         <div className="flex items-center gap-2">
           <button
@@ -452,6 +534,18 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
             }`}
           >
             Discover Network ({allMembers.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("publications")}
+            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all rounded-full cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "publications"
+                ? "bg-white text-black font-semibold shadow-md"
+                : "apple-glass-pill text-neutral-300 hover:text-white"
+            }`}
+          >
+            <Award className="h-3.5 w-3.5" />
+            <span>Research & Achievements ({publications.length})</span>
           </button>
 
           <button
@@ -679,6 +773,197 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
         </div>
       )}
 
+      {/* TAB: RESEARCH & ACHIEVEMENTS */}
+      {activeTab === "publications" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-display text-xl md:text-2xl text-white font-medium">
+                Student Research, Moot Awards & Publications
+              </h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Explore scholarly papers, case notes, and moot court honours authored by law scholars across Indian law universities.
+              </p>
+            </div>
+
+            {baseRoute === "/student" && (
+              <Link
+                to="/student/publications"
+                className="bg-white text-black hover:bg-neutral-200 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-md self-start sm:self-auto"
+              >
+                <Award className="h-3.5 w-3.5" />
+                <span>Publish Work</span>
+              </Link>
+            )}
+          </div>
+
+          {/* Search and Category Filters */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-neutral-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search publications by title, student author, college, or legal provision (e.g. BNSS 479, BSA, Evidence)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full apple-glass-input pl-10 pr-4 py-2.5 text-xs text-white placeholder-neutral-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "All Works", value: "ALL" },
+                { label: "Research Papers", value: "Research Paper" },
+                { label: "Moot Court Awards", value: "Moot Court Achievement" },
+                { label: "Articles & Commentary", value: "Article / Commentary" },
+                { label: "Academic Awards", value: "Academic Award" },
+                { label: "Case Notes", value: "Case Note" },
+              ].map((c) => (
+                <button
+                  key={c.value}
+                  onClick={() => setPubCategory(c.value as any)}
+                  className={`apple-glass-pill px-3 py-1 text-xs font-mono transition-all cursor-pointer ${
+                    pubCategory === c.value
+                      ? "text-white font-semibold border-purple-500/50 bg-purple-500/20"
+                      : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Publications Cards */}
+          <div className="space-y-4">
+            {filteredPublications.length === 0 ? (
+              <div className="apple-glass-card p-12 text-center space-y-3">
+                <Award className="h-8 w-8 text-neutral-500 mx-auto" />
+                <h3 className="text-white font-medium text-sm">No Publications Found</h3>
+                <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                  No student research matches your search criteria.
+                </p>
+              </div>
+            ) : (
+              filteredPublications.map((pub) => {
+                const isLiked = pub.likedBy?.includes(currentUser.id);
+                const isCopied = copiedPubId === pub.id;
+
+                return (
+                  <div
+                    key={pub.id}
+                    className="apple-glass-card p-6 relative transition-all hover:border-white/20 space-y-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/[0.06] pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-purple-950/40 border border-purple-500/30 flex items-center justify-center text-purple-300 font-serif font-bold text-sm">
+                          {pub.authorName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-white text-sm">{pub.authorName}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-neutral-300">
+                              {pub.authorRole}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-400 font-mono mt-0.5 flex items-center gap-1">
+                            <GraduationCap className="h-3 w-3 text-neutral-500" />
+                            <span>{pub.authorCollege}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-purple-500/40 text-purple-300 bg-purple-950/30">
+                          {pub.category}
+                        </span>
+                        <span className="text-[11px] text-neutral-500 font-mono">
+                          {new Date(pub.publishedAt).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4
+                        onClick={() => setReadingPubModal(pub)}
+                        className="font-display text-xl text-white font-medium hover:text-purple-300 transition-colors cursor-pointer"
+                      >
+                        {pub.title}
+                      </h4>
+                      <p className="mt-2 text-xs md:text-sm text-neutral-300 font-light leading-relaxed">
+                        {pub.abstract}
+                      </p>
+                    </div>
+
+                    {pub.tags && pub.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {pub.tags.map((t) => (
+                          <span key={t} className="apple-glass-pill px-2.5 py-0.5 text-[10px] font-mono text-neutral-400">
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleLikePub(pub.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transition-colors ${
+                            isLiked
+                              ? "bg-rose-500/20 border border-rose-500/40 text-rose-300"
+                              : "apple-glass-pill text-neutral-400 hover:text-rose-400"
+                          }`}
+                        >
+                          <Heart className={`h-3.5 w-3.5 ${isLiked ? "fill-rose-400 text-rose-400" : ""}`} />
+                          <span>{pub.likesCount || 0}</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleCopyPubCitation(pub)}
+                          className="apple-glass-pill px-3 py-1.5 text-neutral-400 hover:text-white flex items-center gap-1.5 cursor-pointer"
+                        >
+                          {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span>{isCopied ? "Citation Copied" : "Cite Work"}</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {pub.externalLink && (
+                          <a
+                            href={pub.externalLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="apple-glass-pill px-3 py-1.5 text-purple-300 hover:text-white flex items-center gap-1"
+                          >
+                            <span>SSRN / Repository</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleConnectAuthor(pub)}
+                          disabled={connectingId === pub.authorId || currentUser.id === pub.authorId}
+                          className="bg-white text-black hover:bg-neutral-200 px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          <span>Connect with Author</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
       {/* TAB 2: INVITATIONS / PENDING REQUESTS */}
       {activeTab === "invitations" && (
         <div className="space-y-6">
@@ -818,6 +1103,132 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reading Modal for Research / Publication */}
+      {readingPubModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="apple-glass-card w-full max-w-3xl p-6 md:p-8 relative my-8 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setReadingPubModal(null)}
+              className="absolute right-4 top-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="border-b border-white/[0.08] pb-4">
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border border-purple-500/40 text-purple-300 bg-purple-950/30 inline-block mb-3">
+                {readingPubModal.category}
+              </span>
+              <h2 className="font-display text-2xl md:text-3xl text-white font-medium">
+                {readingPubModal.title}
+              </h2>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-neutral-400 font-mono">
+                <span className="text-white font-semibold">{readingPubModal.authorName}</span>
+                <span>•</span>
+                <span>{readingPubModal.authorRole}</span>
+                <span>•</span>
+                <span>{readingPubModal.authorCollege}</span>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-6 text-sm text-neutral-200 leading-relaxed font-light">
+              <div>
+                <h4 className="text-[0.7rem] uppercase tracking-wider text-purple-300 font-mono mb-2">
+                  Abstract & Executive Summary
+                </h4>
+                <p className="bg-white/[0.03] p-4 rounded-xl border border-white/[0.06] text-neutral-300">
+                  {readingPubModal.abstract}
+                </p>
+              </div>
+
+              {readingPubModal.fullContent && (
+                <div>
+                  <h4 className="text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-2">
+                    Detailed Paper / Argument Points
+                  </h4>
+                  <div className="apple-glass-input p-4 rounded-xl text-neutral-200 whitespace-pre-wrap font-sans text-xs md:text-sm leading-relaxed">
+                    {readingPubModal.fullContent}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags */}
+              {readingPubModal.tags && readingPubModal.tags.length > 0 && (
+                <div>
+                  <h4 className="text-[0.7rem] uppercase tracking-wider text-neutral-400 font-mono mb-2">
+                    Subject Matter & Provisions
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {readingPubModal.tags.map((t) => (
+                      <span key={t} className="apple-glass-pill px-3 py-1 text-xs font-mono text-neutral-300">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Academic Citation Box */}
+              <div className="bg-purple-950/20 border border-purple-500/30 p-4 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[0.7rem] uppercase tracking-wider text-purple-300 font-mono flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>Academic Citation (Bluebook Standard)</span>
+                  </span>
+                  <button
+                    onClick={() => handleCopyPubCitation(readingPubModal)}
+                    className="apple-glass-pill px-2.5 py-1 text-[11px] font-mono text-purple-200 hover:text-white flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="h-3 w-3" />
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <p className="text-xs font-mono text-neutral-300 select-all">
+                  {generateBluebookCitation(readingPubModal)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-white/[0.08] flex items-center justify-between gap-4">
+              <button
+                onClick={() => handleLikePub(readingPubModal.id)}
+                className="apple-glass-pill px-4 py-2 text-xs font-mono text-rose-300 hover:bg-rose-500/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Heart className="h-3.5 w-3.5 fill-rose-400 text-rose-400" />
+                <span>{readingPubModal.likesCount || 0} Applauds</span>
+              </button>
+
+              <div className="flex items-center gap-3">
+                {readingPubModal.externalLink && (
+                  <a
+                    href={readingPubModal.externalLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-white text-black hover:bg-neutral-200 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                  >
+                    <span>External Repository</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleConnectAuthor(readingPubModal)}
+                  disabled={connectingId === readingPubModal.authorId || currentUser.id === readingPubModal.authorId}
+                  className="apple-glass-pill px-4 py-2 text-xs font-mono uppercase tracking-wider text-white hover:bg-white hover:text-black cursor-pointer disabled:opacity-40"
+                >
+                  Connect with Author
+                </button>
+                <button
+                  onClick={() => setReadingPubModal(null)}
+                  className="apple-glass-pill px-4 py-2 text-xs font-mono text-neutral-300 hover:text-white cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
