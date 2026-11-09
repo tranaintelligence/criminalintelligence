@@ -19,6 +19,7 @@ export interface StudentProfile {
   isIntern?: boolean; // If true, enables Case Tracker
   internFirmOrChamber?: string;
   enrolledAt?: string;
+  decisionNotes?: string;
 }
 
 export function getStoredUserRole(userId?: string | null, email?: string | null): UserRole {

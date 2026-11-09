@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useLocation, useNavigate, redirect } fro
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { 
   BarChart3, Users, Scale, Settings, Menu, X, ShieldCheck, MessageSquare, ShieldAlert, LogOut,
-  Search, ChevronLeft, ChevronRight, Activity, Sparkles, LayoutDashboard
+  Search, ChevronLeft, ChevronRight, Activity, Sparkles, LayoutDashboard, GraduationCap
 } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -178,6 +178,7 @@ const navItems: NavItemConfig[] = [
   { to: "/founders", label: "Dashboard", icon: BarChart3, exact: true, section: "MAIN" },
   { to: "/founders/users", label: "Users", icon: Users, section: "MAIN" },
   { to: "/founders/lawyers", label: "Lawyers", icon: Scale, section: "MAIN" },
+  { to: "/founders/students", label: "Law Students & Interns", icon: GraduationCap, section: "MAIN" },
   { to: "/founders/chats", label: "Client Lawyer Chat", icon: MessageSquare, section: "WORKSPACE", badge: "3" },
   { to: "/founders/admin", label: "API Keys & Admin", icon: ShieldCheck, section: "WORKSPACE" },
   { to: "/founders/settings", label: "Settings", icon: Settings, section: "WORKSPACE" },

@@ -28,6 +28,7 @@ import { Route as FoundersHealthRouteImport } from './routes/founders.health'
 import { Route as FoundersLawyersRouteImport } from './routes/founders.lawyers'
 import { Route as FoundersResearchLogsRouteImport } from './routes/founders.research-logs'
 import { Route as FoundersSettingsRouteImport } from './routes/founders.settings'
+import { Route as FoundersStudentsRouteImport } from './routes/founders.students'
 import { Route as FoundersUsersRouteImport } from './routes/founders.users'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as AuthenticatedDashboardAnalyseRouteImport } from './routes/_authenticated/dashboard.analyse'
@@ -152,6 +153,11 @@ const FoundersResearchLogsRoute = FoundersResearchLogsRouteImport.update({
 const FoundersSettingsRoute = FoundersSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => FoundersRoute,
+} as any)
+const FoundersStudentsRoute = FoundersStudentsRouteImport.update({
+  id: '/students',
+  path: '/students',
   getParentRoute: () => FoundersRoute,
 } as any)
 const FoundersUsersRoute = FoundersUsersRouteImport.update({
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/founders/lawyers': typeof FoundersLawyersRoute
   '/founders/research-logs': typeof FoundersResearchLogsRoute
   '/founders/settings': typeof FoundersSettingsRoute
+  '/founders/students': typeof FoundersStudentsRoute
   '/founders/users': typeof FoundersUsersRouteWithChildren
   '/founders/': typeof FoundersIndexRoute
   '/dashboard/analyse': typeof AuthenticatedDashboardAnalyseRoute
@@ -403,6 +410,7 @@ export interface FileRoutesByTo {
   '/founders/lawyers': typeof FoundersLawyersRoute
   '/founders/research-logs': typeof FoundersResearchLogsRoute
   '/founders/settings': typeof FoundersSettingsRoute
+  '/founders/students': typeof FoundersStudentsRoute
   '/founders': typeof FoundersIndexRoute
   '/dashboard/analyse': typeof AuthenticatedDashboardAnalyseRoute
   '/dashboard/cases': typeof AuthenticatedDashboardCasesRoute
@@ -455,6 +463,7 @@ export interface FileRoutesById {
   '/founders/lawyers': typeof FoundersLawyersRoute
   '/founders/research-logs': typeof FoundersResearchLogsRoute
   '/founders/settings': typeof FoundersSettingsRoute
+  '/founders/students': typeof FoundersStudentsRoute
   '/founders/users': typeof FoundersUsersRouteWithChildren
   '/founders/': typeof FoundersIndexRoute
   '/_authenticated/dashboard/analyse': typeof AuthenticatedDashboardAnalyseRoute
@@ -508,6 +517,7 @@ export interface FileRouteTypes {
     | '/founders/lawyers'
     | '/founders/research-logs'
     | '/founders/settings'
+    | '/founders/students'
     | '/founders/users'
     | '/founders/'
     | '/dashboard/analyse'
@@ -555,6 +565,7 @@ export interface FileRouteTypes {
     | '/founders/lawyers'
     | '/founders/research-logs'
     | '/founders/settings'
+    | '/founders/students'
     | '/founders'
     | '/dashboard/analyse'
     | '/dashboard/cases'
@@ -606,6 +617,7 @@ export interface FileRouteTypes {
     | '/founders/lawyers'
     | '/founders/research-logs'
     | '/founders/settings'
+    | '/founders/students'
     | '/founders/users'
     | '/founders/'
     | '/_authenticated/dashboard/analyse'
@@ -783,6 +795,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/founders/settings'
       preLoaderRoute: typeof FoundersSettingsRouteImport
+      parentRoute: typeof FoundersRoute
+    }
+    '/founders/students': {
+      id: '/founders/students'
+      path: '/students'
+      fullPath: '/founders/students'
+      preLoaderRoute: typeof FoundersStudentsRouteImport
       parentRoute: typeof FoundersRoute
     }
     '/founders/users': {
@@ -1143,6 +1162,7 @@ interface FoundersRouteChildren {
   FoundersLawyersRoute: typeof FoundersLawyersRoute
   FoundersResearchLogsRoute: typeof FoundersResearchLogsRoute
   FoundersSettingsRoute: typeof FoundersSettingsRoute
+  FoundersStudentsRoute: typeof FoundersStudentsRoute
   FoundersUsersRoute: typeof FoundersUsersRouteWithChildren
   FoundersIndexRoute: typeof FoundersIndexRoute
 }
@@ -1156,6 +1176,7 @@ const FoundersRouteChildren: FoundersRouteChildren = {
   FoundersLawyersRoute: FoundersLawyersRoute,
   FoundersResearchLogsRoute: FoundersResearchLogsRoute,
   FoundersSettingsRoute: FoundersSettingsRoute,
+  FoundersStudentsRoute: FoundersStudentsRoute,
   FoundersUsersRoute: FoundersUsersRouteWithChildren,
   FoundersIndexRoute: FoundersIndexRoute,
 }

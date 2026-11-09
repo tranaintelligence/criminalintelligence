@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { 
   GraduationCap, BookOpen, Scale, Search, FileText, 
   Sparkles, Users, ArrowUpRight, LogOut, ChevronRight, Menu, X, Landmark, ShieldCheck, User, Hash, Compass,
-  Award, Upload, Image as ImageIcon, CheckCircle2, Lock, Trash2
+  Award, Upload, Image as ImageIcon, CheckCircle2, Lock, Trash2, ShieldAlert, Clock, AlertCircle
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,7 @@ function StudentLayout() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [isResubmittingAfterRejection, setIsResubmittingAfterRejection] = useState(false);
 
   // Intern status detection (from profile or explicit login checkbox)
   const isIntern = Boolean(
@@ -222,8 +223,93 @@ function StudentLayout() {
     navigate({ to: "/auth", replace: true });
   }
 
+  // Access Declined Gate: Founders reviewed and declined access
+  if (studentProfile?.verificationStatus === "REJECTED" && !isResubmittingAfterRejection && !isProfileRoute) {
+    return (
+      <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center selection:bg-white selection:text-black">
+        <Toaster />
+        <div className="fixed top-[-80px] left-[5%] w-[550px] h-[550px] rounded-full bg-rose-500/[0.04] blur-[140px] pointer-events-none -z-10" />
+        <div className="fixed top-[30%] right-[-80px] w-[550px] h-[550px] rounded-full bg-white/[0.02] blur-[150px] pointer-events-none -z-10" />
+
+        <div className="w-full max-w-xl apple-glass-card p-8 md:p-10 relative z-10 border border-rose-500/30 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-sm">
+                <ShieldAlert className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="font-display text-2xl font-semibold tracking-[0.15em] text-white">TRANA</span>
+                <p className="text-[0.7rem] text-rose-300 font-mono tracking-widest uppercase">Academic Verification</p>
+              </div>
+            </div>
+            <div className="apple-glass-pill px-3 py-1 text-xs text-rose-300 font-mono border-rose-500/30 flex items-center gap-1.5">
+              <span>Access Declined</span>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            <h1 className="font-display text-2xl md:text-3xl font-medium text-white">
+              Scholar Access Declined
+            </h1>
+            <p className="text-xs md:text-sm text-neutral-300 leading-relaxed">
+              Your student registration and uploaded College ID document were reviewed by TRANA platform administrators and access was not approved.
+            </p>
+
+            {studentProfile?.decisionNotes && (
+              <div className="bg-rose-500/10 border border-rose-500/25 p-3.5 rounded-xl space-y-1 mt-3">
+                <span className="text-[10px] uppercase font-mono text-rose-300 font-semibold block">
+                  Founders Feedback / Reason:
+                </span>
+                <p className="text-xs text-rose-200">
+                  {studentProfile.decisionNotes}
+                </p>
+              </div>
+            )}
+
+            <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-2 mt-4 text-xs font-mono text-neutral-300">
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Institution:</span>
+                <span className="text-white font-medium">{studentProfile.university || "Faculty of Law"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Roll Number:</span>
+                <span className="text-amber-300 font-bold">{studentProfile.studentIdNumber || "N/A"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500">Uploaded File:</span>
+                <span className="text-neutral-300">{studentProfile.collegeIdFileName || "college_id.jpg"}</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-neutral-400 font-mono pt-2">
+              Common reasons include illegible photos, expired academic session, or roll number discrepancies. You may re-upload a clear College ID card now to re-apply.
+            </p>
+          </div>
+
+          <div className="mt-8 pt-5 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3">
+            <Link
+              to="/dashboard"
+              className="text-xs font-mono uppercase tracking-wider text-neutral-400 hover:text-white transition-colors"
+            >
+              ← Return to Citizen Dashboard
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setIsResubmittingAfterRejection(true)}
+              className="w-full sm:w-auto bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all shadow-md cursor-pointer font-mono flex items-center justify-center gap-2"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              <span>Re-upload Valid ID Card</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Mandatory Student Enrollment Gate: requires roll no, college, etc.
-  if (!isEnrolled && !isProfileRoute) {
+  if ((!isEnrolled || isResubmittingAfterRejection) && !isProfileRoute) {
     return (
       <div className="founders-canvas apple-glass-canvas relative min-h-screen text-[#F0F0F0] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center selection:bg-white selection:text-black">
         <Toaster />
@@ -522,7 +608,7 @@ function StudentLayout() {
             <img src="/favicon.svg" alt="TRANA" className="w-full h-full object-cover" />
           </Link>
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Link
                 to="/"
                 className="font-display font-bold text-base text-white tracking-wide hover:text-neutral-200 transition-colors truncate"
@@ -532,6 +618,18 @@ function StudentLayout() {
               <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                 {isIntern ? "LEGAL INTERN" : "STUDENT"}
               </span>
+              {studentProfile?.verificationStatus === "VERIFIED" && (
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                  <ShieldCheck className="h-2.5 w-2.5" />
+                  <span>VERIFIED</span>
+                </span>
+              )}
+              {studentProfile?.verificationStatus === "PENDING_VERIFICATION" && (
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                  <Clock className="h-2.5 w-2.5" />
+                  <span>UNDER REVIEW</span>
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-neutral-400 font-sans truncate leading-none mt-0.5">
               {isIntern ? "Legal Intern Workspace" : "Law Student Workspace"}
@@ -682,6 +780,24 @@ function StudentLayout() {
       {/* Main Content Area */}
       <main className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
         <div className="max-w-7xl mx-auto space-y-6">
+          {studentProfile?.verificationStatus === "PENDING_VERIFICATION" && (
+            <div className="apple-glass-card border-amber-500/30 bg-amber-500/[0.04] p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                <div>
+                  <span className="font-semibold text-amber-300 font-mono uppercase text-[10px] tracking-wider block sm:inline sm:mr-2">
+                    ID Verification Pending
+                  </span>
+                  <span className="text-neutral-300">
+                    Your College ID card is being reviewed by TRANA founders. You have provisional access to student drafting and research tools.
+                  </span>
+                </div>
+              </div>
+              <div className="text-[10px] font-mono text-neutral-400 shrink-0">
+                File: {studentProfile.collegeIdFileName || "college_id.jpg"}
+              </div>
+            </div>
+          )}
           <Outlet />
         </div>
       </main>
