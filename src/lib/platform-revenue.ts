@@ -123,3 +123,4 @@ export function formatInr(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+

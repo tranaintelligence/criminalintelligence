@@ -113,3 +113,4 @@ export function deleteAdvocateContract(contractId: string): void {
     console.warn("Failed to delete advocate contract:", err);
   }
 }
+

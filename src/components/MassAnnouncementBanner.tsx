@@ -190,3 +190,4 @@ export function MassAnnouncementBanner({ currentDashboard = "citizens", classNam
     </div>
   );
 }
+
