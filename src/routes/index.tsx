@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -39,6 +40,7 @@ function Index() {
     return () => io.disconnect();
   }, []);
   const [modalOpen, setModalOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
     <div className="bg-background text-foreground border-l border-r border-black min-h-screen">
@@ -50,10 +52,59 @@ function Index() {
             <a href="#features" className="hover:text-foreground">Features</a>
             <Link to="/dashboard" className="hover:text-foreground">For Citizens</Link>
             <Link to="/lawyer" className="hover:text-foreground">For Legal Professionals</Link>
+            <Link to="/student" className="hover:text-foreground">For Law Students</Link>
             <a href="#how" className="hover:text-foreground">How it works</a>
           </div>
-          <Link to="/dashboard" className="btn-solid !px-3 !py-2 !text-[0.65rem] md:!px-4 md:!py-2.5 md:!text-[0.7rem]">For Citizens</Link>
+          <div className="flex items-center gap-2">
+            <Link to="/dashboard" className="btn-solid !px-3 !py-2 !text-[0.65rem] md:!px-4 md:!py-2.5 md:!text-[0.7rem] hidden sm:inline-flex">For Citizens</Link>
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              className="md:hidden p-2 rounded-lg border border-border text-foreground hover:bg-muted"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileNavOpen && (
+          <div className="md:hidden border-t border-border bg-background/98 px-5 py-4 space-y-3 animate-fade-in shadow-2xl">
+            <div className="grid grid-cols-1 gap-2 pt-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              <Link
+                to="/dashboard"
+                onClick={() => setMobileNavOpen(false)}
+                className="p-2.5 rounded-lg bg-white/[0.04] text-foreground hover:bg-white/10 font-semibold flex items-center justify-between"
+              >
+                <span>Citizen Workspace</span>
+                <span>&rarr;</span>
+              </Link>
+              <Link
+                to="/lawyer"
+                onClick={() => setMobileNavOpen(false)}
+                className="p-2.5 rounded-lg bg-white/[0.04] text-foreground hover:bg-white/10 font-semibold flex items-center justify-between"
+              >
+                <span>Advocate Workspace</span>
+                <span>&rarr;</span>
+              </Link>
+              <Link
+                to="/student"
+                onClick={() => setMobileNavOpen(false)}
+                className="p-2.5 rounded-lg bg-white/[0.04] text-foreground hover:bg-white/10 font-semibold flex items-center justify-between"
+              >
+                <span>Student &amp; Intern Workspace</span>
+                <span>&rarr;</span>
+              </Link>
+            </div>
+            <div className="border-t border-border/60 pt-2 flex flex-col gap-2 text-sm text-muted-foreground">
+              <a href="#who" onClick={() => setMobileNavOpen(false)} className="py-1 hover:text-foreground">Who we help</a>
+              <a href="#features" onClick={() => setMobileNavOpen(false)} className="py-1 hover:text-foreground">Features</a>
+              <a href="#how" onClick={() => setMobileNavOpen(false)} className="py-1 hover:text-foreground">How it works</a>
+              <Link to="/founders" onClick={() => setMobileNavOpen(false)} className="py-1 text-amber-400 font-mono text-xs">Founders Console</Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}

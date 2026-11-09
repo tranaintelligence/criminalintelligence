@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useUserRole } from "@/lib/user-role";
 import { getLocalConnections } from "@/lib/network-connections";
+import { LegalNewsFeed } from "@/components/LegalNewsFeed";
 
 export const Route = createFileRoute("/_authenticated/student/")({
   head: () => ({
@@ -336,6 +337,11 @@ function StudentOverviewPage() {
             </Link>
           )}
         </div>
+      </div>
+
+      {/* DAILY INDIAN LEGAL NEWS */}
+      <div>
+        <LegalNewsFeed className="rounded-2xl border-white/10 shadow-xl overflow-hidden" />
       </div>
 
       {/* STATUTORY JURISDICTION & ACADEMIC NOTICE */}

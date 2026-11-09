@@ -3,11 +3,12 @@ import { useRef, useState } from "react";
 import { 
   Upload, X, FileText, Scale, ShieldCheck, CheckCircle2, 
   AlertTriangle, ArrowRight, ExternalLink, Copy, Check, Sparkles, 
-  MessageSquare, Loader2, RotateCcw, Clock, Trash2, History
+  MessageSquare, Loader2, RotateCcw, Clock, Trash2, History, HeartHandshake
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_URL } from "@/lib/trana-backend";
 import { useTranaCredential, authFetch, authHeaders } from "@/lib/trana-auth";
+import { ConnectProfessionalOfferModal } from "@/components/ConnectProfessionalOfferModal";
 
 export const Route = createFileRoute("/_authenticated/dashboard/analyse")({
   head: () => ({
@@ -127,6 +128,7 @@ function Analyse() {
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [pastAnalyses, setPastAnalyses] = useState<StoredPastAnalysis[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -842,13 +844,22 @@ function Analyse() {
               TRANA has decoded the statutory provisions and immediate rights for you. For legal drafting, bail petitions in court, or ongoing police representation, connect directly with a verified advocate.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link
-                to="/dashboard/lawyers"
+              <button
+                type="button"
+                onClick={() => setIsConnectModalOpen(true)}
                 className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white text-black hover:bg-neutral-200 border-none flex items-center gap-2 cursor-pointer transition-all"
               >
-                <span>Find an Advocate</span>
+                <span>Connect with an Advocate</span>
                 <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConnectModalOpen(true)}
+                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center gap-2 cursor-pointer transition-all"
+              >
+                <HeartHandshake className="h-3.5 w-3.5" />
+                <span>Free Legal Aid (15100)</span>
+              </button>
               <Link
                 to="/dashboard/consultations"
                 className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/10 text-white hover:bg-white/20 border border-white/25 flex items-center gap-2 cursor-pointer transition-all"
@@ -865,6 +876,13 @@ function Analyse() {
       )}
         </>
       )}
+
+      {/* Connect with Advocate & Free Legal Aid Modal */}
+      <ConnectProfessionalOfferModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        initialTopic={result?.offense_summary || text.slice(0, 100) || "Criminal Complaint Analysis"}
+      />
     </div>
   );
 }

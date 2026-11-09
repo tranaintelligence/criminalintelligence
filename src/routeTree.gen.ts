@@ -46,6 +46,7 @@ import { Route as AuthenticatedLawyerDrafterRouteImport } from './routes/_authen
 import { Route as AuthenticatedLawyerInboxRouteImport } from './routes/_authenticated/lawyer.inbox'
 import { Route as AuthenticatedLawyerNetworkRouteImport } from './routes/_authenticated/lawyer.network'
 import { Route as AuthenticatedLawyerProfileRouteImport } from './routes/_authenticated/lawyer.profile'
+import { Route as AuthenticatedLawyerQueriesRouteImport } from './routes/_authenticated/lawyer.queries'
 import { Route as AuthenticatedLawyerReferralsRouteImport } from './routes/_authenticated/lawyer.referrals'
 import { Route as AuthenticatedLawyerResearchRouteImport } from './routes/_authenticated/lawyer.research'
 import { Route as AuthenticatedStudentIndexRouteImport } from './routes/_authenticated/student.index'
@@ -261,6 +262,12 @@ const AuthenticatedLawyerProfileRoute =
     path: '/profile',
     getParentRoute: () => AuthenticatedLawyerRoute,
   } as any)
+const AuthenticatedLawyerQueriesRoute =
+  AuthenticatedLawyerQueriesRouteImport.update({
+    id: '/queries',
+    path: '/queries',
+    getParentRoute: () => AuthenticatedLawyerRoute,
+  } as any)
 const AuthenticatedLawyerReferralsRoute =
   AuthenticatedLawyerReferralsRouteImport.update({
     id: '/referrals',
@@ -379,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/lawyer/inbox': typeof AuthenticatedLawyerInboxRoute
   '/lawyer/network': typeof AuthenticatedLawyerNetworkRoute
   '/lawyer/profile': typeof AuthenticatedLawyerProfileRoute
+  '/lawyer/queries': typeof AuthenticatedLawyerQueriesRoute
   '/lawyer/referrals': typeof AuthenticatedLawyerReferralsRoute
   '/lawyer/research': typeof AuthenticatedLawyerResearchRoute
   '/student/cases': typeof AuthenticatedStudentCasesRoute
@@ -426,6 +434,7 @@ export interface FileRoutesByTo {
   '/lawyer/inbox': typeof AuthenticatedLawyerInboxRoute
   '/lawyer/network': typeof AuthenticatedLawyerNetworkRoute
   '/lawyer/profile': typeof AuthenticatedLawyerProfileRoute
+  '/lawyer/queries': typeof AuthenticatedLawyerQueriesRoute
   '/lawyer/referrals': typeof AuthenticatedLawyerReferralsRoute
   '/lawyer/research': typeof AuthenticatedLawyerResearchRoute
   '/student/cases': typeof AuthenticatedStudentCasesRoute
@@ -480,6 +489,7 @@ export interface FileRoutesById {
   '/_authenticated/lawyer/inbox': typeof AuthenticatedLawyerInboxRoute
   '/_authenticated/lawyer/network': typeof AuthenticatedLawyerNetworkRoute
   '/_authenticated/lawyer/profile': typeof AuthenticatedLawyerProfileRoute
+  '/_authenticated/lawyer/queries': typeof AuthenticatedLawyerQueriesRoute
   '/_authenticated/lawyer/referrals': typeof AuthenticatedLawyerReferralsRoute
   '/_authenticated/lawyer/research': typeof AuthenticatedLawyerResearchRoute
   '/_authenticated/student/cases': typeof AuthenticatedStudentCasesRoute
@@ -534,6 +544,7 @@ export interface FileRouteTypes {
     | '/lawyer/inbox'
     | '/lawyer/network'
     | '/lawyer/profile'
+    | '/lawyer/queries'
     | '/lawyer/referrals'
     | '/lawyer/research'
     | '/student/cases'
@@ -581,6 +592,7 @@ export interface FileRouteTypes {
     | '/lawyer/inbox'
     | '/lawyer/network'
     | '/lawyer/profile'
+    | '/lawyer/queries'
     | '/lawyer/referrals'
     | '/lawyer/research'
     | '/student/cases'
@@ -634,6 +646,7 @@ export interface FileRouteTypes {
     | '/_authenticated/lawyer/inbox'
     | '/_authenticated/lawyer/network'
     | '/_authenticated/lawyer/profile'
+    | '/_authenticated/lawyer/queries'
     | '/_authenticated/lawyer/referrals'
     | '/_authenticated/lawyer/research'
     | '/_authenticated/student/cases'
@@ -923,6 +936,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLawyerProfileRouteImport
       parentRoute: typeof AuthenticatedLawyerRoute
     }
+    '/_authenticated/lawyer/queries': {
+      id: '/_authenticated/lawyer/queries'
+      path: '/queries'
+      fullPath: '/lawyer/queries'
+      preLoaderRoute: typeof AuthenticatedLawyerQueriesRouteImport
+      parentRoute: typeof AuthenticatedLawyerRoute
+    }
     '/_authenticated/lawyer/referrals': {
       id: '/_authenticated/lawyer/referrals'
       path: '/referrals'
@@ -1076,6 +1096,7 @@ interface AuthenticatedLawyerRouteChildren {
   AuthenticatedLawyerInboxRoute: typeof AuthenticatedLawyerInboxRoute
   AuthenticatedLawyerNetworkRoute: typeof AuthenticatedLawyerNetworkRoute
   AuthenticatedLawyerProfileRoute: typeof AuthenticatedLawyerProfileRoute
+  AuthenticatedLawyerQueriesRoute: typeof AuthenticatedLawyerQueriesRoute
   AuthenticatedLawyerReferralsRoute: typeof AuthenticatedLawyerReferralsRoute
   AuthenticatedLawyerResearchRoute: typeof AuthenticatedLawyerResearchRoute
   AuthenticatedLawyerIndexRoute: typeof AuthenticatedLawyerIndexRoute
@@ -1089,6 +1110,7 @@ const AuthenticatedLawyerRouteChildren: AuthenticatedLawyerRouteChildren = {
   AuthenticatedLawyerInboxRoute: AuthenticatedLawyerInboxRoute,
   AuthenticatedLawyerNetworkRoute: AuthenticatedLawyerNetworkRoute,
   AuthenticatedLawyerProfileRoute: AuthenticatedLawyerProfileRoute,
+  AuthenticatedLawyerQueriesRoute: AuthenticatedLawyerQueriesRoute,
   AuthenticatedLawyerReferralsRoute: AuthenticatedLawyerReferralsRoute,
   AuthenticatedLawyerResearchRoute: AuthenticatedLawyerResearchRoute,
   AuthenticatedLawyerIndexRoute: AuthenticatedLawyerIndexRoute,

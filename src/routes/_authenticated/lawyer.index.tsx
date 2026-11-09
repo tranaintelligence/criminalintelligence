@@ -12,6 +12,7 @@ import { useLawyerAuth } from "./lawyer";
 import { formatCourtsHeader } from "@/lib/courts-data";
 import { ConsultationChatModal } from "@/components/ConsultationChatModal";
 import { CaseSummaryContent } from "@/components/CaseSummaryViewer";
+import { LegalNewsFeed } from "@/components/LegalNewsFeed";
 
 export const Route = createFileRoute("/_authenticated/lawyer/")({
   head: () => ({
@@ -478,6 +479,11 @@ function LawyerOverview() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* DAILY INDIAN LEGAL NEWS */}
+      <section>
+        <LegalNewsFeed className="rounded-2xl border-white/10 shadow-xl overflow-hidden" />
       </section>
 
       {/* RECENT REFERRALS TABLE */}

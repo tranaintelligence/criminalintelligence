@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { MessageBubble } from '@/components/Chat/MessageBubble';
 import { SystemStatus } from '@/components/Sidebar/SystemStatus';
+import { ConnectProfessionalOfferModal } from '@/components/ConnectProfessionalOfferModal';
 import type { ApplicableLaw, ChatMessage, ChatSession, StructuredAnalysis } from '@/lib/trana-types';
 import { authFetch, authHeaders, notifyApiOnline, useTranaCredential, API_ONLINE_EVENT } from '@/lib/trana-auth';
 import { API_URL } from '@/lib/trana-backend';
@@ -283,6 +284,14 @@ export function ChatViewContent() {
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [hasOfferedConnection, setHasOfferedConnection] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('trana_offered_advocate_connect') === 'true';
+    }
+    return false;
+  });
+  const [dismissedOffer, setDismissedOffer] = useState(false);
   const [health, setHealth] = useState<{ status: 'checking' | 'online' | 'offline'; sourceRegistryReady: boolean }>({
     status: 'checking',
     sourceRegistryReady: false,
@@ -924,6 +933,76 @@ export function ChatViewContent() {
               <MessageBubble key={idx} message={msg} />
             ))}
             {isLoading && <ThinkingAnimation />}
+
+            {/* Offer Once to Connect with an Advocate */}
+            {!isLoading && messages.some((m) => m.role === 'assistant' && m.content !== WELCOME_MESSAGE) && !hasOfferedConnection && !dismissedOffer && (
+              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-4 text-xs shadow-lg animate-fade-in">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Scale className="h-4 w-4 text-amber-400" />
+                      <span className="font-semibold text-white tracking-tight">
+                        Would you like to connect with a verified advocate?
+                      </span>
+                      <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                        Offered Once
+                      </span>
+                    </div>
+                    <p className="text-neutral-300 leading-relaxed text-[11px]">
+                      Advocate consultations are chargeable professional services. TRANA provides a neutral, unranked list so you can choose independently. If you cannot afford legal fees, free legal aid is available via NALSA / DLSA.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sessionStorage.setItem('trana_offered_advocate_connect', 'true');
+                      setHasOfferedConnection(true);
+                      setDismissedOffer(true);
+                    }}
+                    className="text-neutral-500 hover:text-white p-1 text-xs shrink-0"
+                    title="Dismiss"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sessionStorage.setItem('trana_offered_advocate_connect', 'true');
+                      setHasOfferedConnection(true);
+                      setIsConnectModalOpen(true);
+                    }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+                  >
+                    View Advocates (Chargeable)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sessionStorage.setItem('trana_offered_advocate_connect', 'true');
+                      setHasOfferedConnection(true);
+                      setIsConnectModalOpen(true);
+                    }}
+                    className="text-xs font-mono text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors cursor-pointer"
+                  >
+                    Free Legal Aid (15100)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sessionStorage.setItem('trana_offered_advocate_connect', 'true');
+                      setHasOfferedConnection(true);
+                      setDismissedOffer(true);
+                    }}
+                    className="text-xs font-mono text-neutral-400 hover:text-neutral-200 px-2.5 py-1.5 transition-colors cursor-pointer"
+                  >
+                    No, thank you
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -1039,6 +1118,13 @@ export function ChatViewContent() {
           </div>
         </div>
       </div>
+
+      {/* Connect with Advocate Offer Modal */}
+      <ConnectProfessionalOfferModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        initialTopic={messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || 'Legal First-Aid Consultation'}
+      />
     </div>
   );
 }

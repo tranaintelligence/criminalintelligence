@@ -67,6 +67,7 @@ const navItems = [
   { to: "/lawyer/cases", label: "Case Tracker", icon: Calendar },
   { to: "/lawyer/referrals", label: "Client Referrals", icon: Briefcase },
   { to: "/lawyer/inbox", label: "Inbox", icon: MessageSquare },
+  { to: "/lawyer/queries", label: "Citizen Queries", icon: Users },
   { to: "/lawyer/drafter", label: "AI Drafter", icon: Sparkles, badge: "In Development" },
   { to: "/lawyer/citations", label: "Citation Finder", icon: BookOpen, badge: "In Development" },
   { to: "/lawyer/research", label: "Case Research", icon: Search, badge: "Planned" },
@@ -274,6 +275,7 @@ function LawyerLayout() {
   const [experienceYears, setExperienceYears] = useState<number>(4);
   const [phoneInput, setPhoneInput] = useState("+91 ");
   const [emailInput, setEmailInput] = useState(user.email || "");
+  const [bciDisclaimerChecked, setBciDisclaimerChecked] = useState(false);
 
   useEffect(() => {
     if (user?.email && !emailInput) {
@@ -294,6 +296,10 @@ function LawyerLayout() {
 
   async function handleRegisterAdvocate(e: React.FormEvent) {
     e.preventDefault();
+    if (!bciDisclaimerChecked) {
+      toast.error("Please confirm compliance with BCI's Website & Information Rules before submitting.");
+      return;
+    }
     setIsVerifying(true);
     try {
       const cleanBar = barNumberInput.trim().toUpperCase();
@@ -672,12 +678,40 @@ function LawyerLayout() {
                 </div>
               </div>
 
+              {/* BCI Website & Information Rules Disclaimer */}
+              <div className="border border-amber-500/20 bg-amber-500/5 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <div className="relative mt-0.5 flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={bciDisclaimerChecked}
+                      onChange={(e) => setBciDisclaimerChecked(e.target.checked)}
+                      className="peer sr-only"
+                    />
+                    <div className={`h-4 w-4 border ${bciDisclaimerChecked ? "border-amber-400 bg-amber-400" : "border-[#444444] bg-transparent"} flex items-center justify-center transition-colors`}>
+                      {bciDisclaimerChecked && (
+                        <svg className="h-2.5 w-2.5 text-black" fill="none" viewBox="0 0 12 12">
+                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-mono text-[10px] leading-relaxed text-amber-400/80">
+                    <strong className="text-amber-400">BCI Compliance Declaration (Mandatory):</strong>{" "}
+                    I confirm that my profile listing on TRANA complies with the Bar Council of India's Standards of Professional Conduct 
+                    and Etiquette, including provisions under Chapter II, Part VI of the BCI Rules (Standards of Professional Conduct), 
+                    and that I am not soliciting work through this listing. This listing is for informational purposes only, in accordance 
+                    with BCI's rules on advocate websites and information systems.
+                  </span>
+                </label>
+              </div>
+
               {/* Action Buttons */}
               <div className="pt-2 flex flex-col sm:flex-row gap-3">
                 <button
                   type="submit"
-                  disabled={isVerifying}
-                  className="flex-1 bg-white px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2"
+                  disabled={isVerifying || !bciDisclaimerChecked}
+                  className="flex-1 bg-white px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ShieldCheck className="h-4 w-4" />
                   {isVerifying ? "Verifying Credentials..." : "Submit Bar Sanad & Enter Workspace"}
