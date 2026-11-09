@@ -534,3 +534,4 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
     </div>
   );
 };
+

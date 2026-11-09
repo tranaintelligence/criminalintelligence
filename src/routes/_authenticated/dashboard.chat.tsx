@@ -283,7 +283,12 @@ export function ChatViewContent() {
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [chats, setChats] = useState<ChatSession[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return false;
+  });
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [hasOfferedConnection, setHasOfferedConnection] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -292,6 +297,16 @@ export function ChatViewContent() {
     return false;
   });
   const [dismissedOffer, setDismissedOffer] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [health, setHealth] = useState<{ status: 'checking' | 'online' | 'offline'; sourceRegistryReady: boolean }>({
     status: 'checking',
     sourceRegistryReady: false,
@@ -756,11 +771,22 @@ export function ChatViewContent() {
       className="chat-view flex h-full w-full bg-[#0a0a0c] overflow-hidden relative"
       onPaste={handleChatPaste}
     >
+      {/* Mobile Backdrop when sidebar is open on small screens */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm md:hidden animate-fade-in"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ── Sessions Sidebar (History) ─────────────────────────────────── */}
       <aside
-        className={`${
-          isSidebarOpen ? 'w-64 md:w-72' : 'w-0'
-        } transition-all duration-200 ease-in-out border-r border-white/[0.08] bg-[#0e0e11] flex flex-col shrink-0 overflow-hidden select-none z-20`}
+        className={`
+          fixed inset-y-0 left-0 z-50 h-full w-[280px] max-w-[85vw] border-r border-white/[0.08] bg-[#0e0e11] flex flex-col shrink-0 select-none shadow-2xl transition-transform duration-200 ease-in-out
+          md:relative md:inset-auto md:z-20 md:h-full md:shadow-none md:transition-all
+          ${isSidebarOpen ? 'translate-x-0 md:w-72' : '-translate-x-full md:w-0 md:translate-x-0 overflow-hidden'}
+        `}
       >
         {/* Sidebar Header & New Chat button */}
         <div className="p-3.5 border-b border-white/[0.08] space-y-3 shrink-0">
@@ -772,16 +798,21 @@ export function ChatViewContent() {
             <button
               type="button"
               onClick={() => setIsSidebarOpen(false)}
-              className="text-neutral-500 hover:text-neutral-300 transition-colors p-1"
-              title="Collapse sidebar"
+              className="text-neutral-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/[0.08]"
+              title="Close sidebar"
             >
-              <PanelLeftClose size={15} />
+              <PanelLeftClose size={16} />
             </button>
           </div>
 
           <button
             type="button"
-            onClick={handleNewChat}
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                setIsSidebarOpen(false);
+              }
+              handleNewChat();
+            }}
             className="w-full flex items-center justify-center gap-2 bg-white/[0.07] hover:bg-white/[0.12] text-neutral-100 hover:text-white border border-white/10 px-3.5 py-2.5 rounded-xl transition-all text-xs font-medium shadow-sm active:scale-[0.99] cursor-pointer"
           >
             <Plus size={15} className="text-amber-300" />
@@ -805,6 +836,9 @@ export function ChatViewContent() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                      setIsSidebarOpen(false);
+                    }
                     navigate({ to: '/dashboard/chat/$id', params: { id: chat.id }, state: {} as any });
                   }}
                   className="w-full text-left px-3 py-2.5 pr-8 text-xs truncate cursor-pointer"
@@ -860,38 +894,39 @@ export function ChatViewContent() {
       {/* ── Main Conversation Area ─────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#0a0a0c]">
         {/* Header */}
-        <header className="chat-view__header h-14 border-b border-white/[0.08] flex items-center justify-between px-5 shrink-0 z-10 bg-[#0e0e11]/80 backdrop-blur-xl">
-          <div className="flex items-center gap-3 min-w-0">
-            {!isSidebarOpen && (
-              <button
-                type="button"
-                onClick={() => setIsSidebarOpen(true)}
-                className="text-neutral-400 hover:text-neutral-200 transition-colors p-1.5 rounded-lg hover:bg-white/[0.06] cursor-pointer"
-                title="Open chat sessions"
-              >
-                <PanelLeft size={17} />
-              </button>
-            )}
+        <header className="chat-view__header h-13 md:h-14 border-b border-white/[0.08] flex items-center justify-between px-3 sm:px-5 shrink-0 z-10 bg-[#0e0e11]/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="text-neutral-400 hover:text-neutral-200 transition-colors p-1.5 rounded-lg hover:bg-white/[0.06] cursor-pointer flex items-center gap-1 shrink-0"
+              title={isSidebarOpen ? "Close history" : "Open history"}
+              aria-label="Toggle chat history"
+            >
+              <PanelLeft size={16} />
+              <span className="text-[11px] font-mono hidden xs:inline text-neutral-400">Chats</span>
+            </button>
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold tracking-tight text-neutral-100 truncate">
+              <h2 className="text-xs sm:text-sm font-semibold tracking-tight text-neutral-100 truncate">
                 {currentChatTitle}
               </h2>
               {!credential && (
-                <p className="text-[10px] text-neutral-500 font-mono">
-                  Temporary browser chat · Session clears upon reset
+                <p className="text-[9px] sm:text-[10px] text-neutral-500 font-mono truncate">
+                  Temporary browser chat · Clears on reset
                 </p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {quickUnavailable && (
               <div
-                className="chat-view__alert flex items-center gap-1.5 text-xs text-amber-300 bg-amber-950/40 border border-amber-800/60 px-3 py-1 rounded-full font-mono"
+                className="chat-view__alert flex items-center gap-1 text-[10px] sm:text-xs text-amber-300 bg-amber-950/40 border border-amber-800/60 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full font-mono"
                 role="status"
               >
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Quick Thinking rate-limited
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                <span className="hidden sm:inline">Quick Thinking rate-limited</span>
+                <span className="sm:hidden">Busy</span>
               </div>
             )}
             {routeChatId && (
@@ -901,32 +936,33 @@ export function ChatViewContent() {
                   const targetChat = chats.find((c) => c.id === routeChatId) || ({ id: routeChatId, title: currentChatTitle } as any);
                   void handleDeleteChat(e, targetChat);
                 }}
-                className="text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1.5 rounded-lg border border-rose-900/40 hover:bg-rose-950/30 transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="text-xs text-rose-400 hover:text-rose-300 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border border-rose-900/40 hover:bg-rose-950/30 transition-colors flex items-center gap-1 cursor-pointer"
                 title="Delete this chat session"
               >
                 <Trash2 size={13} />
-                <span className="hidden sm:inline">Delete Chat</span>
+                <span className="hidden sm:inline">Delete</span>
               </button>
             )}
             <button
               type="button"
               onClick={handleNewChat}
-              className="text-xs text-neutral-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.08] transition-colors cursor-pointer"
+              className="text-xs text-neutral-300 hover:text-white px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.08] transition-colors cursor-pointer flex items-center gap-1"
             >
-              + New
+              <Plus size={13} className="text-amber-300" />
+              <span>New</span>
             </button>
           </div>
         </header>
 
         {/* Messages list - Center aligned, spacious, comfortable */}
-        <div className="chat-view__messages flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-6">
-          <div className="max-w-4xl mx-auto w-full space-y-5">
+        <div className="chat-view__messages flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6">
+          <div className="max-w-4xl mx-auto w-full space-y-4 sm:space-y-5">
             {shouldShowChatLoading ? (
               <ChatLoadingScreen />
             ) : messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-neutral-500 py-24">
-                <Scale className="w-12 h-12 mb-3 opacity-30 text-amber-200" />
-                <p className="text-sm font-serif">Start a new legal inquiry...</p>
+              <div className="h-full flex flex-col items-center justify-center text-neutral-500 py-16 sm:py-24">
+                <Scale className="w-10 h-10 sm:w-12 sm:h-12 mb-3 opacity-30 text-amber-200" />
+                <p className="text-xs sm:text-sm font-serif">Start a new legal inquiry...</p>
               </div>
             ) : null}
             {messages.map((msg, idx) => (
@@ -936,15 +972,15 @@ export function ChatViewContent() {
 
             {/* Offer Once to Connect with an Advocate */}
             {!isLoading && messages.some((m) => m.role === 'assistant' && m.content !== WELCOME_MESSAGE) && !hasOfferedConnection && !dismissedOffer && (
-              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-4 text-xs shadow-lg animate-fade-in">
+              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-3.5 sm:p-4 text-xs shadow-lg animate-fade-in">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <Scale className="h-4 w-4 text-amber-400" />
+                      <Scale className="h-4 w-4 text-amber-400 shrink-0" />
                       <span className="font-semibold text-white tracking-tight">
                         Would you like to connect with a verified advocate?
                       </span>
-                      <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                      <span className="text-[9px] sm:text-[10px] font-mono text-neutral-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] shrink-0">
                         Offered Once
                       </span>
                     </div>
@@ -965,7 +1001,7 @@ export function ChatViewContent() {
                     <X size={14} />
                   </button>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2.5">
+                <div className="mt-3 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-2.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -973,7 +1009,7 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setIsConnectModalOpen(true);
                     }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+                    className="w-full sm:w-auto text-xs font-semibold px-3.5 py-2.5 rounded-lg bg-white text-black hover:bg-neutral-200 transition-colors cursor-pointer text-center"
                   >
                     View Advocates (Chargeable)
                   </button>
@@ -984,7 +1020,7 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setIsConnectModalOpen(true);
                     }}
-                    className="text-xs font-mono text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors cursor-pointer"
+                    className="w-full sm:w-auto text-xs font-mono text-emerald-400 hover:text-emerald-300 px-3.5 py-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors cursor-pointer text-center"
                   >
                     Free Legal Aid (15100)
                   </button>
@@ -995,7 +1031,7 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setDismissedOffer(true);
                     }}
-                    className="text-xs font-mono text-neutral-400 hover:text-neutral-200 px-2.5 py-1.5 transition-colors cursor-pointer"
+                    className="w-full sm:w-auto text-xs font-mono text-neutral-400 hover:text-neutral-200 px-3 py-2 transition-colors cursor-pointer text-center"
                   >
                     No, thank you
                   </button>
@@ -1008,10 +1044,10 @@ export function ChatViewContent() {
         </div>
 
         {/* Input Composer - Pinned cleanly to bottom */}
-        <div className="chat-view__composer p-4 bg-[#0e0e11]/90 backdrop-blur-xl border-t border-white/[0.08] shrink-0">
-          <div className="max-w-4xl mx-auto">
+        <div className="chat-view__composer p-2.5 sm:p-4 bg-[#0e0e11]/95 backdrop-blur-xl border-t border-white/[0.08] shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="max-w-4xl mx-auto w-full">
             {(chatAttachments.length > 0 || pendingFiles.length > 0) && (
-              <div className="mb-3 flex flex-wrap gap-2" aria-label="Chat attachments">
+              <div className="mb-2 sm:mb-3 flex flex-wrap gap-2" aria-label="Chat attachments">
                 {chatAttachments.map((attachment) => (
                   <div
                     key={attachment.id}
@@ -1023,7 +1059,7 @@ export function ChatViewContent() {
                     ) : (
                       <FileText className="w-4 h-4 text-sky-400 shrink-0" />
                     )}
-                    <span className="font-medium truncate max-w-[180px]">{attachment.filename}</span>
+                    <span className="font-medium truncate max-w-[140px] sm:max-w-[180px]">{attachment.filename}</span>
                     <span className="text-neutral-500 text-[10px]">Saved</span>
                   </div>
                 ))}
@@ -1036,19 +1072,19 @@ export function ChatViewContent() {
                       className="flex items-center gap-2 bg-white/[0.05] border border-white/10 text-xs py-1.5 px-2.5 rounded-lg max-w-full text-neutral-300"
                     >
                       {preview ? (
-                        <img src={preview} alt="" className="w-7 h-7 object-cover rounded" />
+                        <img src={preview} alt="" className="w-6 h-6 sm:w-7 sm:h-7 object-cover rounded" />
                       ) : (
                         <FileText className="w-4 h-4 text-sky-400 shrink-0" />
                       )}
-                      <span className="font-medium truncate max-w-[180px]">{file.name}</span>
+                      <span className="font-medium truncate max-w-[140px] sm:max-w-[180px]">{file.name}</span>
                       <button
                         type="button"
                         aria-label={`Remove ${file.name}`}
                         onClick={() => setPendingFiles((files) => files.filter((_, i) => i !== index))}
                         disabled={isLoading}
-                        className="text-neutral-500 hover:text-neutral-300 disabled:opacity-40"
+                        className="text-neutral-500 hover:text-neutral-300 disabled:opacity-40 p-1"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   );
@@ -1060,7 +1096,7 @@ export function ChatViewContent() {
               <p role="status" className="mb-2 text-xs text-neutral-400">Saving attachments to this chat…</p>
             )}
 
-            <div className="chat-view__input-shell flex items-center gap-3 bg-white/[0.05] border border-white/10 rounded-2xl px-4 py-3 shadow-inner focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
+            <div className="chat-view__input-shell flex items-center gap-2 sm:gap-3 bg-white/[0.05] border border-white/10 rounded-2xl px-3 sm:px-4 py-2 sm:py-3 shadow-inner focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1083,13 +1119,13 @@ export function ChatViewContent() {
                 multiple
               />
               <button
-                className="chat-view__attach-button text-neutral-400 hover:text-neutral-200 transition-colors p-1"
+                className="chat-view__attach-button text-neutral-400 hover:text-neutral-200 transition-colors p-1.5 shrink-0"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!user || shouldShowChatLoading}
                 title="Attach PDFs or photos to this chat"
                 type="button"
               >
-                <Paperclip className="w-5 h-5" />
+                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               <input
@@ -1098,21 +1134,22 @@ export function ChatViewContent() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={user ? 'Ask a statutory legal question or attach case documents...' : 'Ask a legal question...'}
+                placeholder={user ? 'Ask a legal question or attach documents...' : 'Ask a legal question...'}
                 disabled={shouldShowChatLoading}
-                className="flex-1 bg-transparent border-none text-neutral-100 placeholder-neutral-500 text-sm min-w-0 outline-none"
+                className="flex-1 bg-transparent border-none text-neutral-100 placeholder-neutral-500 text-xs sm:text-sm min-w-0 outline-none"
               />
 
               <button
-                className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-xl disabled:opacity-40 transition-colors cursor-pointer"
+                className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-xl disabled:opacity-40 transition-colors cursor-pointer shrink-0"
                 onClick={handleSend}
                 disabled={isLoading || (!input.trim() && pendingFiles.length === 0)}
                 type="button"
+                aria-label="Send inquiry"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             </div>
-            <p className="text-center text-[11px] text-neutral-500 mt-2 font-mono">
+            <p className="text-center text-[10px] sm:text-[11px] text-neutral-500 mt-1.5 sm:mt-2 font-mono">
               Statutory verification powered by official BNS, BNSS, and BSA source registries.
             </p>
           </div>

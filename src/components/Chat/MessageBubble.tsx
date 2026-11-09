@@ -190,23 +190,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     : null;
 
   return (
-    <div className={`message-bubble flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`message-bubble__row flex max-w-[92%] md:max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-3.5`}>
+    <div className={`message-bubble flex w-full mb-4 sm:mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`message-bubble__row flex max-w-[96%] sm:max-w-[90%] md:max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} gap-2 sm:gap-3.5`}>
         {/* Avatar */}
         <div
-          className={`message-bubble__avatar shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1 border ${
+          className={`message-bubble__avatar shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center mt-1 border ${
             isUser
               ? 'bg-[#1e1e1e] border-[#333333] text-white shadow-sm'
               : 'bg-[#111111] border-[#262626] text-amber-200/90 shadow-sm'
           }`}
         >
-          {isUser ? <User size={15} /> : <Scale size={15} />}
+          {isUser ? <User size={13} className="sm:w-[15px] sm:h-[15px]" /> : <Scale size={13} className="sm:w-[15px] sm:h-[15px]" />}
         </div>
 
         {/* Bubble */}
         <div className={`message-bubble__content flex flex-col ${isUser ? 'items-end' : 'items-start'} min-w-0 w-full`}>
           <div
-            className={`message-bubble__bubble px-5 py-4 rounded-2xl shadow-sm text-sm leading-relaxed ${
+            className={`message-bubble__bubble px-3.5 py-3 sm:px-5 sm:py-4 rounded-2xl shadow-sm text-xs sm:text-sm leading-relaxed break-words [overflow-wrap:anywhere] ${
               isUser
                 ? 'bg-[#1c1c1c] text-[#f2f2f2] border border-[#2e2e2e] rounded-tr-none'
                 : 'bg-[#121214] text-[#e0e0e0] border border-[#222226] rounded-tl-none'
