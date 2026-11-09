@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useLocation, useNavigate, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { 
   BarChart3, Users, Scale, Settings, Menu, X, ShieldCheck, MessageSquare, ShieldAlert, LogOut,
@@ -111,28 +111,51 @@ export async function getAuthenticatedUser(): Promise<{ id: string; email: strin
   return null;
 }
 
+function FoundersErrorFallback({ error, reset }: { error: unknown; reset: () => void }) {
+  return (
+    <div className="min-h-screen bg-[#08080a] text-[#F0F0F0] flex flex-col items-center justify-center p-6 font-mono">
+      <div className="max-w-md w-full border border-amber-500/30 bg-[#121212]/90 backdrop-blur-2xl p-8 rounded-2xl space-y-5 text-center shadow-2xl">
+        <div className="w-12 h-12 mx-auto rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <ShieldAlert className="h-6 w-6" />
+        </div>
+        <div>
+          <span className="text-[10px] uppercase font-mono tracking-widest text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
+            Founders Console Telemetry
+          </span>
+          <h2 className="font-display text-2xl font-medium text-white mt-3">
+            Unable to Load Section
+          </h2>
+          <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+            A temporary issue occurred while rendering this console section. You can retry loading or return to the overview.
+          </p>
+          {error ? (
+            <p className="mt-3 p-2.5 rounded-lg bg-black/40 border border-white/10 text-[10px] text-neutral-400 font-mono break-words text-left">
+              {error instanceof Error ? error.message : String(error)}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex gap-2 justify-center pt-2">
+          <button
+            onClick={() => reset()}
+            className="bg-white text-black px-5 py-2 text-xs font-semibold uppercase tracking-wider rounded-full hover:bg-neutral-200 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+          <a
+            href="/founders"
+            className="border border-white/20 hover:border-white text-neutral-300 hover:text-white px-5 py-2 text-xs uppercase tracking-wider rounded-full transition-colors"
+          >
+            Overview
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/founders")({
   ssr: false,
-  beforeLoad: async ({ location }) => {
-    const user = await getAuthenticatedUser();
-    // 1. Require login: general public is immediately redirected to auth
-    if (!user) {
-      throw redirect({
-        to: "/auth",
-        search: { redirect: location.pathname },
-      });
-    }
-
-    // 2. Require admin: if not admin, bounce any subroute back to /founders so Access Denied screen renders
-    const isAdmin = await checkIsAdminAsync(user.email);
-    if (!isAdmin && location.pathname !== "/founders" && location.pathname !== "/founders/") {
-      throw redirect({
-        to: "/founders",
-      });
-    }
-
-    return { user, isAdmin };
-  },
+  errorComponent: FoundersErrorFallback,
   head: () => ({
     meta: [
       { title: "Founders Dashboard — TRANA" },
