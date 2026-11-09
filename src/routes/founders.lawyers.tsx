@@ -1,14 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Scale, Check, X, Star, FileText, Eye, ShieldAlert, 
   ExternalLink, Search, RefreshCw, MessageSquare, AlertCircle,
-  Plus, Trash2, Phone, Mail, Award, Building2, MapPin, ShieldCheck, Clock, Sparkles, Lock
+  Plus, Trash2, Phone, Mail, Award, Building2, MapPin, ShieldCheck, Clock, Sparkles, Lock,
+  Upload, Download, FileCheck, Paperclip, Briefcase
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTranaCredential } from "@/lib/trana-auth";
+import { 
+  AdvocateContract, 
+  getStoredAdvocateContracts, 
+  saveAdvocateContract, 
+  deleteAdvocateContract 
+} from "@/lib/advocate-contracts";
 import { 
   ALL_STATE_BAR_COUNCILS, 
   PROMINENT_BAR_ASSOCIATIONS, 
@@ -39,9 +46,115 @@ export const Route = createFileRoute("/founders/lawyers")({
 function FoundersLawyersPage() {
   const { credential } = useTranaCredential();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"active" | "pending">("active");
+  const [activeTab, setActiveTab] = useState<"active" | "pending" | "contracts">("active");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLawyer, setSelectedLawyer] = useState<LawyerRecord | null>(null);
+
+  // Contracts Section state
+  const [contracts, setContracts] = useState<AdvocateContract[]>(() => getStoredAdvocateContracts());
+  const [isContractModalOpen, setIsContractModalOpen] = useState(false);
+  const [inspectingContract, setInspectingContract] = useState<AdvocateContract | null>(null);
+
+  // Contract upload form state
+  const [contractAdvName, setContractAdvName] = useState("");
+  const [contractBarNo, setContractBarNo] = useState("");
+  const [contractEmail, setContractEmail] = useState("");
+  const [contractType, setContractType] = useState<AdvocateContract["contractType"]>("Empanelment Agreement");
+  const [contractExecutionDate, setContractExecutionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [contractExpiryDate, setContractExpiryDate] = useState("2028-01-15");
+  const [contractFeeTerms, setContractFeeTerms] = useState("Direct First-Aid & Retainer Escrow Integration");
+  const [contractNotes, setContractNotes] = useState("");
+  const [contractFileName, setContractFileName] = useState("");
+  const [contractFileSize, setContractFileSize] = useState("");
+  const [contractDataUrl, setContractDataUrl] = useState("");
+  const contractFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function loadContracts() {
+      setContracts(getStoredAdvocateContracts());
+    }
+    loadContracts();
+    window.addEventListener("trana_contracts_updated", loadContracts);
+    window.addEventListener("storage", loadContracts);
+    return () => {
+      window.removeEventListener("trana_contracts_updated", loadContracts);
+      window.removeEventListener("storage", loadContracts);
+    };
+  }, []);
+
+  const handleContractFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const sizeFormatted = file.size > 1024 * 1024 
+      ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
+      : `${Math.round(file.size / 1024)} KB`;
+
+    setContractFileName(file.name);
+    setContractFileSize(sizeFormatted);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setContractDataUrl(result);
+        toast.success(`Document attached: ${file.name} (${sizeFormatted})`);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveContractSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contractAdvName.trim()) {
+      toast.error("Please enter advocate full name.");
+      return;
+    }
+    if (!contractBarNo.trim()) {
+      toast.error("Please enter State Bar Council enrollment number.");
+      return;
+    }
+    if (!contractFileName) {
+      toast.error("Please select a contract document (PDF, DOCX, or scan) to upload.");
+      return;
+    }
+
+    const newContract: AdvocateContract = {
+      id: "contract-" + Date.now(),
+      advocateName: contractAdvName.trim(),
+      barRegNo: contractBarNo.trim().toUpperCase(),
+      email: contractEmail.trim() || undefined,
+      contractType,
+      executionDate: contractExecutionDate,
+      expiryDate: contractExpiryDate.trim() || "Perpetual",
+      feeTerms: contractFeeTerms.trim() || undefined,
+      notes: contractNotes.trim() || undefined,
+      status: "Active",
+      fileName: contractFileName,
+      fileSize: contractFileSize || "1.2 MB",
+      fileDataUrl: contractDataUrl || undefined,
+      uploadedAt: new Date().toISOString(),
+    };
+
+    saveAdvocateContract(newContract);
+    toast.success(`Contract for ${contractAdvName} saved in platform registry.`);
+    setIsContractModalOpen(false);
+    setContractAdvName("");
+    setContractBarNo("");
+    setContractEmail("");
+    setContractFileName("");
+    setContractFileSize("");
+    setContractDataUrl("");
+    setContractNotes("");
+  };
+
+  const handleDeleteContract = (contractId: string, advocateName: string) => {
+    if (window.confirm(`Are you sure you want to remove the contract for ${advocateName}?`)) {
+      deleteAdvocateContract(contractId);
+      if (inspectingContract?.id === contractId) setInspectingContract(null);
+      toast.success(`Contract removed.`);
+    }
+  };
 
   // Advocate Personal Vault Headings state (Admin View - Headings Only)
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
@@ -322,6 +435,60 @@ function FoundersLawyersPage() {
     });
   }, [lawyers, activeTab, searchTerm]);
 
+  const filteredContracts = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
+    if (!q) return contracts;
+    return contracts.filter(
+      (c) =>
+        c.advocateName.toLowerCase().includes(q) ||
+        c.barRegNo.toLowerCase().includes(q) ||
+        c.contractType.toLowerCase().includes(q) ||
+        c.fileName.toLowerCase().includes(q) ||
+        (c.feeTerms && c.feeTerms.toLowerCase().includes(q)) ||
+        (c.notes && c.notes.toLowerCase().includes(q)) ||
+        (c.email && c.email.toLowerCase().includes(q))
+    );
+  }, [contracts, searchTerm]);
+
+  const handleDownloadContract = (c: AdvocateContract) => {
+    if (c.fileDataUrl) {
+      const a = document.createElement("a");
+      a.href = c.fileDataUrl;
+      a.download = c.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success(`Downloading ${c.fileName}...`);
+    } else {
+      const textBlob = new Blob([
+        `TRANA LEGAL PLATFORM - ADVOCATE EXECUTED AGREEMENT\n` +
+        `==================================================\n\n` +
+        `Contract Reference : ${c.id}\n` +
+        `Advocate Name      : ${c.advocateName}\n` +
+        `Bar Sanad Roll No  : ${c.barRegNo}\n` +
+        `Agreement Type     : ${c.contractType}\n` +
+        `Execution Date     : ${c.executionDate}\n` +
+        `Validity / Expiry  : ${c.expiryDate || "Perpetual"}\n` +
+        `Fee / Escrow Terms : ${c.feeTerms || "Direct First-Aid & Retainer Escrow Integration"}\n` +
+        `Status             : ${c.status}\n` +
+        `Uploaded Date      : ${c.uploadedAt}\n` +
+        `Archived File Name : ${c.fileName}\n` +
+        `Special Covenants  : ${c.notes || "None"}\n\n` +
+        `--------------------------------------------------\n` +
+        `Certified authentic and preserved in TRANA Founders Repository under Section 126 of the Indian Evidence Act.`
+      ], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(textBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = c.fileName.endsWith(".txt") || c.fileName.endsWith(".pdf") ? c.fileName : `${c.fileName}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded agreement record for ${c.advocateName}`);
+    }
+  };
+
   const [autoVerifyingId, setAutoVerifyingId] = useState<string | null>(null);
 
   async function handleAutoVerify(lawyer: LawyerRecord) {
@@ -563,33 +730,63 @@ function FoundersLawyersPage() {
 
       {/* Metric Cards */}
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="apple-glass-card p-5">
-          <p className="text-xs uppercase tracking-[0.15em] text-neutral-400 font-mono">Total Registered</p>
-          <p className="font-display text-3xl font-semibold text-white mt-1">{lawyers.length}</p>
-          <p className="text-[11px] text-neutral-400 font-mono mt-1">Advocates on platform</p>
-        </div>
-        <div className="apple-glass-card border-emerald-500/30 p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.15em] text-emerald-400 font-semibold font-mono">Active & Verified</p>
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+      {activeTab === "contracts" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="apple-glass-card p-5">
+            <p className="text-xs uppercase tracking-[0.15em] text-neutral-400 font-mono">Total Contracts Stored</p>
+            <p className="font-display text-3xl font-semibold text-white mt-1">{contracts.length}</p>
+            <p className="text-[11px] text-neutral-400 font-mono mt-1">Executed platform agreements</p>
           </div>
-          <p className="font-display text-3xl font-semibold text-white mt-1">{verifiedCount}</p>
-          <p className="text-[11px] text-emerald-400/80 font-mono mt-1">Sanad verified & receiving referrals</p>
-        </div>
-        <div className="apple-glass-card border-amber-500/30 p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.15em] text-amber-400 font-semibold font-mono">Pending Verification</p>
-            <Clock className="h-4 w-4 text-amber-400" />
+          <div className="apple-glass-card border-emerald-500/30 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.15em] text-emerald-400 font-semibold font-mono">Empanelment Agreements</p>
+              <FileCheck className="h-4 w-4 text-emerald-400" />
+            </div>
+            <p className="font-display text-3xl font-semibold text-white mt-1">
+              {contracts.filter((c) => c.contractType === "Empanelment Agreement").length}
+            </p>
+            <p className="text-[11px] text-emerald-400/80 font-mono mt-1">Bar Sanad verified contracts</p>
           </div>
-          <p className="font-display text-3xl font-semibold text-white mt-1">{pendingCount}</p>
-          <p className="text-[11px] text-amber-400/80 font-mono mt-1">Awaiting Sanad / BCI roll check</p>
+          <div className="apple-glass-card border-sky-500/30 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.15em] text-sky-400 font-semibold font-mono">Retainers & MoUs</p>
+              <Briefcase className="h-4 w-4 text-sky-400" />
+            </div>
+            <p className="font-display text-3xl font-semibold text-white mt-1">
+              {contracts.filter((c) => c.contractType !== "Empanelment Agreement").length}
+            </p>
+            <p className="text-[11px] text-sky-400/80 font-mono mt-1">Specialized retainers & MoUs</p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="apple-glass-card p-5">
+            <p className="text-xs uppercase tracking-[0.15em] text-neutral-400 font-mono">Total Registered</p>
+            <p className="font-display text-3xl font-semibold text-white mt-1">{lawyers.length}</p>
+            <p className="text-[11px] text-neutral-400 font-mono mt-1">Advocates on platform</p>
+          </div>
+          <div className="apple-glass-card border-emerald-500/30 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.15em] text-emerald-400 font-semibold font-mono">Active & Verified</p>
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            </div>
+            <p className="font-display text-3xl font-semibold text-white mt-1">{verifiedCount}</p>
+            <p className="text-[11px] text-emerald-400/80 font-mono mt-1">Sanad verified & receiving referrals</p>
+          </div>
+          <div className="apple-glass-card border-amber-500/30 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.15em] text-amber-400 font-semibold font-mono">Pending Verification</p>
+              <Clock className="h-4 w-4 text-amber-400" />
+            </div>
+            <p className="font-display text-3xl font-semibold text-white mt-1">{pendingCount}</p>
+            <p className="text-[11px] text-amber-400/80 font-mono mt-1">Awaiting Sanad / BCI roll check</p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs and Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
-        <div className="flex gap-2 font-mono">
+        <div className="flex flex-wrap gap-2 font-mono">
           <button
             onClick={() => setActiveTab("active")}
             className={`apple-glass-pill px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-all ${
@@ -611,6 +808,17 @@ function FoundersLawyersPage() {
             Pending Sanad Verification ({pendingCount})
           </button>
           <button
+            onClick={() => setActiveTab("contracts")}
+            className={`apple-glass-pill px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-all flex items-center gap-1.5 ${
+              activeTab === "contracts"
+                ? "bg-emerald-400 text-black shadow-md border-emerald-400 font-bold"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            <FileCheck className="h-3.5 w-3.5" />
+            <span>Contracts ({contracts.length})</span>
+          </button>
+          <button
             onClick={() => setIsVaultModalOpen(true)}
             className="apple-glass-pill px-4 py-2 text-xs uppercase tracking-wider font-semibold transition-all border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 flex items-center gap-1.5 cursor-pointer"
             title="Inspect Advocate Personal Vault Document Headings (Content Restricted under Advocate Privilege)"
@@ -620,156 +828,276 @@ function FoundersLawyersPage() {
           </button>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="h-4 w-4 text-neutral-400 absolute left-3 top-3" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, Sanad, city..."
-            className="apple-glass-input w-full pl-9 pr-4 py-2 text-xs text-white placeholder:text-neutral-500"
-          />
+        <div className="flex items-center gap-2">
+          {activeTab === "contracts" && (
+            <button
+              onClick={() => setIsContractModalOpen(true)}
+              className="apple-glass-pill bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 px-3.5 py-2 text-xs uppercase tracking-wider font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              <span>Upload Contract</span>
+            </button>
+          )}
+          <div className="relative w-full sm:w-72">
+            <Search className="h-4 w-4 text-neutral-400 absolute left-3 top-3" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={activeTab === "contracts" ? "Search contracts, advocates, files..." : "Search by name, Sanad, city..."}
+              className="apple-glass-input w-full pl-9 pr-4 py-2 text-xs text-white placeholder:text-neutral-500"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Lawyers List */}
-      {isLoading ? (
-        <div className="py-12 text-center text-sm text-neutral-400 font-mono">Loading advocates...</div>
-      ) : filteredLawyers.length === 0 ? (
-        <div className="apple-glass-card p-8 text-center space-y-2">
-          <p className="font-display text-xl text-white">No advocates found</p>
-          <p className="text-xs text-neutral-400 font-mono">
-            {activeTab === "pending" ? "No applications pending review." : "No active advocates match this search."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {filteredLawyers.map((l) => {
-            const isVerified = l.verification_status === "VERIFIED" || l.approved;
-
-            return (
-              <div
-                key={l.id}
-                className="apple-glass-card p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-5"
+      {/* Main Content: Contracts or Advocates List */}
+      {activeTab === "contracts" ? (
+        filteredContracts.length === 0 ? (
+          <div className="apple-glass-card p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+              <FileCheck className="h-6 w-6" />
+            </div>
+            <p className="font-display text-2xl text-white">No Advocate Contracts Found</p>
+            <p className="text-xs text-neutral-400 font-mono max-w-md mx-auto leading-relaxed">
+              {searchTerm
+                ? "No uploaded advocate agreements match your search criteria."
+                : "No advocate contracts saved yet. Upload executed empanelment agreements, bilateral MoUs, and retainer contracts for empanelled counsel."}
+            </p>
+            <button
+              onClick={() => setIsContractModalOpen(true)}
+              className="mt-3 inline-flex items-center gap-2 bg-white text-black px-4 py-2 text-xs uppercase tracking-wider font-semibold hover:bg-neutral-200 transition-colors cursor-pointer"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              <span>Upload Advocate Contract</span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-xs text-neutral-400 font-mono px-1">
+              <span>Showing {filteredContracts.length} contract document{filteredContracts.length === 1 ? "" : "s"}</span>
+              <button
+                onClick={() => setIsContractModalOpen(true)}
+                className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold transition-colors cursor-pointer"
               >
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-display text-xl font-medium text-white">{l.full_name}</h3>
-                    {isVerified ? (
-                      <span className="inline-flex items-center gap-1 border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase font-semibold text-emerald-400">
-                        <Check className="h-3 w-3" /> Verified Sanad
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase font-semibold text-amber-400">
-                        <Clock className="h-3 w-3" /> Verification Pending
-                      </span>
-                    )}
-                    {l.bar_reg_no && (
+                <Plus className="h-3.5 w-3.5" />
+                <span>Upload Contract</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {filteredContracts.map((c) => (
+                <div
+                  key={c.id}
+                  className="apple-glass-card p-5 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-5 border border-white/10 hover:border-emerald-500/30"
+                >
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-display text-xl font-medium text-white">{c.advocateName}</h3>
                       <span className="font-mono text-xs text-[#AAAAAA] bg-[#1F1F1F] px-2 py-0.5 border border-[#333333]">
-                        {l.bar_reg_no}
+                        {c.barRegNo}
                       </span>
+                      <span className="inline-flex items-center gap-1 border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase font-semibold text-emerald-300 rounded">
+                        <FileCheck className="h-3 w-3" /> {c.contractType}
+                      </span>
+                      <span className="inline-flex items-center gap-1 border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-mono text-neutral-300 rounded">
+                        Valid: {c.expiryDate || "Perpetual"}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#888888]">
+                      <span className="flex items-center gap-1.5 text-neutral-200">
+                        <Paperclip className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                        <span className="font-mono text-white truncate max-w-[280px] sm:max-w-md">{c.fileName}</span>
+                        {c.fileSize && <span className="text-neutral-500 font-mono text-[11px]">({c.fileSize})</span>}
+                      </span>
+                      <span>• Executed: <strong className="text-neutral-300">{c.executionDate}</strong></span>
+                      {c.email && <span className="truncate max-w-[200px]">• {c.email}</span>}
+                    </div>
+
+                    {c.feeTerms && (
+                      <p className="text-xs text-neutral-300 pt-0.5">
+                        <strong className="text-neutral-400 font-mono uppercase text-[10px]">Fee / Retainer Terms:</strong>{" "}
+                        <span className="text-emerald-300/90">{c.feeTerms}</span>
+                      </p>
+                    )}
+
+                    {c.notes && (
+                      <p className="text-xs text-neutral-400 italic line-clamp-1">
+                        "{c.notes}"
+                      </p>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#888888]">
-                    {l.state_bar_council && (
-                      <span className="flex items-center gap-1 text-neutral-300">
-                        <Award className="h-3.5 w-3.5 text-neutral-400" />
-                        <span>{l.state_bar_council}</span>
-                      </span>
-                    )}
-                    {l.bar_association && (
-                      <span>• {l.bar_association}</span>
-                    )}
-                    <span>• {l.city}, {l.state || "India"}</span>
-                    {l.experience_years ? <span>• {l.experience_years}+ Yrs Practice</span> : null}
-                  </div>
-
-                  <p className="text-xs text-neutral-300 pt-1">
-                    <strong className="text-white">Specialisation:</strong> {l.specialisation}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-x-4 text-xs text-[#666666] pt-1">
-                    {l.email && (
-                      <span className="flex items-center gap-1 font-mono">
-                        <Mail className="h-3 w-3" /> {l.email}
-                      </span>
-                    )}
-                    {l.phone && (
-                      <span className="flex items-center gap-1 font-mono">
-                        <Phone className="h-3 w-3" /> {l.phone}
-                      </span>
-                    )}
-                    {l.chamber_address && (
-                      <span className="text-[11px] text-[#777777]">
-                        Chamber: {l.chamber_address}
-                      </span>
-                    )}
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#222222] shrink-0">
+                    <button
+                      onClick={() => setInspectingContract(c)}
+                      className="border border-[#444444] hover:border-white text-neutral-300 hover:text-white px-3 py-2 text-xs uppercase tracking-wider font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Inspect</span>
+                    </button>
+                    <button
+                      onClick={() => handleDownloadContract(c)}
+                      className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3 py-2 text-xs uppercase tracking-wider font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Download Contract Document"
+                    >
+                      <Download className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Download</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteContract(c.id, c.advocateName)}
+                      className="border border-[#333333] hover:border-red-500 hover:text-red-400 text-[#666666] p-2 transition-colors cursor-pointer"
+                      title="Delete contract record"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )
+      ) : (
+        /* Lawyers List */
+        isLoading ? (
+          <div className="py-12 text-center text-sm text-neutral-400 font-mono">Loading advocates...</div>
+        ) : filteredLawyers.length === 0 ? (
+          <div className="apple-glass-card p-8 text-center space-y-2">
+            <p className="font-display text-xl text-white">No advocates found</p>
+            <p className="text-xs text-neutral-400 font-mono">
+              {activeTab === "pending" ? "No applications pending review." : "No active advocates match this search."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {filteredLawyers.map((l) => {
+              const isVerified = l.verification_status === "VERIFIED" || l.approved;
 
-                {/* Actions */}
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-[#222222]">
-                  {!isVerified && (
-                    <button
-                      onClick={() => handleAutoVerify(l)}
-                      disabled={autoVerifyingId === l.id}
-                      className="bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                      title="Run automated Bar Council Sanad, AIBE COP and eCourts verification"
-                    >
-                      {autoVerifyingId === l.id ? (
-                        <>
-                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                          <span>Verifying...</span>
-                        </>
+              return (
+                <div
+                  key={l.id}
+                  className="apple-glass-card p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-5"
+                >
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-display text-xl font-medium text-white">{l.full_name}</h3>
+                      {isVerified ? (
+                        <span className="inline-flex items-center gap-1 border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase font-semibold text-emerald-400">
+                          <Check className="h-3 w-3" /> Verified Sanad
+                        </span>
                       ) : (
-                        <>
-                          <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                          <span>Auto-Verify</span>
-                        </>
+                        <span className="inline-flex items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase font-semibold text-amber-400">
+                          <Clock className="h-3 w-3" /> Verification Pending
+                        </span>
                       )}
-                    </button>
-                  )}
+                      {l.bar_reg_no && (
+                        <span className="font-mono text-xs text-[#AAAAAA] bg-[#1F1F1F] px-2 py-0.5 border border-[#333333]">
+                          {l.bar_reg_no}
+                        </span>
+                      )}
+                    </div>
 
-                  {!isVerified && (
-                    <button
-                      onClick={() => handleApprove(l.id, l.full_name)}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-black px-3.5 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                      <span>Approve Sanad</span>
-                    </button>
-                  )}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#888888]">
+                      {l.state_bar_council && (
+                        <span className="flex items-center gap-1 text-neutral-300">
+                          <Award className="h-3.5 w-3.5 text-neutral-400" />
+                          <span>{l.state_bar_council}</span>
+                        </span>
+                      )}
+                      {l.bar_association && (
+                        <span>• {l.bar_association}</span>
+                      )}
+                      <span>• {l.city}, {l.state || "India"}</span>
+                      {l.experience_years ? <span>• {l.experience_years}+ Yrs Practice</span> : null}
+                    </div>
 
-                  {isVerified ? (
-                    <button
-                      onClick={() => handleSuspend(l.id, l.full_name)}
-                      className="border border-[#444444] hover:border-amber-400 hover:text-amber-400 text-[#888888] px-3 py-2 text-xs uppercase tracking-wider transition-colors"
-                    >
-                      Suspend
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleReject(l.id, l.full_name)}
-                      className="border border-red-500/40 text-red-400 hover:bg-red-500/10 px-3 py-2 text-xs uppercase tracking-wider transition-colors flex items-center gap-1"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      <span>Reject</span>
-                    </button>
-                  )}
+                    <p className="text-xs text-neutral-300 pt-1">
+                      <strong className="text-white">Specialisation:</strong> {l.specialisation}
+                    </p>
 
-                  <button
-                    onClick={() => handleRemove(l.id, l.full_name)}
-                    className="border border-[#333333] hover:border-red-500 hover:text-red-400 text-[#666666] p-2 transition-colors"
-                    title="Delete advocate"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    <div className="flex flex-wrap items-center gap-x-4 text-xs text-[#666666] pt-1">
+                      {l.email && (
+                        <span className="flex items-center gap-1 font-mono">
+                          <Mail className="h-3 w-3" /> {l.email}
+                        </span>
+                      )}
+                      {l.phone && (
+                        <span className="flex items-center gap-1 font-mono">
+                          <Phone className="h-3 w-3" /> {l.phone}
+                        </span>
+                      )}
+                      {l.chamber_address && (
+                        <span className="text-[11px] text-[#777777]">
+                          Chamber: {l.chamber_address}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-[#222222]">
+                    {!isVerified && (
+                      <button
+                        onClick={() => handleAutoVerify(l)}
+                        disabled={autoVerifyingId === l.id}
+                        className="bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-amber-500/40 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                        title="Run automated Bar Council Sanad, AIBE COP and eCourts verification"
+                      >
+                        {autoVerifyingId === l.id ? (
+                          <>
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            <span>Verifying...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                            <span>Auto-Verify</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {!isVerified && (
+                      <button
+                        onClick={() => handleApprove(l.id, l.full_name)}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-black px-3.5 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Approve Sanad</span>
+                      </button>
+                    )}
+
+                    {isVerified ? (
+                      <button
+                        onClick={() => handleSuspend(l.id, l.full_name)}
+                        className="border border-[#444444] hover:border-amber-400 hover:text-amber-400 text-[#888888] px-3 py-2 text-xs uppercase tracking-wider transition-colors"
+                      >
+                        Suspend
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleReject(l.id, l.full_name)}
+                        className="border border-red-500/40 text-red-400 hover:bg-red-500/10 px-3 py-2 text-xs uppercase tracking-wider transition-colors flex items-center gap-1"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        <span>Reject</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleRemove(l.id, l.full_name)}
+                      className="border border-[#333333] hover:border-red-500 hover:text-red-400 text-[#666666] p-2 transition-colors"
+                      title="Delete advocate"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* Onboard Advocate Modal */}
@@ -1136,6 +1464,327 @@ function FoundersLawyersPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Upload Advocate Contract Modal */}
+      {isContractModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl border border-white/15 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-8 space-y-5">
+            <button
+              onClick={() => setIsContractModalOpen(false)}
+              className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-[#252525] pb-4">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <FileCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-display text-2xl font-medium text-white">Save Advocate Contract</h3>
+                <p className="text-xs text-[#888888]">
+                  Upload and archive executed bilateral agreements, empanelment contracts, and retainers.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveContractSubmit} className="space-y-4">
+              {/* Quick Select from Registered Lawyers */}
+              {lawyers.length > 0 && (
+                <div className="p-3 rounded-xl bg-black/40 border border-[#252525]">
+                  <label className="block text-[11px] uppercase tracking-wider text-neutral-400 mb-1 font-mono">
+                    Select Empanelled Advocate (Auto-fills Sanad & Email)
+                  </label>
+                  <select
+                    onChange={(e) => {
+                      const selected = lawyers.find((l) => l.id === e.target.value);
+                      if (selected) {
+                        setContractAdvName(selected.full_name);
+                        setContractBarNo(selected.bar_reg_no || "");
+                        setContractEmail(selected.email || "");
+                      }
+                    }}
+                    defaultValue=""
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3 py-2 text-xs text-white focus:border-white focus:outline-none rounded-lg"
+                  >
+                    <option value="">-- Or enter advocate details manually below --</option>
+                    {lawyers.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.full_name} ({l.bar_reg_no || "Sanad Pending"}) - {l.city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Advocate Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={contractAdvName}
+                    onChange={(e) => setContractAdvName(e.target.value)}
+                    placeholder="e.g. Adv. Krish Chauhan"
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3.5 py-2.5 text-xs text-white focus:border-white focus:outline-none rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Bar Enrollment / Sanad No. *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={contractBarNo}
+                    onChange={(e) => setContractBarNo(e.target.value)}
+                    placeholder="e.g. D/2104/2021"
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3.5 py-2.5 text-xs font-mono uppercase text-white focus:border-white focus:outline-none rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Agreement Type *
+                  </label>
+                  <select
+                    value={contractType}
+                    onChange={(e) => setContractType(e.target.value as any)}
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3 py-2.5 text-xs text-white focus:border-white focus:outline-none rounded-lg"
+                  >
+                    <option value="Empanelment Agreement">Empanelment Agreement</option>
+                    <option value="Retainer Agreement">Retainer Agreement</option>
+                    <option value="Confidentiality & Data Protection MoU">Confidentiality & Data Protection MoU</option>
+                    <option value="Chambers Partnership">Chambers Partnership</option>
+                    <option value="Other">Other Specialized Agreement</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Chamber Email
+                  </label>
+                  <input
+                    type="email"
+                    value={contractEmail}
+                    onChange={(e) => setContractEmail(e.target.value)}
+                    placeholder="counsel@delhibar.org"
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3.5 py-2.5 text-xs font-mono text-white focus:border-white focus:outline-none rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Execution Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={contractExecutionDate}
+                    onChange={(e) => setContractExecutionDate(e.target.value)}
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3.5 py-2 text-xs font-mono text-white focus:border-white focus:outline-none rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Validity / Expiry Date
+                  </label>
+                  <input
+                    type="text"
+                    value={contractExpiryDate}
+                    onChange={(e) => setContractExpiryDate(e.target.value)}
+                    placeholder="YYYY-MM-DD or Perpetual"
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3.5 py-2 text-xs font-mono text-white focus:border-white focus:outline-none rounded-lg"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Fee & Retainer Escrow Terms
+                  </label>
+                  <input
+                    type="text"
+                    value={contractFeeTerms}
+                    onChange={(e) => setContractFeeTerms(e.target.value)}
+                    placeholder="e.g. Direct First-Aid & Retainer Escrow Integration (80/20 standard)"
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3.5 py-2.5 text-xs text-white focus:border-white focus:outline-none rounded-lg"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs uppercase tracking-wider text-[#888888] mb-1 font-mono">
+                    Special Covenants / Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={contractNotes}
+                    onChange={(e) => setContractNotes(e.target.value)}
+                    placeholder="Jurisdiction clauses, high court practice authorization, dispute resolution..."
+                    className="w-full border border-[#333333] bg-[#0E0E0E] px-3.5 py-2 text-xs text-white focus:border-white focus:outline-none rounded-lg resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* File Upload Zone */}
+              <div className="space-y-2 pt-2">
+                <label className="block text-xs uppercase tracking-wider text-[#888888] font-mono">
+                  Contract Document (PDF, Scanned Agreement, or DOCX) *
+                </label>
+                <div
+                  onClick={() => contractFileInputRef.current?.click()}
+                  className="border-2 border-dashed border-[#333333] hover:border-emerald-500/50 bg-[#0A0A0A] rounded-xl p-6 text-center cursor-pointer transition-colors group"
+                >
+                  <input
+                    type="file"
+                    ref={contractFileInputRef}
+                    onChange={handleContractFileUpload}
+                    accept=".pdf,.docx,.doc,.png,.jpg,.jpeg"
+                    className="hidden"
+                  />
+                  {contractFileName ? (
+                    <div className="flex items-center justify-center gap-3 text-emerald-400">
+                      <FileCheck className="h-6 w-6" />
+                      <div className="text-left font-mono">
+                        <p className="text-xs font-semibold text-white">{contractFileName}</p>
+                        <p className="text-[11px] text-emerald-400">{contractFileSize} • Ready to save</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 text-neutral-400 group-hover:text-neutral-200">
+                      <Upload className="h-6 w-6 mx-auto text-neutral-500 group-hover:text-emerald-400 transition-colors" />
+                      <p className="text-xs font-medium">Click or drag & drop to upload executed advocate contract</p>
+                      <p className="text-[10px] text-neutral-500 font-mono">Supports PDF, DOCX, PNG, JPG (up to 15 MB)</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3 border-t border-[#252525]">
+                <button
+                  type="submit"
+                  className="flex-1 bg-white hover:bg-neutral-200 text-black py-3 rounded-xl text-xs uppercase font-semibold tracking-wider transition-colors cursor-pointer"
+                >
+                  Save Contract to Platform
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsContractModalOpen(false)}
+                  className="border border-[#333333] hover:border-white px-5 py-3 rounded-xl text-xs uppercase tracking-wider text-[#888888] hover:text-white transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Inspect Advocate Contract Modal */}
+      {inspectingContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="w-full max-w-xl border border-emerald-500/30 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-8 space-y-5">
+            <button
+              onClick={() => setInspectingContract(null)}
+              className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-[#252525] pb-4">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <FileCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 block">
+                  {inspectingContract.status} Platform Agreement
+                </span>
+                <h3 className="font-display text-2xl font-medium text-white">{inspectingContract.advocateName}</h3>
+                <p className="text-xs text-neutral-400 font-mono">
+                  Sanad: {inspectingContract.barRegNo} {inspectingContract.email ? `• ${inspectingContract.email}` : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-2 font-mono">
+                <div className="p-3 rounded-xl bg-black/50 border border-[#222222]">
+                  <span className="text-[10px] text-neutral-500 block uppercase">Agreement Type:</span>
+                  <p className="text-neutral-200 font-semibold mt-0.5">{inspectingContract.contractType}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-black/50 border border-[#222222]">
+                  <span className="text-[10px] text-neutral-500 block uppercase">Execution Date:</span>
+                  <p className="text-neutral-200 font-semibold mt-0.5">{inspectingContract.executionDate}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-black/50 border border-[#222222]">
+                  <span className="text-[10px] text-neutral-500 block uppercase">Validity / Expiry:</span>
+                  <p className="text-neutral-200 font-semibold mt-0.5">{inspectingContract.expiryDate || "Perpetual"}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-black/50 border border-[#222222]">
+                  <span className="text-[10px] text-neutral-500 block uppercase">Archive ID:</span>
+                  <p className="text-neutral-400 font-mono text-[11px] truncate mt-0.5">{inspectingContract.id}</p>
+                </div>
+              </div>
+
+              {inspectingContract.feeTerms && (
+                <div className="p-3 rounded-xl bg-black/50 border border-[#222222]">
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-wider block font-mono">
+                    Fee & Retainer Terms:
+                  </span>
+                  <p className="text-emerald-300 font-medium mt-1">{inspectingContract.feeTerms}</p>
+                </div>
+              )}
+
+              {inspectingContract.notes && (
+                <div className="p-3 rounded-xl bg-black/50 border border-[#222222]">
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-wider block font-mono">
+                    Special Covenants & Clauses:
+                  </span>
+                  <p className="text-neutral-300 leading-relaxed mt-1">{inspectingContract.notes}</p>
+                </div>
+              )}
+
+              <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Paperclip className="h-4 w-4 text-emerald-400" />
+                  <div>
+                    <p className="text-xs font-semibold text-white font-mono">{inspectingContract.fileName}</p>
+                    <p className="text-[10px] text-neutral-400 font-mono">
+                      {inspectingContract.fileSize || "1.2 MB"} • Uploaded {new Date(inspectingContract.uploadedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDownloadContract(inspectingContract)}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-semibold uppercase tracking-wider font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Download className="h-3 w-3" />
+                  <span>Download</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-3 flex items-center justify-between border-t border-[#252525]">
+              <button
+                onClick={() => handleDeleteContract(inspectingContract.id, inspectingContract.advocateName)}
+                className="text-red-400 hover:text-red-300 text-xs font-mono flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Delete Contract</span>
+              </button>
+              <button
+                onClick={() => setInspectingContract(null)}
+                className="px-4 py-2 rounded-lg bg-white text-black text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

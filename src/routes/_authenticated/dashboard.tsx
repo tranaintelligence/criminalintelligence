@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Menu, X, Scale, GraduationCap, ArrowUpRight, ShieldCheck, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/lib/user-role";
+import { MassAnnouncementBanner } from "@/components/MassAnnouncementBanner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -415,6 +416,7 @@ function DashboardLayout() {
           <Outlet />
         ) : (
           <div className="max-w-7xl mx-auto space-y-6">
+            <MassAnnouncementBanner currentDashboard="citizens" className="mb-6" />
             <Outlet />
           </div>
         )}

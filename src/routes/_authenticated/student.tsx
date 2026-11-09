@@ -8,6 +8,7 @@ import {
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole, StudentProfile } from "@/lib/user-role";
+import { MassAnnouncementBanner } from "@/components/MassAnnouncementBanner";
 
 export const Route = createFileRoute("/_authenticated/student")({
   component: StudentLayout,
@@ -780,6 +781,7 @@ function StudentLayout() {
       {/* Main Content Area */}
       <main className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
         <div className="max-w-7xl mx-auto space-y-6">
+          <MassAnnouncementBanner currentDashboard="students" className="mb-6" />
           {studentProfile?.verificationStatus === "PENDING_VERIFICATION" && (
             <div className="apple-glass-card border-amber-500/30 bg-amber-500/[0.04] p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2.5">
