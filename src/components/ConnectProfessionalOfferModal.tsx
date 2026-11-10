@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   Scale, ShieldAlert, Phone, MessageSquare, Copy, Check, ExternalLink, 
   MapPin, X, AlertTriangle, ArrowRight, HeartHandshake, Building2, User
@@ -44,6 +45,11 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
   const [clientDistrict, setClientDistrict] = useState(userDistrict === "District" ? "" : userDistrict);
   const [clientState, setClientState] = useState("");
   const [copiedDraft, setCopiedDraft] = useState<"whatsapp" | "email" | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load verified lawyers when opening modal
   useEffect(() => {
@@ -123,7 +129,7 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
       .sort((a, b) => a.full_name.localeCompare(b.full_name));
   }, [lawyers, selectedPracticeArea, selectedCity, searchQuery]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === "undefined") return null;
 
   const whatsappText = NALSA_HELPLINE.whatsappDraft(
     clientName || "[Your Full Name]",
@@ -147,9 +153,9 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-3xl my-6 border border-[#2a2a2a] bg-[#0c0c0e] text-neutral-100 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 sm:p-4 md:p-6 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-3xl my-auto border border-[#2a2a2a] bg-[#0c0c0e] text-neutral-100 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#222] px-5 py-4 bg-[#121215]">
           <div className="flex items-center gap-2.5">
@@ -525,7 +531,8 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

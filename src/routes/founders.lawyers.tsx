@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Scale, Check, X, Star, FileText, Eye, ShieldAlert, 
@@ -42,6 +43,20 @@ export const Route = createFileRoute("/founders/lawyers")({
   }),
   component: FoundersLawyersPage,
 });
+
+function PortalModal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted || typeof document === "undefined") return null;
+  return createPortal(
+    <div className="founders-canvas text-[#F0F0F0] font-sans">
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 function FoundersLawyersPage() {
   const { credential } = useTranaCredential();
@@ -1102,14 +1117,15 @@ function FoundersLawyersPage() {
 
       {/* Onboard Advocate Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl border border-[#333333] bg-[#141414] p-6 md:p-8 shadow-2xl relative my-8">
-            <button
-              onClick={() => setIsAddModalOpen(false)}
-              className="absolute right-5 top-5 text-[#888888] hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <PortalModal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto">
+            <div className="w-full max-w-2xl border border-[#333333] bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-auto">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
 
             <div className="flex items-center gap-3 border-b border-[#252525] pb-4 mb-6">
               <Scale className="h-6 w-6 text-white" />
@@ -1337,11 +1353,13 @@ function FoundersLawyersPage() {
             </form>
           </div>
         </div>
+        </PortalModal>
       )}
       {/* Modal: Advocate Personal Vault Headings (Admin View - Content Restricted) */}
       {isVaultModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="w-full max-w-4xl bg-[#141414] border border-amber-500/30 rounded-2xl p-6 md:p-8 shadow-2xl max-h-[85vh] flex flex-col relative">
+        <PortalModal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4 sm:p-6 md:p-8 backdrop-blur-md overflow-y-auto">
+            <div className="w-full max-w-4xl bg-[#141414] border border-amber-500/30 rounded-2xl p-6 md:p-8 shadow-2xl max-h-[85vh] flex flex-col relative my-auto">
             <div className="flex items-center justify-between border-b border-[#252525] pb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
@@ -1419,8 +1437,8 @@ function FoundersLawyersPage() {
 
             {/* Restricted Detail View Modal */}
             {selectedVaultHeading && (
-              <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
-                <div className="w-full max-w-lg bg-[#141414] border border-red-500/40 rounded-2xl p-6 shadow-2xl relative space-y-4">
+              <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
+                <div className="w-full max-w-lg bg-[#141414] border border-red-500/40 rounded-2xl p-6 shadow-2xl relative space-y-4 my-auto">
                   <div className="flex items-center gap-3 border-b border-[#252525] pb-3">
                     <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
                       <Lock className="h-5 w-5" />
@@ -1466,12 +1484,14 @@ function FoundersLawyersPage() {
             )}
           </div>
         </div>
+        </PortalModal>
       )}
 
       {/* Upload Advocate Contract Modal */}
       {isContractModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl border border-white/15 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-8 space-y-5">
+        <PortalModal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto">
+            <div className="w-full max-w-2xl border border-white/15 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-auto space-y-5">
             <button
               onClick={() => setIsContractModalOpen(false)}
               className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
@@ -1684,12 +1704,14 @@ function FoundersLawyersPage() {
             </form>
           </div>
         </div>
+        </PortalModal>
       )}
 
       {/* Inspect Advocate Contract Modal */}
       {inspectingContract && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="w-full max-w-xl border border-emerald-500/30 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-8 space-y-5">
+        <PortalModal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto">
+            <div className="w-full max-w-xl border border-emerald-500/30 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-auto space-y-5">
             <button
               onClick={() => setInspectingContract(null)}
               className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
@@ -1787,6 +1809,7 @@ function FoundersLawyersPage() {
             </div>
           </div>
         </div>
+        </PortalModal>
       )}
     </div>
   );

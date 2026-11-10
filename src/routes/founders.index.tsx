@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Users, Scale, FileText, PhoneCall, RefreshCw, MessageSquare, MessagesSquare, 
@@ -37,6 +38,20 @@ export const Route = createFileRoute("/founders/")({
   }),
   component: FoundersOverview,
 });
+
+function PortalModal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted || typeof document === "undefined") return null;
+  return createPortal(
+    <div className="founders-canvas text-[#F0F0F0] font-sans">
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 function FoundersOverview() {
   const [lastRefreshed, setLastRefreshed] = useState<string>("Just now");
@@ -1016,14 +1031,15 @@ function FoundersOverview() {
 
       {/* Modal: Record Revenue Entry in ₹ */}
       {isAddRevenueModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="w-full max-w-lg border border-emerald-500/30 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-8 space-y-5">
-            <button
-              onClick={() => setIsAddRevenueModalOpen(false)}
-              className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
-            >
-              <X className="h-5 w-5" />
-            </button>
+        <PortalModal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto">
+            <div className="w-full max-w-lg border border-emerald-500/30 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-auto space-y-5">
+              <button
+                onClick={() => setIsAddRevenueModalOpen(false)}
+                className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
 
             <div className="flex items-center gap-3 border-b border-[#252525] pb-4">
               <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
@@ -1150,18 +1166,20 @@ function FoundersOverview() {
             </form>
           </div>
         </div>
+        </PortalModal>
       )}
 
       {/* Modal: Broadcast Mass Announcement */}
       {isAddAnnouncementModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="w-full max-w-xl border border-purple-500/30 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-8 space-y-5 font-mono">
-            <button
-              onClick={() => setIsAddAnnouncementModalOpen(false)}
-              className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
-            >
-              <X className="h-5 w-5" />
-            </button>
+        <PortalModal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto">
+            <div className="w-full max-w-xl border border-purple-500/30 bg-[#141414] p-6 md:p-8 rounded-2xl shadow-2xl relative my-auto space-y-5 font-mono">
+              <button
+                onClick={() => setIsAddAnnouncementModalOpen(false)}
+                className="absolute right-5 top-5 text-[#888888] hover:text-white cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
 
             <div className="flex items-center gap-3 border-b border-[#252525] pb-4">
               <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
@@ -1312,6 +1330,7 @@ function FoundersOverview() {
             </form>
           </div>
         </div>
+        </PortalModal>
       )}
     </div>
   );

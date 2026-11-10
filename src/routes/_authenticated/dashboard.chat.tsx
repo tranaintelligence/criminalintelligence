@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { createFileRoute, useNavigate, useLocation, useParams } from '@tanstack/react-router';
 import {
   Send,
@@ -257,6 +258,15 @@ const ChatLoadingScreen: React.FC = () => (
   </div>
 );
 
+function PortalModal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted || typeof document === 'undefined') return null;
+  return createPortal(children, document.body);
+}
+
 export function ChatView() {
   const { credential } = useTranaCredential();
   return <ChatViewContent key={credential ? 'signed-in' : 'guest'} />;
@@ -283,6 +293,11 @@ export function ChatViewContent() {
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [chats, setChats] = useState<ChatSession[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 1024;
@@ -771,21 +786,126 @@ export function ChatViewContent() {
       className="chat-view flex h-full w-full bg-[#0a0a0c] overflow-hidden relative"
       onPaste={handleChatPaste}
     >
-      {/* Mobile Backdrop when sidebar is open on small screens */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-          aria-hidden="true"
-        />
+      {/* ── Mobile Sessions Drawer (Portal to document.body) ───────────── */}
+      {mounted && isSidebarOpen && (
+        <PortalModal>
+          <div className="fixed inset-0 z-[9999] lg:hidden flex">
+            {/* Full-screen tap-to-dismiss Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+              onClick={() => setIsSidebarOpen(false)}
+              aria-hidden="true"
+            />
+            {/* Mobile Drawer panel */}
+            <div className="relative z-10 w-[300px] max-w-[85vw] h-full bg-[#0e0e11] border-r border-white/10 flex flex-col shadow-2xl pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] animate-in slide-in-from-left duration-200">
+              {/* Header with Title and Prominent Close Button */}
+              <div className="p-3.5 border-b border-white/[0.08] space-y-3 shrink-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs uppercase tracking-wider text-neutral-300 font-semibold flex items-center gap-2">
+                    <MessageSquare size={14} className="text-amber-400" />
+                    Chat Sessions
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="p-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] text-white transition-colors cursor-pointer"
+                    title="Close sidebar"
+                    aria-label="Close chat sessions"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSidebarOpen(false);
+                    handleNewChat();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-amber-400/10 hover:bg-amber-400/20 text-amber-200 hover:text-white border border-amber-400/30 px-3.5 py-2.5 rounded-xl transition-all text-xs font-medium shadow-sm active:scale-[0.99] cursor-pointer"
+                >
+                  <Plus size={15} className="text-amber-300" />
+                  <span>New Chat</span>
+                </button>
+              </div>
+
+              {/* Sessions List */}
+              <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                {chats.map((chat) => {
+                  const isActive = chat.id === routeChatId;
+                  return (
+                    <div
+                      key={chat.id}
+                      className={`group relative flex items-center w-full rounded-xl transition-colors ${
+                        isActive
+                          ? 'bg-white/[0.12] text-white font-medium border border-white/20'
+                          : 'text-neutral-300 hover:text-white hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSidebarOpen(false);
+                          navigate({ to: '/dashboard/chat/$id', params: { id: chat.id }, state: {} as any });
+                        }}
+                        className="w-full text-left px-3 py-3 pr-8 text-xs truncate cursor-pointer"
+                        title={chat.title}
+                      >
+                        {chat.title || 'Untitled Session'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => void handleDeleteChat(e, chat)}
+                        className="absolute right-2 p-2 rounded text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Delete chat"
+                        aria-label={`Delete ${chat.title || 'chat'}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {credential && chats.length === 0 && (
+                  <div className="px-3 py-6 text-center text-xs text-neutral-500 font-mono">
+                    No saved chats yet.
+                  </div>
+                )}
+                {!credential && (
+                  <div className="px-3 py-6 text-center text-xs text-neutral-500 font-mono">
+                    Temporary guest mode. Sign in to save chats.
+                  </div>
+                )}
+              </div>
+
+              {/* System Health Status in Sidebar Footer */}
+              <div className="p-3 border-t border-white/[0.08] shrink-0 bg-[#0e0e11]">
+                <SystemStatus
+                  status={health.status}
+                  sourceRegistryReady={health.sourceRegistryReady}
+                  onRetry={() => {
+                    setHealth((c) => ({ ...c, status: 'checking' }));
+                    void fetch(`${API_URL}/health?ts=${Date.now()}`)
+                      .then((r) => r.json())
+                      .then((data) =>
+                        setHealth({
+                          status: data.status === 'healthy' ? 'online' : 'offline',
+                          sourceRegistryReady: data.source_registry_ready !== false,
+                        }),
+                      )
+                      .catch(() => setHealth((c) => ({ ...c, status: 'offline' })));
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </PortalModal>
       )}
 
-      {/* ── Sessions Sidebar (History) ─────────────────────────────────── */}
+      {/* ── Desktop Sessions Sidebar (In-flow) ─────────────────────────── */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 h-full w-[280px] max-w-[85vw] border-r border-white/[0.08] bg-[#0e0e11] flex flex-col shrink-0 select-none shadow-2xl transition-transform duration-200 ease-in-out
-          lg:relative lg:inset-auto lg:z-20 lg:h-full lg:shadow-none lg:transition-all
-          ${isSidebarOpen ? 'translate-x-0 lg:w-72' : '-translate-x-full lg:w-0 lg:translate-x-0 overflow-hidden'}
+          hidden lg:flex flex-col shrink-0 select-none border-r border-white/[0.08] bg-[#0e0e11] h-full transition-all duration-200 ease-in-out
+          ${isSidebarOpen ? 'w-72' : 'w-0 overflow-hidden border-r-0'}
         `}
       >
         {/* Sidebar Header & New Chat button */}
@@ -798,7 +918,7 @@ export function ChatViewContent() {
             <button
               type="button"
               onClick={() => setIsSidebarOpen(false)}
-              className="text-neutral-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/[0.08]"
+              className="text-neutral-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/[0.08] cursor-pointer"
               title="Close sidebar"
             >
               <PanelLeftClose size={16} />
@@ -807,12 +927,7 @@ export function ChatViewContent() {
 
           <button
             type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                setIsSidebarOpen(false);
-              }
-              handleNewChat();
-            }}
+            onClick={handleNewChat}
             className="w-full flex items-center justify-center gap-2 bg-white/[0.07] hover:bg-white/[0.12] text-neutral-100 hover:text-white border border-white/10 px-3.5 py-2.5 rounded-xl transition-all text-xs font-medium shadow-sm active:scale-[0.99] cursor-pointer"
           >
             <Plus size={15} className="text-amber-300" />
@@ -836,9 +951,6 @@ export function ChatViewContent() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                      setIsSidebarOpen(false);
-                    }
                     navigate({ to: '/dashboard/chat/$id', params: { id: chat.id }, state: {} as any });
                   }}
                   className="w-full text-left px-3 py-2.5 pr-8 text-xs truncate cursor-pointer"
@@ -995,10 +1107,10 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setDismissedOffer(true);
                     }}
-                    className="text-neutral-500 hover:text-white p-1 text-xs shrink-0 cursor-pointer"
+                    className="text-neutral-400 hover:text-white p-1.5 text-xs shrink-0 cursor-pointer rounded-lg hover:bg-white/[0.08] transition-colors"
                     title="Dismiss"
                   >
-                    <X size={15} />
+                    <X size={16} />
                   </button>
                 </div>
                 <div className="mt-3.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5">
@@ -1009,7 +1121,7 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setIsConnectModalOpen(true);
                     }}
-                    className="w-full sm:w-auto text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-400 text-black hover:bg-amber-300 transition-colors cursor-pointer text-center shadow-md whitespace-nowrap"
+                    className="w-full sm:w-auto text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black transition-colors cursor-pointer text-center shadow-md active:scale-95"
                   >
                     View Advocates (Chargeable)
                   </button>
@@ -1020,7 +1132,7 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setIsConnectModalOpen(true);
                     }}
-                    className="w-full sm:w-auto text-xs font-mono text-emerald-300 hover:text-emerald-200 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-colors cursor-pointer text-center whitespace-nowrap"
+                    className="w-full sm:w-auto text-xs font-mono text-emerald-300 hover:text-emerald-200 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-colors cursor-pointer text-center active:scale-95"
                   >
                     Free Legal Aid (15100)
                   </button>
@@ -1136,7 +1248,7 @@ export function ChatViewContent() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder={user ? 'Ask a legal question or attach documents...' : 'Ask a legal question...'}
                 disabled={shouldShowChatLoading}
-                className="flex-1 bg-transparent border-none text-neutral-100 placeholder-neutral-500 text-xs sm:text-sm min-w-0 outline-none"
+                className="flex-1 bg-transparent border-none text-neutral-100 placeholder-neutral-500 text-[16px] sm:text-sm min-w-0 outline-none"
               />
 
               <button

@@ -394,7 +394,7 @@ function DashboardLayout() {
 
       {/* Main Content Area */}
       <main
-        className={`md:ml-[280px] text-[#F0F0F0] relative z-10 ${
+        className={`md:ml-[280px] text-[#F0F0F0] relative ${
           location.pathname.startsWith("/dashboard/chat")
             ? "h-[calc(100dvh-53px)] md:h-screen flex flex-col overflow-hidden p-0"
             : "min-h-screen p-4 md:p-6 lg:p-8"

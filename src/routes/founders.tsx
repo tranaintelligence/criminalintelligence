@@ -670,7 +670,7 @@ function FoundersLayout() {
         )}
 
         {/* Main Content Area: Offset by sidebar width on desktop */}
-        <main className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative z-10">
+        <main className="md:ml-[280px] min-h-screen text-[#F0F0F0] p-4 md:p-6 lg:p-8 relative">
           <div className="max-w-7xl mx-auto space-y-6">
             <Outlet />
           </div>
