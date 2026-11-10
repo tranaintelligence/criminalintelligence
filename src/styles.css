@@ -293,13 +293,11 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
 .founders-canvas input[type="text"],
 .founders-canvas input[type="email"],
 .founders-canvas input[type="password"],
-.founders-canvas input[type="search"],
 .founders-canvas input[type="number"],
 .founders-canvas select,
 .apple-glass-canvas input[type="text"],
 .apple-glass-canvas input[type="email"],
 .apple-glass-canvas input[type="password"],
-.apple-glass-canvas input[type="search"],
 .apple-glass-canvas input[type="number"],
 .apple-glass-canvas select {
   background: rgba(255, 255, 255, 0.08) !important;
@@ -309,9 +307,15 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; borde
   box-shadow: 
     inset 0 1px 2px 0 rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
-  border-radius: 9999px;
+  border-radius: 10px;
   color: #ffffff !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-glass-pill-input,
+.founders-canvas input[type="search"],
+.apple-glass-canvas input[type="search"] {
+  border-radius: 9999px;
 }
 
 .founders-canvas textarea,
@@ -324,7 +328,7 @@ textarea.apple-glass-input {
   box-shadow: 
     inset 0 1px 2px 0 rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
-  border-radius: 14px !important;
+  border-radius: 10px !important;
   color: #ffffff !important;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -342,6 +346,37 @@ textarea.apple-glass-input {
     inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
     0 0 0 3px rgba(255, 255, 255, 0.15) !important;
   outline: none !important;
+}
+
+/* Chat View Input Bar & Inner Input: rectangular box, clean transparent input */
+.chat-view input,
+.chat-view textarea,
+.chat-view__input-shell input,
+.chat-view__input-shell textarea {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  padding: 0 !important;
+}
+
+.chat-view input:focus,
+.chat-view textarea:focus,
+.chat-view__input-shell input:focus,
+.chat-view__input-shell textarea:focus {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.chat-view__input-shell {
+  border-radius: 10px !important;
 }
 
 /* Glassify all containers in founders-canvas & apple-glass-canvas to rich translucent glass with clean, continuous borders */

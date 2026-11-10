@@ -1208,7 +1208,7 @@ export function ChatViewContent() {
               <p role="status" className="mb-2 text-xs text-neutral-400">Saving attachments to this chat…</p>
             )}
 
-            <div className="chat-view__input-shell flex items-center gap-2 sm:gap-3 bg-white/[0.05] border border-white/10 rounded-2xl px-3 sm:px-4 py-2 sm:py-3 shadow-inner focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
+            <div className="chat-view__input-shell flex items-center gap-2 sm:gap-3 bg-white/[0.05] border border-white/15 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-sm focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1248,11 +1248,11 @@ export function ChatViewContent() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder={user ? 'Ask a legal question or attach documents...' : 'Ask a legal question...'}
                 disabled={shouldShowChatLoading}
-                className="flex-1 bg-transparent border-none text-neutral-100 placeholder-neutral-500 text-[16px] sm:text-sm min-w-0 outline-none"
+                className="flex-1 bg-transparent border-0 outline-none text-neutral-100 placeholder-neutral-500 text-[16px] sm:text-sm min-w-0 p-0 shadow-none ring-0 focus:ring-0 focus:outline-none"
               />
 
               <button
-                className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-xl disabled:opacity-40 transition-colors cursor-pointer shrink-0"
+                className="chat-view__send-button bg-neutral-200 text-neutral-900 hover:bg-white p-2 rounded-lg disabled:opacity-40 transition-colors cursor-pointer shrink-0"
                 onClick={handleSend}
                 disabled={isLoading || (!input.trim() && pendingFiles.length === 0)}
                 type="button"
