@@ -606,7 +606,7 @@ function Analyse() {
           <button
             onClick={submit}
             disabled={busy || (!text.trim() && !file)}
-            className="apple-glass-pill px-6 py-3 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-500 text-black hover:bg-emerald-400 border-none shadow-[0_0_25px_rgba(16,185,129,0.35)] disabled:opacity-40 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+            className="px-6 py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500 text-black hover:bg-emerald-400 border border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.45)] disabled:opacity-40 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             {busy ? (
               <>

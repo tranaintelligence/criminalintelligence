@@ -379,14 +379,14 @@ function FoundersOverview() {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <button
             onClick={() => setIsAddRevenueModalOpen(true)}
-            className="apple-glass-pill bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25 px-3 py-1.5 flex items-center gap-1.5 rounded-lg cursor-pointer"
+            className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 px-3 py-1.5 flex items-center gap-1.5 rounded-lg cursor-pointer text-xs font-medium"
           >
             <IndianRupee className="h-3.5 w-3.5" />
             <span>Record Revenue (₹)</span>
           </button>
           <button
             onClick={() => setIsAddAnnouncementModalOpen(true)}
-            className="apple-glass-pill bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25 px-3 py-1.5 flex items-center gap-1.5 rounded-lg cursor-pointer"
+            className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 px-3 py-1.5 flex items-center gap-1.5 rounded-lg cursor-pointer text-xs font-medium"
           >
             <Megaphone className="h-3.5 w-3.5" />
             <span>Broadcast Event</span>
@@ -569,7 +569,7 @@ function FoundersOverview() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setIsAddRevenueModalOpen(true)}
-              className="apple-glass-pill bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Record Revenue (₹)</span>
@@ -717,7 +717,7 @@ function FoundersOverview() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setIsAddAnnouncementModalOpen(true)}
-              className="apple-glass-pill bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Broadcast New Event</span>
