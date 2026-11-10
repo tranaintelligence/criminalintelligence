@@ -107,6 +107,18 @@ const createWelcomeMessage = (): ChatMessage => ({
   created_at: new Date().toISOString(),
 });
 
+const isLawyerIntent = (text?: string | null): boolean => {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return (
+    /\b(lawyer|advocate|vakeel|vakil|attorney|counsel|counselor|bar\s*council)\b/i.test(t) ||
+    /\b(legal\s*aid|nalsa|dlsa|tele-?law)\b/i.test(t) ||
+    /\b(connect|reach|find|talk to|speak to|need|want|get|hire|call)\s+(?:an?\s+)?(?:lawyer|advocate|vakeel|vakil|attorney|counsel)\b/i.test(t) ||
+    /\b(vakeel|vakil)\s*(?:chahiye|karo|batao|se baat|se milo)\b/i.test(t) ||
+    /\b(?:reach a lawyer|connect with an? advocate|connect with a.*lawyer|verified advocate)\b/i.test(t)
+  );
+};
+
 const formatSection = (section?: string | null, subsection?: string | null): string => {
   if (!section) return subsection ? `(${subsection})` : '';
   return subsection ? `${section}(${subsection})` : section;
@@ -305,6 +317,8 @@ export function ChatViewContent() {
     return false;
   });
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [modalInitialView, setModalInitialView] = useState<'notice' | 'directory' | 'free_aid'>('notice');
+  const [userRequestedLawyerRecently, setUserRequestedLawyerRecently] = useState(false);
   const [hasOfferedConnection, setHasOfferedConnection] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('trana_offered_advocate_connect') === 'true';
@@ -611,6 +625,18 @@ export function ChatViewContent() {
       return;
     }
 
+    const trimmedInput = input.trim();
+    const isAskingLawyer = isLawyerIntent(trimmedInput) || (
+      messages.length > 0 &&
+      isLawyerIntent(messages[messages.length - 1]?.content || '') &&
+      /^(?:yes|yep|yeah|sure|please|haan|ha|connect|ok|okay)/i.test(trimmedInput)
+    );
+
+    if (isAskingLawyer) {
+      setUserRequestedLawyerRecently(true);
+      setDismissedOffer(false);
+    }
+
     setIsLoading(true);
     const newMessage: ChatMessage = { role: 'user', content: input, created_at: new Date().toISOString() };
     setAttachmentError('');
@@ -710,6 +736,10 @@ export function ChatViewContent() {
           created_at: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
+        if (data.analysis?.suggest_lawyer || isLawyerIntent(assistantMessage.content) || isAskingLawyer) {
+          setUserRequestedLawyerRecently(true);
+          setDismissedOffer(false);
+        }
         if (credential && !routeChatId && activeChatId) {
           const messagesForNavigation = messages.length > 0 ? messages : [createWelcomeMessage()];
           navigate({
@@ -1115,18 +1145,20 @@ export function ChatViewContent() {
             )}
             {isLoading && <ThinkingAnimation />}
 
-            {/* Offer Once to Connect with an Advocate */}
-            {!isLoading && messages.some((m) => m.role === 'assistant' && m.content !== WELCOME_MESSAGE) && !hasOfferedConnection && !dismissedOffer && (
-              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-3.5 sm:p-4 text-xs shadow-lg">
+            {/* Offer to Connect with an Advocate */}
+            {!isLoading && messages.some((m) => m.role === 'assistant' && m.content !== WELCOME_MESSAGE) && !dismissedOffer && (
+              userRequestedLawyerRecently ||
+              isLawyerIntent(messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || '') ||
+              isLawyerIntent(messages.filter((m) => m.role === 'assistant').slice(-1)[0]?.content || '') ||
+              !hasOfferedConnection
+            ) && (
+              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-3.5 sm:p-4 text-xs shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Scale className="h-4 w-4 text-amber-400 shrink-0" />
                       <span className="font-semibold text-white tracking-tight text-xs sm:text-sm">
                         Would you like to connect with a verified advocate?
-                      </span>
-                      <span className="text-[9px] sm:text-[10px] font-mono text-neutral-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] shrink-0">
-                        Offered Once
                       </span>
                     </div>
                     <p className="text-neutral-300 leading-relaxed text-[11px] sm:text-xs">
@@ -1139,6 +1171,7 @@ export function ChatViewContent() {
                       sessionStorage.setItem('trana_offered_advocate_connect', 'true');
                       setHasOfferedConnection(true);
                       setDismissedOffer(true);
+                      setUserRequestedLawyerRecently(false);
                     }}
                     className="text-neutral-400 hover:text-white p-1.5 text-xs shrink-0 cursor-pointer rounded-lg hover:bg-white/[0.08] transition-colors"
                     title="Dismiss"
@@ -1152,6 +1185,7 @@ export function ChatViewContent() {
                     onClick={() => {
                       sessionStorage.setItem('trana_offered_advocate_connect', 'true');
                       setHasOfferedConnection(true);
+                      setModalInitialView('notice');
                       setIsConnectModalOpen(true);
                     }}
                     className="w-full sm:w-auto text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black transition-colors cursor-pointer text-center shadow-md active:scale-95"
@@ -1163,6 +1197,7 @@ export function ChatViewContent() {
                     onClick={() => {
                       sessionStorage.setItem('trana_offered_advocate_connect', 'true');
                       setHasOfferedConnection(true);
+                      setModalInitialView('free_aid');
                       setIsConnectModalOpen(true);
                     }}
                     className="w-full sm:w-auto text-xs font-mono text-emerald-300 hover:text-emerald-200 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-colors cursor-pointer text-center active:scale-95"
@@ -1175,6 +1210,7 @@ export function ChatViewContent() {
                       sessionStorage.setItem('trana_offered_advocate_connect', 'true');
                       setHasOfferedConnection(true);
                       setDismissedOffer(true);
+                      setUserRequestedLawyerRecently(false);
                     }}
                     className="w-full sm:w-auto text-xs font-mono text-neutral-400 hover:text-neutral-200 px-3 py-2 transition-colors cursor-pointer text-center"
                   >
@@ -1305,6 +1341,7 @@ export function ChatViewContent() {
       <ConnectProfessionalOfferModal
         isOpen={isConnectModalOpen}
         onClose={() => setIsConnectModalOpen(false)}
+        initialView={modalInitialView}
         initialTopic={messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || 'Legal First-Aid Consultation'}
       />
     </div>

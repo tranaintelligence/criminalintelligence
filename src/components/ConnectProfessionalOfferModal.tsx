@@ -24,6 +24,7 @@ interface ConnectProfessionalOfferModalProps {
   onClose: () => void;
   initialTopic?: string;
   userDistrict?: string;
+  initialView?: "notice" | "directory" | "free_aid";
 }
 
 export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferModalProps> = ({
@@ -31,9 +32,10 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
   onClose,
   initialTopic = "General Legal Matter",
   userDistrict = "District",
+  initialView = "notice",
 }) => {
   // Navigation inside modal: "chargeable_notice" -> "lawyer_list" | "free_legal_aid"
-  const [view, setView] = useState<"notice" | "directory" | "free_aid">("notice");
+  const [view, setView] = useState<"notice" | "directory" | "free_aid">(initialView);
   const [lawyers, setLawyers] = useState<LawyerRecord[]>([]);
   const [loadingLawyers, setLoadingLawyers] = useState(false);
   const [selectedPracticeArea, setSelectedPracticeArea] = useState<string>("all");
@@ -51,10 +53,17 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
     setMounted(true);
   }, []);
 
+  // Sync initial view when opening
+  useEffect(() => {
+    if (isOpen && initialView) {
+      setView(initialView);
+    }
+  }, [isOpen, initialView]);
+
   // Load verified lawyers when opening modal
   useEffect(() => {
     if (!isOpen) {
-      setView("notice");
+      setView(initialView);
       return;
     }
 
