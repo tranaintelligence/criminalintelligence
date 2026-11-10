@@ -188,7 +188,7 @@ export function StatutoryDisclaimerModal({ forceOpen = false, onClose }: Statuto
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-2 sm:p-4 md:p-6 lg:p-8 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-2 sm:p-4 md:p-6 lg:p-8 backdrop-blur-md transition-opacity duration-150"
       role="dialog"
       aria-modal="true"
       aria-labelledby="disclaimer-title"

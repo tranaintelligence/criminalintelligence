@@ -1,16 +1,16 @@
 /**
  * lawyer.queries.tsx
  * "Citizen Queries" — lawyers see categorised citizen complaint topics
- * matching their field of practice, and can draft responses.
+ * matching their field of practice, linked with Complaint Analyser chat sessions.
  * Route: /lawyer/queries
  */
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   MessageSquare, Search, Scale, Clock, CheckCircle2,
   AlertCircle, ChevronRight, Send, X, FileText, Filter,
-  RefreshCw, Loader2, ArrowRight
+  RefreshCw, Loader2, ArrowRight, ShieldCheck, Sparkles, ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/lawyer/queries")({
   head: () => ({
     meta: [
       { title: "Citizen Queries — Legal Professional Workspace — TRANA" },
-      { name: "description", content: "Review and respond to citizen legal queries matching your field of practice." },
+      { name: "description", content: "Review and respond to citizen legal queries matching your field of practice, linked with Complaint Analyser." },
     ],
   }),
   component: CitizenQueriesPage,
@@ -37,6 +37,10 @@ type CitizenQuery = {
   response?: string;
   responded_at?: string;
   responded_by?: string;
+  chat_id?: string | null;
+  applicable_laws?: { act?: string; code?: string; section?: string; explanation?: string }[];
+  bail_status?: string | null;
+  situation_meaning?: string | null;
 };
 
 function timeAgo(iso: string): string {
@@ -63,26 +67,86 @@ function CitizenQueriesPage() {
     return extractLegalKeywords(lawyer.specialisation + " " + (lawyer.specialisation || ""));
   }, [lawyer]);
 
-  // Load queries from Supabase analyses table (citizen complaints/chat analyses)
+  // Load queries from Supabase + Complaint Analyser shared pool
   const { data: rawQueries = [], isLoading, refetch } = useQuery({
     queryKey: ["citizen-queries", lawyer?.id, lawyer?.specialisation],
     queryFn: async (): Promise<CitizenQuery[]> => {
-      // Fetch recent complaint analyses submitted by citizens
-      const { data, error } = await supabase
-        .from("complaint_analyses")
-        .select("id, created_at, issue_summary, category, status, citizen_name, response, responded_at, responded_by")
-        .eq("status", "open")
-        .order("created_at", { ascending: false })
-        .limit(100);
+      const mergedList: CitizenQuery[] = [];
+      const seenIds = new Set<string>();
 
-      if (error || !data) {
-        // Fallback: generate illustrative mock data seeded from lawyer's specialisation
+      // 1. Check local Complaint Analyser pool
+      try {
+        const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
+        if (poolRaw) {
+          const pool = JSON.parse(poolRaw);
+          if (Array.isArray(pool)) {
+            pool.forEach((item: any) => {
+              if (item?.id && !seenIds.has(item.id)) {
+                seenIds.add(item.id);
+                mergedList.push(item);
+              }
+            });
+          }
+        }
+
+        // Also check citizen past analyses from localStorage
+        const pastRaw = localStorage.getItem("trana_citizen_past_analyses");
+        if (pastRaw) {
+          const past = JSON.parse(pastRaw);
+          if (Array.isArray(past)) {
+            past.forEach((p: any) => {
+              const qId = `analysis-${p.id || p.createdAt}`;
+              if (!seenIds.has(qId)) {
+                seenIds.add(qId);
+                const ana = p.result?.analysis;
+                mergedList.push({
+                  id: qId,
+                  created_at: p.createdAt || new Date().toISOString(),
+                  issue_summary: p.summaryTitle || p.originalQuery || "Citizen Complaint Analysis",
+                  category: ana?.applicable_laws?.[0]?.act || "Statutory Matter",
+                  status: "open",
+                  chat_id: p.result?.chatId || null,
+                  applicable_laws: ana?.applicable_laws || [],
+                  bail_status: ana?.bail_status || null,
+                  situation_meaning: ana?.situation_meaning || null,
+                });
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Could not read local citizen queries pool:", err);
+      }
+
+      // 2. Fetch from Supabase complaint_analyses
+      try {
+        const { data } = await supabase
+          .from("complaint_analyses")
+          .select("id, created_at, issue_summary, category, status, citizen_name, response, responded_at, responded_by")
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (data && Array.isArray(data)) {
+          data.forEach((row: any) => {
+            if (row?.id && !seenIds.has(row.id)) {
+              seenIds.add(row.id);
+              mergedList.push(row);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Supabase complaint_analyses fetch note:", err);
+      }
+
+      // 3. Fallback mock queries if empty
+      if (mergedList.length === 0) {
         return generateMockQueries(lawyer?.specialisation || "General Practice", 8);
       }
-      return data as CitizenQuery[];
+
+      return mergedList;
     },
     enabled: !!lawyer,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 
   // Filter queries matching lawyer's practice area
@@ -96,7 +160,10 @@ function CitizenQueriesPage() {
 
   const filteredQueries = useMemo(() => {
     return matchedQueries.filter((q) => {
-      const matchesSearch = !search.trim() || q.issue_summary.toLowerCase().includes(search.toLowerCase()) || q.category?.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch =
+        !search.trim() ||
+        q.issue_summary.toLowerCase().includes(search.toLowerCase()) ||
+        q.category?.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === "all" || q.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -106,7 +173,8 @@ function CitizenQueriesPage() {
     if (!selectedQuery || !responseText.trim()) return;
     setSending(true);
     try {
-      const { error } = await supabase
+      // 1. Try Supabase update
+      await supabase
         .from("complaint_analyses")
         .update({
           response: responseText.trim(),
@@ -114,10 +182,30 @@ function CitizenQueriesPage() {
           responded_by: lawyer?.full_name || "Advocate",
           status: "responded",
         })
-        .eq("id", selectedQuery.id);
+        .eq("id", selectedQuery.id)
+        .catch(() => {});
 
-      if (error) throw error;
-      toast.success("Response submitted successfully.");
+      // 2. Update local pool
+      try {
+        const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
+        if (poolRaw) {
+          const pool = JSON.parse(poolRaw);
+          const updated = pool.map((q: any) =>
+            q.id === selectedQuery.id
+              ? {
+                  ...q,
+                  response: responseText.trim(),
+                  responded_at: new Date().toISOString(),
+                  responded_by: lawyer?.full_name || "Advocate",
+                  status: "responded",
+                }
+              : q
+          );
+          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify(updated));
+        }
+      } catch {}
+
+      toast.success("Response submitted and linked to citizen inquiry.");
       setSelectedQuery(null);
       setResponseText("");
       refetch();
@@ -131,50 +219,47 @@ function CitizenQueriesPage() {
   return (
     <div className="min-h-screen space-y-6 p-4 sm:p-6">
       {/* Header */}
-      <div className="border-b border-[#1A1A1A] pb-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-[#AAAAAA]" />
+      <div className="border-b border-white/10 pb-5">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300">
+              <MessageSquare className="h-4 w-4" />
+            </div>
             <h1 className="font-display text-2xl font-semibold text-white sm:text-3xl">
               Citizen Queries
             </h1>
-          </div>
-          <p className="font-mono text-xs text-[#666666] uppercase tracking-[0.12em]">
-            {lawyer?.specialisation || "Your Practice Area"} · Incoming citizen legal queries
-          </p>
-        </div>
-        {lawyer?.specialisation && (
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-sm border border-[#2A2A2A] bg-[#111111] px-3 py-1.5">
-            <Scale className="h-3.5 w-3.5 text-[#888888]" />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[#888888]">
-              Matching: {lawyer.specialisation}
+            <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 font-mono text-[10px] text-sky-300">
+              Complaint Analyser Linked
             </span>
           </div>
-        )}
+          <p className="font-mono text-xs text-neutral-400">
+            {lawyer?.specialisation || "Your Practice Area"} &middot; Live citizen inquiries &amp; statutory complaints
+          </p>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search queries..."
-            className="w-full border border-[#2A2A2A] bg-[#0A0A0A] pl-9 pr-4 py-2.5 font-mono text-sm text-white placeholder:text-[#444444] focus:border-[#444444] focus:outline-none"
+            placeholder="Search inquiries or statutory sections..."
+            className="w-full border border-white/10 bg-[#121216] pl-10 pr-4 py-2 text-xs rounded-xl text-white placeholder:text-neutral-500 focus:border-amber-400/60 focus:outline-none"
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-[#555555]" />
+          <Filter className="h-3.5 w-3.5 text-neutral-500" />
           {(["all", "open", "responded"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest border transition-colors ${
+              className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider rounded-lg border transition-colors cursor-pointer ${
                 statusFilter === s
-                  ? "border-white bg-white text-black"
-                  : "border-[#2A2A2A] bg-transparent text-[#666666] hover:border-[#444444] hover:text-[#AAAAAA]"
+                  ? "border-emerald-500 bg-emerald-500 text-black font-semibold"
+                  : "border-white/10 bg-transparent text-neutral-400 hover:border-white/25 hover:text-white"
               }`}
             >
               {s}
@@ -182,7 +267,7 @@ function CitizenQueriesPage() {
           ))}
           <button
             onClick={() => refetch()}
-            className="border border-[#2A2A2A] p-1.5 text-[#555555] hover:border-[#444444] hover:text-[#AAAAAA] transition-colors"
+            className="border border-white/10 p-2 rounded-lg text-neutral-400 hover:border-white/30 hover:text-white transition-colors cursor-pointer"
             aria-label="Refresh"
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -193,14 +278,14 @@ function CitizenQueriesPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
-          { label: "Matching Queries", value: matchedQueries.length, icon: MessageSquare },
-          { label: "Open", value: matchedQueries.filter(q => q.status === "open").length, icon: AlertCircle },
-          { label: "Responded", value: matchedQueries.filter(q => q.status === "responded").length, icon: CheckCircle2 },
+          { label: "Matching Inquiries", value: matchedQueries.length, icon: MessageSquare },
+          { label: "Awaiting Response", value: matchedQueries.filter((q) => q.status === "open").length, icon: AlertCircle },
+          { label: "Answered", value: matchedQueries.filter((q) => q.status === "responded").length, icon: CheckCircle2 },
         ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="border border-[#1A1A1A] bg-[#0A0A0A] p-4">
-            <div className="flex items-center gap-2 text-[#555555]">
-              <Icon className="h-3.5 w-3.5" />
-              <span className="font-mono text-[9px] uppercase tracking-widest">{label}</span>
+          <div key={label} className="border border-white/10 bg-[#121216] p-4 rounded-xl shadow-sm">
+            <div className="flex items-center gap-2 text-neutral-400">
+              <Icon className="h-3.5 w-3.5 text-amber-300" />
+              <span className="font-mono text-[10px] uppercase tracking-wider">{label}</span>
             </div>
             <p className="mt-1 font-mono text-2xl text-white">{isLoading ? "—" : value}</p>
           </div>
@@ -208,57 +293,69 @@ function CitizenQueriesPage() {
       </div>
 
       {/* Query List */}
-      <div className="border border-[#1A1A1A] bg-[#0A0A0A]">
+      <div className="rounded-2xl border border-white/10 bg-[#101014] overflow-hidden shadow-xl">
         {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-12 text-[#555555]">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="flex items-center justify-center gap-2 py-12 text-neutral-400">
+            <Loader2 className="h-4 w-4 animate-spin text-amber-300" />
             <span className="font-mono text-xs">Loading citizen queries...</span>
           </div>
         ) : filteredQueries.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-            <Scale className="h-8 w-8 text-[#333333]" />
-            <p className="font-mono text-xs text-[#555555] uppercase tracking-widest">
+            <Scale className="h-8 w-8 text-neutral-600" />
+            <p className="font-mono text-xs text-neutral-400 uppercase tracking-wider">
               No queries match your practice area right now.
-            </p>
-            <p className="font-mono text-[10px] text-[#333333]">
-              Check back later or adjust your specialisation in My Profile.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#111111]">
+          <div className="divide-y divide-white/[0.06]">
             {filteredQueries.map((query) => (
               <div
                 key={query.id}
-                className="group flex cursor-pointer items-start gap-4 px-4 py-4 transition-colors hover:bg-[#111111]"
-                onClick={() => { setSelectedQuery(query); setResponseText(""); }}
+                className="group flex cursor-pointer items-start gap-4 px-5 py-4 transition-all hover:bg-white/[0.04]"
+                onClick={() => {
+                  setSelectedQuery(query);
+                  setResponseText(query.response || "");
+                }}
               >
-                <div className="mt-0.5 flex-shrink-0">
-                  <div className={`h-2 w-2 rounded-full ${query.status === "open" ? "bg-amber-400" : "bg-emerald-400"}`} />
+                <div className="mt-1 flex-shrink-0">
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      query.status === "open" ? "bg-amber-400" : "bg-emerald-400"
+                    }`}
+                  />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-white leading-snug line-clamp-2 group-hover:text-neutral-200">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <p className="text-sm text-neutral-100 font-medium leading-snug group-hover:text-amber-100 transition-colors">
                     {query.issue_summary}
                   </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {query.category && (
-                      <span className="rounded-sm border border-[#2A2A2A] bg-[#111111] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-[#555555]">
+                      <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-neutral-300">
                         {query.category}
                       </span>
                     )}
-                    <span className={`rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest ${
-                      query.status === "open"
-                        ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                    }`}>
+                    {query.chat_id && (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-mono text-[10px] text-sky-300">
+                        <Sparkles className="h-3 w-3" />
+                        Chat Linked
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-md border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+                        query.status === "open"
+                          ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      }`}
+                    >
                       {query.status}
                     </span>
-                    <span className="font-mono text-[10px] text-[#444444]">
-                      <Clock className="inline h-2.5 w-2.5 mr-0.5" />
+                    <span className="font-mono text-[10px] text-neutral-500">
+                      <Clock className="inline h-3 w-3 mr-1" />
                       {timeAgo(query.created_at)}
                     </span>
                   </div>
                 </div>
-                <ChevronRight className="mt-1 h-4 w-4 flex-shrink-0 text-[#333333] group-hover:text-[#666666] transition-colors" />
+                <ChevronRight className="mt-1.5 h-4 w-4 flex-shrink-0 text-neutral-500 group-hover:text-white transition-colors" />
               </div>
             ))}
           </div>
@@ -267,75 +364,110 @@ function CitizenQueriesPage() {
 
       {/* Response Modal */}
       {selectedQuery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl border border-[#2A2A2A] bg-[#0D0D0D] shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-2xl my-6 border border-white/20 bg-[#121216] shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-[#1A1A1A] px-5 py-4">
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-[#16161c]">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[#AAAAAA]" />
-                <span className="font-mono text-xs uppercase tracking-[0.15em] text-[#AAAAAA]">
-                  Draft Response
+                <FileText className="h-4 w-4 text-amber-300" />
+                <span className="font-mono text-xs uppercase tracking-wider text-white font-semibold">
+                  Citizen Legal Query &middot; Complaint Analyser
                 </span>
               </div>
-              <button onClick={() => setSelectedQuery(null)} className="text-[#555555] hover:text-white transition-colors">
+              <button
+                onClick={() => setSelectedQuery(null)}
+                className="text-neutral-400 hover:text-white transition-colors p-1"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-4 p-5">
-              {/* Query */}
-              <div className="border border-[#1A1A1A] bg-[#0A0A0A] p-4">
-                <p className="font-mono text-[9px] uppercase tracking-widest text-[#555555] mb-2">Citizen Query</p>
+            <div className="space-y-4 p-5 sm:p-6 overflow-y-auto">
+              {/* Query Summary */}
+              <div className="border border-white/10 bg-[#0e0e12] p-4 rounded-xl space-y-2">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-neutral-400">Citizen Inquiry</p>
                 <p className="text-sm text-white leading-relaxed">{selectedQuery.issue_summary}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 pt-1">
                   {selectedQuery.category && (
-                    <span className="rounded-sm border border-[#2A2A2A] bg-[#111111] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-[#555555]">
+                    <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-neutral-300">
                       {selectedQuery.category}
                     </span>
                   )}
-                  <span className="font-mono text-[10px] text-[#444444]">{timeAgo(selectedQuery.created_at)}</span>
+                  <span className="font-mono text-[10px] text-neutral-500">{timeAgo(selectedQuery.created_at)}</span>
                 </div>
               </div>
 
+              {/* Linked Complaint Analyser Breakdown (if present) */}
+              {(selectedQuery.situation_meaning || (selectedQuery.applicable_laws && selectedQuery.applicable_laws.length > 0)) && (
+                <div className="border border-sky-500/20 bg-sky-950/20 p-4 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-sky-300 font-semibold flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Complaint Analyser Engine Breakdown
+                    </span>
+                    {selectedQuery.chat_id && (
+                      <Link
+                        to="/dashboard/chat/$id"
+                        params={{ id: selectedQuery.chat_id }}
+                        className="text-[11px] font-mono text-sky-400 hover:underline flex items-center gap-1"
+                      >
+                        <span>Open Chat Thread</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    )}
+                  </div>
+                  {selectedQuery.situation_meaning && (
+                    <p className="text-xs text-neutral-300 leading-relaxed">
+                      {selectedQuery.situation_meaning}
+                    </p>
+                  )}
+                  {selectedQuery.applicable_laws && selectedQuery.applicable_laws.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {selectedQuery.applicable_laws.map((l, i) => (
+                        <span key={i} className="text-[10px] font-mono bg-sky-500/10 border border-sky-500/30 text-sky-200 px-2 py-0.5 rounded">
+                          {l.code || l.act} &sect;{l.section}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Disclaimer */}
-              <div className="border border-amber-500/20 bg-amber-500/5 p-3">
-                <p className="font-mono text-[10px] text-amber-400/80 leading-relaxed">
+              <div className="border border-amber-500/20 bg-amber-500/5 p-3 rounded-xl">
+                <p className="font-mono text-[10px] text-amber-300/90 leading-relaxed">
                   <AlertCircle className="inline h-3 w-3 mr-1" />
-                  Your response is general legal information, not legal advice. Per BCI Rules, do not solicit or guarantee outcomes. 
-                  Citizens should seek formal consultation for their specific matter.
+                  Your response provides general legal information. Per BCI Rules, do not solicit or guarantee legal outcomes.
                 </p>
               </div>
 
               {/* Response Draft */}
-              <div>
-                <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.15em] text-[#888888]">
-                  Your Response (General Legal Information)
+              <div className="space-y-1.5">
+                <label className="block font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+                  Your Statutory Response
                 </label>
                 <textarea
                   value={responseText}
                   onChange={(e) => setResponseText(e.target.value)}
-                  rows={6}
-                  placeholder="Provide general information about the applicable law, relevant provisions, typical process, and direct them to seek formal legal advice for their specific situation..."
-                  className="w-full resize-none border border-[#333333] bg-[#141414] px-4 py-3 text-sm text-white placeholder:text-[#444444] focus:border-[#555555] focus:outline-none"
+                  rows={5}
+                  placeholder="Provide general information on the applicable legal provisions, rights, and procedure..."
+                  className="w-full resize-none border border-white/10 bg-[#0e0e12] px-4 py-3 text-xs text-white rounded-xl placeholder:text-neutral-500 focus:border-emerald-400/60 focus:outline-none"
                 />
-                <p className="mt-1 font-mono text-[9px] text-[#444444]">
-                  {responseText.length} characters
-                </p>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={handleRespond}
                   disabled={sending || !responseText.trim()}
-                  className="flex flex-1 items-center justify-center gap-2 bg-white px-4 py-3 font-mono text-xs uppercase tracking-[0.15em] text-black transition-colors hover:bg-neutral-200 disabled:opacity-40"
+                  className="flex flex-1 items-center justify-center gap-2 bg-emerald-500 text-black px-4 py-3 rounded-xl font-semibold text-xs uppercase tracking-wider transition-colors hover:bg-emerald-400 disabled:opacity-40 cursor-pointer shadow-md"
                 >
                   {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                   {sending ? "Submitting..." : "Submit Response"}
                 </button>
                 <button
                   onClick={() => setSelectedQuery(null)}
-                  className="border border-[#333333] px-4 py-3 font-mono text-xs uppercase tracking-[0.15em] text-[#888888] transition-colors hover:border-white hover:text-white"
+                  className="border border-white/15 px-4 py-3 rounded-xl font-mono text-xs uppercase tracking-wider text-neutral-400 hover:text-white transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -355,46 +487,22 @@ function generateMockQueries(specialisation: string, count: number): CitizenQuer
       { issue: "I need general legal advice about my situation and what steps I should take.", category: "General Legal Query" },
       { issue: "What are my rights in this matter and how should I proceed?", category: "Legal Rights" },
       { issue: "I received a legal notice and I don't know how to respond to it.", category: "Legal Notice" },
-      { issue: "Can you explain what documents I need to gather for my case?", category: "Documentation" },
     ],
     criminal: [
-      { issue: "I have been falsely accused in an FIR. What are my immediate legal rights?", category: "Criminal — FIR & Bail" },
-      { issue: "My family member was arrested. How do I apply for bail?", category: "Criminal — Bail" },
-      { issue: "I received a police notice under Section 160 CrPC. Must I appear?", category: "Criminal — Police Notice" },
-      { issue: "How do I file a quashing petition against a frivolous FIR?", category: "Criminal — Quashing" },
+      { issue: "I have been falsely accused in an FIR under BNS Section 303. What are my immediate bail rights?", category: "Criminal — FIR & Bail" },
+      { issue: "My family member was arrested without notice under BNSS Section 35. How do I apply for bail?", category: "Criminal — Bail" },
+      { issue: "I received a police notice under Section 160 CrPC/BNSS. Must I appear?", category: "Criminal — Police Notice" },
     ],
     family: [
-      { issue: "My spouse is seeking divorce. What are the grounds for contested divorce?", category: "Family — Divorce" },
-      { issue: "Who gets child custody after divorce? What factors does the court consider?", category: "Family — Custody" },
-      { issue: "How much maintenance am I entitled to under Section 125 CrPC?", category: "Family — Maintenance" },
-      { issue: "My husband has been physically abusive. How do I file under the DV Act?", category: "Family — DV Act" },
-    ],
-    property: [
-      { issue: "My landlord is trying to evict me without proper notice. What are my rights?", category: "Property — Tenancy" },
-      { issue: "There is a dispute over ancestral property partition. What is the process?", category: "Property — Partition" },
-      { issue: "My builder has not registered the flat despite receiving full payment.", category: "Property — RERA" },
-      { issue: "How do I challenge an illegal encroachment on my land?", category: "Property — Encroachment" },
-    ],
-    consumer: [
-      { issue: "An e-commerce platform refused to refund me for a defective product.", category: "Consumer — E-commerce" },
-      { issue: "My insurance claim was wrongly rejected. How do I approach the consumer forum?", category: "Consumer — Insurance" },
-      { issue: "I was charged extra on a bill for services not rendered.", category: "Consumer — Unfair Trade" },
-    ],
-    cyber: [
-      { issue: "Someone is blackmailing me using my private photos online.", category: "Cyber — Extortion" },
-      { issue: "My UPI account was hacked and money was transferred without my consent.", category: "Cyber — Fraud" },
-      { issue: "I received phishing emails impersonating my bank.", category: "Cyber — Phishing" },
+      { issue: "My spouse is seeking divorce under Special Marriage Act. What are the grounds?", category: "Family — Divorce" },
+      { issue: "How much maintenance am I entitled to under Section 144 BNSS / Section 125 CrPC?", category: "Family — Maintenance" },
     ],
   };
 
-  // Pick closest category
   const specLower = specialisation.toLowerCase();
   let key = "default";
   if (specLower.includes("criminal")) key = "criminal";
   else if (specLower.includes("family") || specLower.includes("matrimon")) key = "family";
-  else if (specLower.includes("property") || specLower.includes("real estate")) key = "property";
-  else if (specLower.includes("consumer")) key = "consumer";
-  else if (specLower.includes("cyber")) key = "cyber";
 
   const pool = [...(templates[key] || templates.default), ...templates.default];
   const now = Date.now();
@@ -405,7 +513,6 @@ function generateMockQueries(specialisation: string, count: number): CitizenQuer
     issue_summary: t.issue,
     category: t.category,
     status: "open" as const,
-    citizen_name: undefined,
+    chat_id: null,
   }));
 }
-

@@ -178,7 +178,7 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
           {/* VIEW 1: MANDATORY CHARGEABLE NOTICE */}
           {view === "notice" && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6">
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
                 <div className="flex items-start gap-3.5">
                   <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
@@ -187,9 +187,10 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
                       Important Information Regarding Advocate Consultations
                     </h3>
                     <p className="mt-2 text-xs text-neutral-300 leading-relaxed">
-                      Consulting with a private advocate is a <strong>chargeable professional service</strong>. 
-                      Advocates set their own independent consultation fees and retainer charges based on court 
-                      jurisdiction and matter complexity.
+                      Consulting with a private advocate is a <strong>chargeable professional service</strong>.{" "}
+                      <span className="line-through text-neutral-400 opacity-70">
+                        Advocates set their own independent consultation fees and retainer charges based on court jurisdiction and matter complexity.
+                      </span>
                     </p>
                     <p className="mt-2 text-xs text-neutral-400 font-mono leading-relaxed">
                       &bull; TRANA does not charge any commission or referral cut on advocate fees.<br />
@@ -250,7 +251,7 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
 
           {/* VIEW 2: NEUTRAL DIRECTORY GROUPED BY PRACTICE & CITY */}
           {view === "directory" && (
-            <div className="space-y-5 animate-fade-in">
+            <div className="space-y-5">
               {/* Neutrality Disclaimer Banner */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-[#16161a] text-xs text-neutral-300">
                 <p className="leading-snug">
@@ -267,14 +268,7 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
               </div>
 
               {/* Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  placeholder="Search advocate name or city..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="border border-[#2e2e34] bg-[#111114] px-3 py-2 text-xs rounded-lg text-white placeholder:text-neutral-500 focus:border-amber-400/60 focus:outline-none"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <select
                   value={selectedPracticeArea}
                   onChange={(e) => setSelectedPracticeArea(e.target.value)}
@@ -389,7 +383,7 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
 
           {/* VIEW 3: FREE LEGAL AID ROUTING (NALSA / DLSA) */}
           {view === "free_aid" && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <button
                   type="button"

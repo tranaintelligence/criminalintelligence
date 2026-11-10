@@ -285,7 +285,7 @@ export function ChatViewContent() {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
+      return window.innerWidth >= 1024;
     }
     return false;
   });
@@ -300,7 +300,7 @@ export function ChatViewContent() {
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
+      if (window.innerWidth < 1024) {
         setIsSidebarOpen(false);
       }
     };
@@ -774,7 +774,7 @@ export function ChatViewContent() {
       {/* Mobile Backdrop when sidebar is open on small screens */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm md:hidden animate-fade-in"
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -784,8 +784,8 @@ export function ChatViewContent() {
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 h-full w-[280px] max-w-[85vw] border-r border-white/[0.08] bg-[#0e0e11] flex flex-col shrink-0 select-none shadow-2xl transition-transform duration-200 ease-in-out
-          md:relative md:inset-auto md:z-20 md:h-full md:shadow-none md:transition-all
-          ${isSidebarOpen ? 'translate-x-0 md:w-72' : '-translate-x-full md:w-0 md:translate-x-0 overflow-hidden'}
+          lg:relative lg:inset-auto lg:z-20 lg:h-full lg:shadow-none lg:transition-all
+          ${isSidebarOpen ? 'translate-x-0 lg:w-72' : '-translate-x-full lg:w-0 lg:translate-x-0 overflow-hidden'}
         `}
       >
         {/* Sidebar Header & New Chat button */}
@@ -808,7 +808,7 @@ export function ChatViewContent() {
           <button
             type="button"
             onClick={() => {
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                 setIsSidebarOpen(false);
               }
               handleNewChat();
@@ -836,7 +836,7 @@ export function ChatViewContent() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                       setIsSidebarOpen(false);
                     }
                     navigate({ to: '/dashboard/chat/$id', params: { id: chat.id }, state: {} as any });
@@ -972,19 +972,19 @@ export function ChatViewContent() {
 
             {/* Offer Once to Connect with an Advocate */}
             {!isLoading && messages.some((m) => m.role === 'assistant' && m.content !== WELCOME_MESSAGE) && !hasOfferedConnection && !dismissedOffer && (
-              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-3.5 sm:p-4 text-xs shadow-lg animate-fade-in">
+              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-3.5 sm:p-4 text-xs shadow-lg">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Scale className="h-4 w-4 text-amber-400 shrink-0" />
-                      <span className="font-semibold text-white tracking-tight">
+                      <span className="font-semibold text-white tracking-tight text-xs sm:text-sm">
                         Would you like to connect with a verified advocate?
                       </span>
                       <span className="text-[9px] sm:text-[10px] font-mono text-neutral-400 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] shrink-0">
                         Offered Once
                       </span>
                     </div>
-                    <p className="text-neutral-300 leading-relaxed text-[11px]">
+                    <p className="text-neutral-300 leading-relaxed text-[11px] sm:text-xs">
                       Advocate consultations are chargeable professional services. TRANA provides a neutral, unranked list so you can choose independently. If you cannot afford legal fees, free legal aid is available via NALSA / DLSA.
                     </p>
                   </div>
@@ -995,13 +995,13 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setDismissedOffer(true);
                     }}
-                    className="text-neutral-500 hover:text-white p-1 text-xs shrink-0"
+                    className="text-neutral-500 hover:text-white p-1 text-xs shrink-0 cursor-pointer"
                     title="Dismiss"
                   >
-                    <X size={14} />
+                    <X size={15} />
                   </button>
                 </div>
-                <div className="mt-3 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-2.5">
+                <div className="mt-3.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -1009,7 +1009,7 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setIsConnectModalOpen(true);
                     }}
-                    className="w-full sm:w-auto text-xs font-semibold px-3.5 py-2.5 rounded-lg bg-white text-black hover:bg-neutral-200 transition-colors cursor-pointer text-center"
+                    className="w-full sm:w-auto text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-400 text-black hover:bg-amber-300 transition-colors cursor-pointer text-center shadow-md whitespace-nowrap"
                   >
                     View Advocates (Chargeable)
                   </button>
@@ -1020,7 +1020,7 @@ export function ChatViewContent() {
                       setHasOfferedConnection(true);
                       setIsConnectModalOpen(true);
                     }}
-                    className="w-full sm:w-auto text-xs font-mono text-emerald-400 hover:text-emerald-300 px-3.5 py-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors cursor-pointer text-center"
+                    className="w-full sm:w-auto text-xs font-mono text-emerald-300 hover:text-emerald-200 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-colors cursor-pointer text-center whitespace-nowrap"
                   >
                     Free Legal Aid (15100)
                   </button>

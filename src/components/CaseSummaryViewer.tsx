@@ -205,7 +205,7 @@ export function CaseSummaryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-sm transition-opacity duration-150">
       <div className="w-full max-w-3xl bg-[#141414] border border-[#333333] shadow-2xl flex flex-col max-h-[88vh] overflow-hidden rounded">
         {/* Modal Header */}
         <div className="border-b border-[#262626] bg-[#181818] p-4 sm:p-5 flex items-start justify-between gap-4">

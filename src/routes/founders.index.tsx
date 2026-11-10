@@ -386,7 +386,7 @@ function FoundersOverview() {
           </button>
           <button
             onClick={() => setIsAddAnnouncementModalOpen(true)}
-            className="apple-glass-pill bg-purple-500/15 text-purple-300 border-purple-500/30 hover:bg-purple-500/25 px-3 py-1.5 flex items-center gap-1.5 rounded-lg cursor-pointer"
+            className="apple-glass-pill bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25 px-3 py-1.5 flex items-center gap-1.5 rounded-lg cursor-pointer"
           >
             <Megaphone className="h-3.5 w-3.5" />
             <span>Broadcast Event</span>
@@ -717,7 +717,7 @@ function FoundersOverview() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setIsAddAnnouncementModalOpen(true)}
-              className="apple-glass-pill bg-purple-500 hover:bg-purple-400 text-black px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="apple-glass-pill bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Broadcast New Event</span>
@@ -1297,7 +1297,7 @@ function FoundersOverview() {
               <div className="pt-3 flex gap-3 border-t border-[#252525]">
                 <button
                   type="submit"
-                  className="flex-1 bg-purple-500 hover:bg-purple-400 text-black py-2.5 rounded-xl font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black py-2.5 rounded-xl font-semibold uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Publish Broadcast to All Dashboards
                 </button>

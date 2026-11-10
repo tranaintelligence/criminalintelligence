@@ -367,7 +367,7 @@ export function ConsultationChatModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-sm transition-opacity duration-150">
       <div className="w-full max-w-2xl bg-[#141414] border border-[#333333] shadow-2xl flex flex-col h-[85vh] max-h-[720px] overflow-hidden">
         {/* Header with Privacy Masking Notice */}
         <div className="border-b border-[#262626] bg-[#181818] p-4 flex items-start justify-between gap-3">

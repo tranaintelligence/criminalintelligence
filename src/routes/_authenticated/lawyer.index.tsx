@@ -602,8 +602,8 @@ function LawyerOverview() {
 
       {/* Referral Review Modal */}
       {selectedReferral && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-[#1A1A1A] border border-white/30 p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm transition-opacity duration-150">
+          <div className="w-full max-w-2xl bg-[#1A1A1A] border border-white/30 p-8 shadow-2xl transition-all">
             <div className="flex items-start justify-between border-b border-[#2E2E2E] pb-4">
               <div>
                 <span className="text-xs uppercase tracking-[0.2em] text-[#888888] font-mono">

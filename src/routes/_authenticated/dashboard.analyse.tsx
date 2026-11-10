@@ -3,9 +3,11 @@ import { useRef, useState } from "react";
 import { 
   Upload, X, FileText, Scale, ShieldCheck, CheckCircle2, 
   AlertTriangle, ArrowRight, ExternalLink, Copy, Check, Sparkles, 
-  MessageSquare, Loader2, RotateCcw, Clock, Trash2, History, HeartHandshake
+  MessageSquare, Loader2, RotateCcw, Clock, Trash2, History, HeartHandshake,
+  Users
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { API_URL } from "@/lib/trana-backend";
 import { useTranaCredential, authFetch, authHeaders } from "@/lib/trana-auth";
 import { ConnectProfessionalOfferModal } from "@/components/ConnectProfessionalOfferModal";
@@ -259,6 +261,29 @@ function Analyse() {
         const updatedHistory = [record, ...pastAnalyses.filter((p) => p.summaryTitle !== titleSnippet).slice(0, 29)];
         setPastAnalyses(updatedHistory);
         localStorage.setItem("trana_citizen_past_analyses", JSON.stringify(updatedHistory));
+
+        // Sync with Citizen Queries board for advocates
+        try {
+          const poolQuery = {
+            id: `query-${Date.now()}`,
+            created_at: new Date().toISOString(),
+            issue_summary: titleSnippet,
+            category: data.analysis?.applicable_laws?.[0]?.act || "Statutory Complaint",
+            status: "open",
+            chat_id: createdChatId || null,
+            applicable_laws: data.analysis?.applicable_laws || [],
+            bail_status: data.analysis?.bail_status || null,
+            situation_meaning: data.analysis?.situation_meaning || null,
+          };
+          const existingPool = JSON.parse(localStorage.getItem("trana_citizen_queries_pool") || "[]");
+          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.slice(0, 49)]));
+          void supabase.from("complaint_analyses").insert({
+            id: poolQuery.id,
+            issue_summary: poolQuery.issue_summary,
+            category: poolQuery.category,
+            status: "open",
+          }).catch(() => {});
+        } catch {}
       } catch (saveErr) {
         console.warn("Could not cache past analysis:", saveErr);
       }
@@ -581,7 +606,7 @@ function Analyse() {
           <button
             onClick={submit}
             disabled={busy || (!text.trim() && !file)}
-            className="apple-glass-pill px-6 py-3 rounded-full text-xs font-semibold uppercase tracking-wider bg-white text-black hover:bg-neutral-200 border-none shadow-lg disabled:opacity-40 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+            className="apple-glass-pill px-6 py-3 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-500 text-black hover:bg-emerald-400 border-none shadow-[0_0_25px_rgba(16,185,129,0.35)] disabled:opacity-40 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             {busy ? (
               <>
@@ -623,13 +648,17 @@ function Analyse() {
 
       {/* Analysis Results View */}
       {result && a && (
-        <div className="mt-10 space-y-6 animate-fade-in">
+        <div className="mt-10 space-y-6">
           {/* Action & Metric Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.05] border border-white/10 text-xs">
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
                 <CheckCircle2 className="h-4 w-4" />
                 Analysis Complete
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-mono text-sky-300">
+                <Users className="h-3 w-3" />
+                Linked to Citizen Queries
               </span>
               {result.processing_time_seconds !== undefined && (
                 <span className="text-neutral-400 font-mono">
