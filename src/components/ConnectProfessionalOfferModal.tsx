@@ -202,10 +202,7 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
                       Important Information Regarding Advocate Consultations
                     </h3>
                     <p className="mt-2 text-xs text-neutral-300 leading-relaxed">
-                      Consulting with a private advocate is a <strong>chargeable professional service</strong>.{" "}
-                      <span className="line-through text-neutral-400 opacity-70">
-                        Advocates set their own independent consultation fees and retainer charges based on court jurisdiction and matter complexity.
-                      </span>
+                      Consulting with a private advocate is a <strong>chargeable professional service</strong>.
                     </p>
                     <p className="mt-2 text-xs text-neutral-400 font-mono leading-relaxed">
                       &bull; TRANA does not charge any commission or referral cut on advocate fees.<br />
