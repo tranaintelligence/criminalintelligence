@@ -34,7 +34,7 @@ export const Route = createFileRoute('/_authenticated/dashboard/chat')({
 });
 
 const loadingSynonyms = ['Thinking...', 'Analyzing statutes...', 'Reviewing provisions...', 'Almost there...'];
-const WELCOME_MESSAGE = "I'm TRANA—your friendly legal assistant. How can I help you today?";
+const WELCOME_MESSAGE = "I'm TRANA—your legal information guide for Indian criminal law. I help ordinary families understand their rights under the BNS, BNSS, and BSA in simple, clear language. How can I help you today?";
 const CHAT_REQUEST_TIMEOUT_MS = 45_000;
 const TEMPORARY_CHAT_STORAGE_KEY = 'trana.temporary-chat';
 
@@ -155,18 +155,18 @@ const formatAnalysis = (
       sections.push(meaning.startsWith('#') ? meaning : `### What This Situation Means\n\n${meaning}`);
     }
 
-    // 4. Bail Status
+    // 4. Bail Status (Selective — only if an arrest or potential arrest is involved)
     if (result.bail_status?.trim()) {
       const bail = result.bail_status.trim();
-      const isApplicable = !/^(?:not applicable|none|n\/?a|unclear)$/i.test(bail);
+      const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
       if (isApplicable) {
         sections.push(bail.startsWith('#') ? bail : `### Bail Status & Eligibility\n\n${bail}`);
       }
     }
 
-    // 5. Next 24 Hours Action Steps
+    // 5. Next 24 Hours Action Steps (Selective — only for active encounters)
     if (result.next_24_hours?.length) {
-      const validSteps = result.next_24_hours.filter((item) => item?.trim());
+      const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
       if (validSteps.length > 0) {
         sections.push(`### What To Do Next (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
       }
@@ -174,14 +174,14 @@ const formatAnalysis = (
 
     // 6. Rights
     if (result.rights?.length) {
-      const validRights = result.rights.filter((item) => item?.trim());
+      const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
       if (validRights.length > 0) {
         sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
       }
     }
 
     // 7. Handling Authority
-    if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a)$/i.test(result.handling_authority.trim())) {
+    if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
       const auth = result.handling_authority.trim();
       sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
     }
@@ -195,9 +195,9 @@ const formatAnalysis = (
     }
   }
 
-  // 9. Lawyer Recommendation
+  // 9. Lawyer Recommendation (Only when genuinely needed)
   if (result.suggest_lawyer) {
-    sections.push('> ⚖️ **Legal Note**: While TRANA provides structured statutory guidance under Indian law, every case depends on specific facts. For formal court representation or bail applications, please consult a qualified advocate.');
+    sections.push('> ⚖️ **Legal Note**: For formal court representation or filing bail applications, please consult a qualified advocate.');
   }
 
   return sections.join('\n\n') || 'The backend returned an analysis without readable content.';
@@ -1080,6 +1080,39 @@ export function ChatViewContent() {
             {messages.map((msg, idx) => (
               <MessageBubble key={idx} message={msg} />
             ))}
+            {messages.length === 1 && messages[0].content === WELCOME_MESSAGE && (
+              <div className="flex flex-wrap gap-2 pt-1 pb-2">
+                <button
+                  type="button"
+                  onClick={() => navigate({ to: '/dashboard/analyse' })}
+                  className="text-xs bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/35 px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer font-medium shadow-sm hover:scale-[1.01]"
+                >
+                  <FileText size={13} className="text-emerald-400" />
+                  <span>Analyse an FIR / Complaint →</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInput("What are the rules for bail under BNSS?")}
+                  className="text-xs bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white border border-white/10 px-3 py-2 rounded-xl transition-all cursor-pointer"
+                >
+                  Bail rules under BNSS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInput("What are my rights if police come to question me or search my home?")}
+                  className="text-xs bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white border border-white/10 px-3 py-2 rounded-xl transition-all cursor-pointer"
+                >
+                  Police questioning & search rights
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInput("What is Section 318 BNS?")}
+                  className="text-xs bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white border border-white/10 px-3 py-2 rounded-xl transition-all cursor-pointer"
+                >
+                  Section 318 BNS (Cheating)
+                </button>
+              </div>
+            )}
             {isLoading && <ThinkingAnimation />}
 
             {/* Offer Once to Connect with an Advocate */}

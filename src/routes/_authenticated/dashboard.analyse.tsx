@@ -207,8 +207,18 @@ function Analyse() {
         }
       }
 
-      // Analyze endpoint call
-      const queryPrompt = text.trim() || `Analyze the uploaded document (${file?.name}) thoroughly. Identify all applicable BNS/BNSS/BSA sections, explain the allegations, assess bail eligibility, list my immediate rights, and provide 24-hour next steps.`;
+      // Analyze endpoint call with structured 5-point FIR analysis protocol
+      const queryPrompt = text.trim()
+        ? `Perform a complete 5-point criminal complaint / FIR analysis on this case:
+1. List every BNS section applicable or mentioned.
+2. Explain each section in simple language with exact statutory reference: [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC].
+3. Check whether the sections match the facts written and flag anything that looks misapplied or exaggerated (noting a lawyer should confirm).
+4. Explain legal rights under each section.
+5. Give the one most important thing to do next for this case.
+
+Case Details:
+${text.trim()}`
+        : `Analyze the uploaded document (${file?.name}) thoroughly. Perform a complete 5-point criminal complaint / FIR analysis: list every BNS section with statutory references [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC], explain allegations in simple language, check whether sections match facts and flag misapplications, assess bail eligibility, list immediate rights under each section, and provide the one most important next step.`;
 
       const endpoint = credential ? `${API_URL}/api/analyze` : `${API_URL}/api/analyze/temporary`;
       const bodyPayload: Record<string, unknown> = {

@@ -60,7 +60,9 @@ for the requested provision. The Act code and section number identify one exact
 provision; never replace it with a similarly numbered section from another Act.
 Do not use memory or other Acts to fill gaps in this provision. Explain the
 provided text in plain language, and do not claim anything that the text does
-not support. Return a valid JSON object matching the analysis schema. Put the
+not support. Always show the official statutory reference format:
+[Ref: <Act Full Name>, Section <Number> — previously Section <Old Section> <Old Act> if applicable].
+Return a valid JSON object matching the analysis schema. Put the
 explanation in general_analysis and return the exact requested code and section
 as the only applicable_laws item. Leave quote and exact_text empty; the backend
 will attach the verified source text.
