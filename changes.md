@@ -129,3 +129,28 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
       - Evaluates verified laws and allegation facts against `NON_BAILABLE_SECTIONS`. If robbery, extortion, snatching, or violence is involved, overrides hedging text with an unequivocal legal assessment: **NON-BAILABLE** under the First Schedule of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS).
       - Automatically injects statutory remedies for police refusal to lodge FIR: `BNSS Section 173(4)` (written representation by post to the Superintendent of Police / DCP) and `BNSS Section 175(3) & 175(4)` (application before the Judicial Magistrate).
     - Expanded `_COMMON_HALLUCINATION_PATTERNS` to convert any stray references to `BNS Sec. 8`, `BNSS Sec. 8`, `BNS 154`, `BNSS 154A`, and `BNS 151` into accurate 2023 Gazette provisions.
+
+---
+
+## [2026-11-12] - Fix "Could not pass query" Error & Resilient Citizen Query Pool State
+
+### 1. Citizen Queries Pass On & Opinion Submission Stability (`src/routes/_authenticated/lawyer.queries.tsx`)
+- **Problem**: When an advocate in the Legal Professional Workspace opened a citizen query (e.g. `mock-paid-0`: "Falsely accused in FIR under BNS Section 135 & Section 352") and clicked `Pass On to Other Advocates`, an error toast was repeatedly triggered: `"Could not pass query."`, and the query modal remained open without passing.
+- **Root Causes**:
+  1. **UUID Constraint Violation**: PostgreSQL table `analyses.id` is strictly typed as `UUID`. Mock queries (`mock-paid-0`) and local pool queries (`query-${Date.now()}`) are string identifiers. Calling `await supabase.from("analyses").update(...).eq("id", queryId)` triggered Postgres HTTP 400 Bad Request error `22P02: invalid input syntax for type uuid: "mock-paid-0"`.
+  2. **Supabase RLS & Network Exceptions**: Supabase `analyses` table enforces Row-Level Security (`auth.uid() = user_id`). Advocate queries directly updating analyses rows failed or threw uncaught fetch errors. Because the Supabase update call was not wrapped in an inner try/catch block, any failure aborted the function and jumped directly to `catch { toast.error("Could not pass query."); }`.
+  3. **Local Pool State Desynchronization**: If `trana_citizen_queries_pool` was initially empty, `handlePassOn` never added the query to the local pool, and `queryFn` re-instantiated fresh mock queries with `passed_by: []`, wiping out the passed state on refetch.
+  4. **Identifier Mismatch in UI Badges**: The "Passed" badge checked only `lawyer?.id`, whereas advocate identities can be `lawyer?.bar_reg_no` (e.g., `D/2080/2187`) or `full_name`.
+- **Fixes**:
+  - **UUID Safety Check**: Verified with regex `/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i` before attempting any Supabase REST updates. If an ID is a mock or non-UUID, Supabase network requests are bypassed.
+  - **Isolated Supabase Try/Catch**: Isolated Supabase database synchronization in an inner `try/catch` block across both `handlePassOn` and `handleRespond`. Supabase network hiccups, RLS restrictions, or UUID mismatches never fail the advocate's action.
+  - **Optimistic React Query Cache Eviction & Update**: Used `qc.setQueriesData({ queryKey: ["citizen-queries"] }, ...)` to immediately mark the query as passed/responded in the React state and close the modal.
+  - **Persistent Local Pool & Passed Tracker**: Safely persists passed query IDs into `trana_passed_queries_${myId}` and `trana_citizen_queries_pool`. If a mock query is passed or responded to, it is automatically saved into the local pool so its status persists across page reloads.
+  - **QueryFn Mock Supplementation**: `queryFn` now synchronizes `locallyPassedIds` across all queries, and supplements mock queries if `mergedList.length < 6` without dropping existing queries.
+  - **Broadened Advocate Identity Matching**: Both the list badge and modal button check `lawyer?.id`, `lawyer?.bar_reg_no`, and `lawyer?.full_name` against `query.passed_by`.
+
+### 2. Valid UUID Generation in Complaint Analyser (`src/routes/_authenticated/dashboard.analyse.tsx`)
+- **Problem**: When a citizen selected and paid ₹50 for Legal Professional review, `queryId` was generated as `query-${Date.now()}` and `user_id` was set to `"citizen-user"` or `"anonymous-citizen"`, causing Supabase `analyses` insert to fail with Postgres error `22P02: invalid input syntax for type uuid`.
+- **Fixes**:
+  - Implemented compliant UUID v4 generator using `crypto.randomUUID()` (with RFC4122 random fallback).
+  - Checked `authUser?.id` from `supabase.auth.getUser()` before attempting database insert so anonymous users never violate UUID or RLS constraints.

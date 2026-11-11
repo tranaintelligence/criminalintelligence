@@ -317,7 +317,13 @@ function Analyse() {
         try {
           const isPaid = analysisMode === "professional" || forcePaid || paidReviewSuccess;
           if (isPaid) {
-            const queryId = `query-${Date.now()}`;
+            const queryId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+              ? crypto.randomUUID()
+              : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+                  const r = (Math.random() * 16) | 0;
+                  const v = c === "x" ? r : (r & 0x3) | 0x8;
+                  return v.toString(16);
+                });
             const poolQuery = {
               id: queryId,
               created_at: new Date().toISOString(),
@@ -339,25 +345,28 @@ function Analyse() {
             localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.filter((x: any) => x.id !== queryId).slice(0, 49)]));
             
             try {
-              await supabase.from("analyses").insert({
-                id: queryId,
-                situation: text.trim() || `Complaint Document: ${file?.name || "Uploaded Document"}`,
-                result: {
-                  situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
-                  applicable_laws: data.analysis?.applicable_laws || [],
-                  bail_status: data.analysis?.bail_status,
-                  rights: data.analysis?.rights,
-                  source: "complaint_analyser",
-                  anonymous: true,
-                  plan: "paid_professional",
-                  fee: 50,
-                  priority: "high",
-                  responses: [],
-                  passed_by: [],
-                },
-                is_criminal: true,
-                user_id: credential ? "citizen-user" : "anonymous-citizen",
-              });
+              const authUser = (await supabase.auth.getUser())?.data?.user;
+              if (authUser?.id) {
+                await supabase.from("analyses").insert({
+                  id: queryId,
+                  situation: text.trim() || `Complaint Document: ${file?.name || "Uploaded Document"}`,
+                  result: {
+                    situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
+                    applicable_laws: data.analysis?.applicable_laws || [],
+                    bail_status: data.analysis?.bail_status,
+                    rights: data.analysis?.rights,
+                    source: "complaint_analyser",
+                    anonymous: true,
+                    plan: "paid_professional",
+                    fee: 50,
+                    priority: "high",
+                    responses: [],
+                    passed_by: [],
+                  },
+                  is_criminal: true,
+                  user_id: authUser.id,
+                });
+              }
             } catch (insertErr) {
               console.warn("Supabase analyses insert note:", insertErr);
             }

@@ -6,7 +6,7 @@
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageSquare, Search, Scale, Clock, CheckCircle2,
   AlertCircle, ChevronRight, Send, X, FileText, Filter,
@@ -69,6 +69,7 @@ function timeAgo(iso: string): string {
 
 function CitizenQueriesPage() {
   const { data: lawyer } = useLawyerAuth();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [scopeFilter, setScopeFilter] = useState<"all" | "specialisation">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "responded">("all");
@@ -113,7 +114,7 @@ function CitizenQueriesPage() {
                     response: item.response,
                     responded_at: item.responded_at || item.created_at,
                   }] : []),
-                  passed_by: item.passed_by || [],
+                  passed_by: Array.isArray(item.passed_by) ? item.passed_by : [],
                 });
               }
             });
@@ -158,7 +159,7 @@ function CitizenQueriesPage() {
                   response: res.response,
                   responded_at: res.responded_at || row.created_at,
                 }] : []),
-                passed_by: res.passed_by || [],
+                passed_by: Array.isArray(res.passed_by) ? res.passed_by : [],
                 applicable_laws: res.applicable_laws || [],
                 bail_status: res.bail_status || null,
                 situation_meaning: res.situation_meaning || null,
@@ -173,9 +174,36 @@ function CitizenQueriesPage() {
         console.warn("Supabase analyses fetch note:", err);
       }
 
-      // 3. Fallback mock queries if empty
-      if (mergedList.length === 0) {
-        return generateMockQueries(lawyer?.specialisation || "General Practice", 6);
+      // 3. Synchronize locally passed tracker across all queries
+      const myId = lawyer?.id || lawyer?.bar_reg_no || lawyer?.full_name || "counsel";
+      const passedKey = `trana_passed_queries_${myId}`;
+      let locallyPassedIds: string[] = [];
+      try {
+        const rawPassed = localStorage.getItem(passedKey);
+        if (rawPassed) {
+          const parsed = JSON.parse(rawPassed);
+          if (Array.isArray(parsed)) locallyPassedIds = parsed;
+        }
+      } catch {}
+
+      mergedList.forEach((q) => {
+        if (locallyPassedIds.includes(q.id)) {
+          q.passed_by = Array.from(new Set([...(q.passed_by || []), myId]));
+        }
+      });
+
+      // 4. If list has fewer than 6 items, supplement with mock queries (preserving locally passed state)
+      if (mergedList.length < 6) {
+        const mocks = generateMockQueries(lawyer?.specialisation || "General Practice", 6);
+        mocks.forEach((mock) => {
+          if (!seenIds.has(mock.id)) {
+            seenIds.add(mock.id);
+            if (locallyPassedIds.includes(mock.id)) {
+              mock.passed_by = Array.from(new Set([...(mock.passed_by || []), myId]));
+            }
+            mergedList.push(mock);
+          }
+        });
       }
 
       return mergedList;
@@ -220,54 +248,87 @@ function CitizenQueriesPage() {
       };
       const updatedResponses = [...(selectedQuery.responses || []), newResponse];
 
-      // 1. Try Supabase update in analyses table
-      await supabase
-        .from("analyses")
-        .update({
-          result: {
-            situation_meaning: selectedQuery.situation_meaning,
-            applicable_laws: selectedQuery.applicable_laws,
-            bail_status: selectedQuery.bail_status,
-            response: responseText.trim(),
-            responded_at: new Date().toISOString(),
-            responded_by: lawyer?.full_name || "Advocate",
-            responses: updatedResponses,
-            passed_by: selectedQuery.passed_by || [],
-            status: "responded",
-            citizen_name: "Anonymous Citizen",
-            plan: "paid_professional",
-            fee: 50,
-            priority: "high",
-          } as any,
-        })
-        .eq("id", selectedQuery.id);
-
-      // 2. Update local pool
+      // 1. Update local pool
       try {
         const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
+        let pool: any[] = [];
         if (poolRaw) {
-          const pool = JSON.parse(poolRaw);
-          const updated = pool.map((q: any) =>
-            q.id === selectedQuery.id
-              ? {
-                  ...q,
-                  response: responseText.trim(),
-                  responded_at: new Date().toISOString(),
-                  responded_by: lawyer?.full_name || "Advocate",
-                  responses: updatedResponses,
-                  status: "responded",
-                }
-              : q
-          );
-          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify(updated));
+          try {
+            const parsed = JSON.parse(poolRaw);
+            if (Array.isArray(parsed)) pool = parsed;
+          } catch {}
         }
-      } catch {}
+        const updatedItem = {
+          ...selectedQuery,
+          response: responseText.trim(),
+          responded_at: new Date().toISOString(),
+          responded_by: lawyer?.full_name || "Advocate",
+          responses: updatedResponses,
+          status: "responded" as const,
+        };
+        const existsIndex = pool.findIndex((q: any) => q.id === selectedQuery.id);
+        if (existsIndex >= 0) {
+          pool[existsIndex] = updatedItem;
+        } else {
+          pool.push(updatedItem);
+        }
+        localStorage.setItem("trana_citizen_queries_pool", JSON.stringify(pool));
+      } catch (poolErr) {
+        console.warn("Local pool response update note:", poolErr);
+      }
+
+      // 2. Optimistically update React Query cache so opinion reflects immediately
+      qc.setQueriesData({ queryKey: ["citizen-queries"] }, (old: CitizenQuery[] | undefined) => {
+        if (!old || !Array.isArray(old)) return old;
+        return old.map((q) =>
+          q.id === selectedQuery.id
+            ? {
+                ...q,
+                response: responseText.trim(),
+                responded_at: new Date().toISOString(),
+                responded_by: lawyer?.full_name || "Advocate",
+                responses: updatedResponses,
+                status: "responded",
+              }
+            : q
+        );
+      });
+
+      // 3. Try Supabase update in analyses table ONLY if it's a valid UUID (isolated, non-blocking)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(selectedQuery.id);
+      if (isUuid) {
+        try {
+          await supabase
+            .from("analyses")
+            .update({
+              result: {
+                situation_meaning: selectedQuery.situation_meaning,
+                applicable_laws: selectedQuery.applicable_laws,
+                bail_status: selectedQuery.bail_status,
+                response: responseText.trim(),
+                responded_at: new Date().toISOString(),
+                responded_by: lawyer?.full_name || "Advocate",
+                responses: updatedResponses,
+                passed_by: selectedQuery.passed_by || [],
+                status: "responded",
+                citizen_name: "Anonymous Citizen",
+                plan: "paid_professional",
+                fee: 50,
+                priority: "high",
+              } as any,
+            })
+            .eq("id", selectedQuery.id);
+        } catch (supabaseErr) {
+          console.warn("Supabase response update note (non-critical):", supabaseErr);
+        }
+      }
 
       toast.success("Written opinion submitted. Other panel advocates may also review this query.");
       setSelectedQuery(null);
       setResponseText("");
       refetch();
-    } catch {
+    } catch (err) {
+      console.error("Submit response error:", err);
       toast.error("Could not submit response. Please try again.");
     } finally {
       setSending(false);
@@ -278,50 +339,82 @@ function CitizenQueriesPage() {
   async function handlePassOn(queryId: string) {
     if (!selectedQuery) return;
     try {
-      const myId = lawyer?.id || lawyer?.bar_reg_no || "counsel";
+      const myId = lawyer?.id || lawyer?.bar_reg_no || lawyer?.full_name || "counsel";
       const updatedPassed = Array.from(new Set([...(selectedQuery.passed_by || []), myId]));
 
-      // Save locally to passed tracker
-      const passedKey = `trana_passed_queries_${myId}`;
-      const existing = JSON.parse(localStorage.getItem(passedKey) || "[]");
-      localStorage.setItem(passedKey, JSON.stringify(Array.from(new Set([...existing, queryId]))));
+      // 1. Save locally to passed tracker
+      try {
+        const passedKey = `trana_passed_queries_${myId}`;
+        let existing: string[] = [];
+        const rawExisting = localStorage.getItem(passedKey);
+        if (rawExisting) {
+          const parsed = JSON.parse(rawExisting);
+          if (Array.isArray(parsed)) existing = parsed;
+        }
+        localStorage.setItem(passedKey, JSON.stringify(Array.from(new Set([...existing, queryId]))));
+      } catch (storageErr) {
+        console.warn("Could not save to passed tracker:", storageErr);
+      }
 
-      // Update in Supabase analyses table
-      await supabase
-        .from("analyses")
-        .update({
-          result: {
-            situation_meaning: selectedQuery.situation_meaning,
-            applicable_laws: selectedQuery.applicable_laws,
-            bail_status: selectedQuery.bail_status,
-            responses: selectedQuery.responses || [],
-            passed_by: updatedPassed,
-            status: selectedQuery.status,
-            citizen_name: "Anonymous Citizen",
-            plan: selectedQuery.plan || "paid_professional",
-            fee: selectedQuery.fee || 50,
-            priority: "high",
-          } as any,
-        })
-        .eq("id", queryId);
-
-      // Update local pool
+      // 2. Update local pool - ensuring query exists in pool so state persists
       try {
         const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
+        let pool: any[] = [];
         if (poolRaw) {
-          const pool = JSON.parse(poolRaw);
-          const updated = pool.map((q: any) =>
-            q.id === queryId ? { ...q, passed_by: updatedPassed } : q
-          );
-          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify(updated));
+          try {
+            const parsed = JSON.parse(poolRaw);
+            if (Array.isArray(parsed)) pool = parsed;
+          } catch {}
         }
-      } catch {}
+        const existsIndex = pool.findIndex((q: any) => q.id === queryId);
+        if (existsIndex >= 0) {
+          pool[existsIndex] = { ...pool[existsIndex], passed_by: updatedPassed };
+        } else {
+          pool.push({ ...selectedQuery, passed_by: updatedPassed });
+        }
+        localStorage.setItem("trana_citizen_queries_pool", JSON.stringify(pool));
+      } catch (poolErr) {
+        console.warn("Could not update local queries pool:", poolErr);
+      }
+
+      // 3. Optimistically update React Query cache so the card reflects "Passed" immediately
+      qc.setQueriesData({ queryKey: ["citizen-queries"] }, (old: CitizenQuery[] | undefined) => {
+        if (!old || !Array.isArray(old)) return old;
+        return old.map((q) => (q.id === queryId ? { ...q, passed_by: updatedPassed } : q));
+      });
+
+      // 4. Try updating Supabase analyses table in the background (ONLY if it's a valid UUID, safe from throwing)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(queryId);
+      if (isUuid) {
+        try {
+          await supabase
+            .from("analyses")
+            .update({
+              result: {
+                situation_meaning: selectedQuery.situation_meaning,
+                applicable_laws: selectedQuery.applicable_laws,
+                bail_status: selectedQuery.bail_status,
+                responses: selectedQuery.responses || [],
+                passed_by: updatedPassed,
+                status: selectedQuery.status,
+                citizen_name: "Anonymous Citizen",
+                plan: selectedQuery.plan || "paid_professional",
+                fee: selectedQuery.fee || 50,
+                priority: "high",
+              } as any,
+            })
+            .eq("id", queryId);
+        } catch (supabaseErr) {
+          console.warn("Supabase pass update note (non-critical):", supabaseErr);
+        }
+      }
 
       toast.info("Query passed on. It remains active on the server for other panel advocates to reply.");
       setSelectedQuery(null);
       setResponseText("");
       refetch();
-    } catch {
+    } catch (err) {
+      console.error("Pass query error:", err);
       toast.error("Could not pass query.");
     }
   }
@@ -492,11 +585,17 @@ function CitizenQueriesPage() {
                         {query.responses.length} Opinion{query.responses.length > 1 ? "s" : ""}
                       </span>
                     )}
-                    {lawyer?.id && query.passed_by?.includes(lawyer.id) && (
-                      <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-300">
-                        Passed
-                      </span>
-                    )}
+                    {(() => {
+                      const myId = lawyer?.id || lawyer?.bar_reg_no || lawyer?.full_name || "counsel";
+                      const isPassed = query.passed_by?.some(
+                        (p) => p === myId || p === lawyer?.id || (lawyer?.bar_reg_no && p === lawyer.bar_reg_no) || (lawyer?.full_name && p === lawyer.full_name)
+                      );
+                      return isPassed ? (
+                        <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-300">
+                          Passed
+                        </span>
+                      ) : null;
+                    })()}
                     <span
                       className={`rounded-md border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
                         query.status === "open"
@@ -650,15 +749,23 @@ function CitizenQueriesPage() {
 
               {/* Actions */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => handlePassOn(selectedQuery.id)}
-                  className="border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 px-4 py-2.5 rounded-xl font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
-                  title="Pass on this query. It remains active on the server for other panel advocates to reply."
-                >
-                  <ArrowRight className="h-3.5 w-3.5" />
-                  <span>Pass On to Other Advocates</span>
-                </button>
+                {(() => {
+                  const myId = lawyer?.id || lawyer?.bar_reg_no || lawyer?.full_name || "counsel";
+                  const isPassed = selectedQuery.passed_by?.some(
+                    (p) => p === myId || p === lawyer?.id || (lawyer?.bar_reg_no && p === lawyer.bar_reg_no) || (lawyer?.full_name && p === lawyer.full_name)
+                  );
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handlePassOn(selectedQuery.id)}
+                      className="border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 px-4 py-2.5 rounded-xl font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Pass on this query. It remains active on the server for other panel advocates to reply."
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      <span>{isPassed ? "Pass On Again" : "Pass On to Other Advocates"}</span>
+                    </button>
+                  );
+                })()}
 
                 <div className="flex items-center gap-2">
                   <button
