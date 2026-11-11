@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, LargeBinary
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from datetime import datetime
 import uuid
 from database import Base
@@ -201,8 +202,8 @@ class ProviderAPIKeyUsage(Base):
 class AdvocateDisclaimer(Base):
     __tablename__ = "advocate_disclaimers"
 
-    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, nullable=True, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
     user_email = Column(String, nullable=True, index=True)
     user_name = Column(String, nullable=True)
     notice_text = Column(Text, nullable=True)
@@ -287,8 +288,8 @@ class Lawyer(Base):
 
     __tablename__ = "lawyers"
 
-    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, nullable=True, index=True)
+    id = Column(PG_UUID(as_uuid=False), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(PG_UUID(as_uuid=False), nullable=True, index=True)
     full_name = Column(String, nullable=False)
     email = Column(String, nullable=True, index=True)
     phone = Column(String, nullable=True)

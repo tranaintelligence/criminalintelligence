@@ -5,7 +5,8 @@ import {
   Menu, X, Scale, FileText, Search, Users, User, 
   Briefcase, ShieldCheck, ArrowRight, Clock, FolderOpen,
   LogOut, ExternalLink, Sparkles, BookOpen, AlertCircle, Calendar, MessageSquare,
-  Award, Building2, MapPin, Phone, Mail, CheckCircle2, GraduationCap
+  Award, Building2, MapPin, Phone, Mail, CheckCircle2, GraduationCap,
+  RefreshCw, Lock
 } from "lucide-react";
 import { useUserRole } from "@/lib/user-role";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +60,7 @@ export type LawyerProfile = {
   verification_notes?: string;
   internal_rating?: number;
   is_verified_lawyer: boolean;
+  is_registered?: boolean;
 };
 
 const navItems = [
@@ -115,11 +117,12 @@ export function useLawyerAuth() {
               offers_chat: apiLawyer.offers_chat,
               offers_in_person: apiLawyer.offers_in_person,
               consultation_fee: apiLawyer.consultation_fee,
-              approved: apiLawyer.approved,
-              verification_status: apiLawyer.verification_status,
+              approved: Boolean(apiLawyer.approved && apiLawyer.verification_status === "VERIFIED"),
+              verification_status: apiLawyer.verification_status || (apiLawyer.approved ? "VERIFIED" : "PENDING_VERIFICATION"),
               verification_notes: apiLawyer.verification_notes || undefined,
               internal_rating: apiLawyer.internal_rating || 5.0,
-              is_verified_lawyer: true,
+              is_verified_lawyer: Boolean(apiLawyer.approved && apiLawyer.verification_status === "VERIFIED"),
+              is_registered: true,
             };
           }
         } catch {
@@ -155,9 +158,27 @@ export function useLawyerAuth() {
       const localVerification = typeof window !== "undefined" && userId
         ? localStorage.getItem(`trana_lawyer_verified_${userId}`) === "true" 
         : false;
+      const localStatus = typeof window !== "undefined" && userId
+        ? localStorage.getItem(`trana_lawyer_status_${userId}`)
+        : null;
+      const localBar = typeof window !== "undefined" && userId
+        ? localStorage.getItem(`trana_lawyer_bar_${userId}`)
+        : null;
 
-      const isRegistered = Boolean(dbLawyer || localVerification || userMeta.role === "lawyer");
-      const approved = dbLawyer?.approved ?? (dbLawyer?.verification_status === "VERIFIED") ?? localVerification ?? (userMeta.role === "lawyer");
+      const hasBarReg = Boolean(dbLawyer?.bar_reg_no || userMeta.bar_reg_no || localBar);
+      const isRegistered = Boolean(dbLawyer || hasBarReg || localStatus || userMeta.role === "lawyer");
+
+      // An advocate is approved ONLY if dbLawyer is explicitly approved and verified, or localVerification is true and not pending
+      const isExplicitlyPending = dbLawyer 
+        ? (!dbLawyer.approved || dbLawyer.verification_status === "PENDING_VERIFICATION") 
+        : (localStatus === "PENDING_VERIFICATION" || !localVerification);
+
+      const approved = dbLawyer 
+        ? Boolean(dbLawyer.approved && dbLawyer.verification_status === "VERIFIED") 
+        : Boolean(localVerification && !isExplicitlyPending);
+
+      const verification_status = dbLawyer?.verification_status || localStatus || (approved ? "VERIFIED" : "PENDING_VERIFICATION");
+      const isVerified = Boolean(approved && verification_status === "VERIFIED");
 
       const localCourts = typeof window !== "undefined" && userId
         ? localStorage.getItem(`trana_lawyer_courts_${userId}`) || localStorage.getItem("trana_lawyer_courts")
@@ -171,7 +192,7 @@ export function useLawyerAuth() {
         full_name: dbLawyer?.full_name || profile?.full_name || userMeta.full_name || userEmail?.split("@")[0] || "Advocate",
         email: dbLawyer?.email || userEmail,
         phone: dbLawyer?.phone || userMeta.phone || "+91 (Chamber Verified)",
-        bar_reg_no: dbLawyer?.bar_reg_no || userMeta.bar_reg_no || (typeof window !== "undefined" && userId ? localStorage.getItem(`trana_lawyer_bar_${userId}`) : null) || "",
+        bar_reg_no: dbLawyer?.bar_reg_no || userMeta.bar_reg_no || localBar || "",
         state_bar_council: dbLawyer?.state_bar_council || userMeta.state_bar_council || "Bar Council of Delhi",
         year_of_enrollment: dbLawyer?.year_of_enrollment || userMeta.year_of_enrollment || 2021,
         aibe_cop_number: dbLawyer?.aibe_cop_number || userMeta.aibe_cop_number || "",
@@ -188,10 +209,11 @@ export function useLawyerAuth() {
         offers_in_person: dbLawyer?.offers_in_person ?? false,
         consultation_fee: dbLawyer?.consultation_fee ?? 0,
         approved: approved,
-        verification_status: dbLawyer?.verification_status || (approved ? "VERIFIED" : "PENDING_VERIFICATION"),
+        verification_status: verification_status,
         verification_notes: dbLawyer?.verification_notes || "",
         internal_rating: dbLawyer?.internal_rating || 5.0,
-        is_verified_lawyer: isRegistered,
+        is_verified_lawyer: isVerified,
+        is_registered: isRegistered,
       };
     },
     staleTime: 0,
@@ -346,12 +368,16 @@ function LawyerLayout() {
       };
 
       // 1. Register with backend API
+      let registeredLawyer: any = null;
       try {
-        await registerLawyer(payload, credential || undefined);
+        registeredLawyer = await registerLawyer(payload, credential || undefined);
       } catch (backendErr: any) {
         console.warn("Backend lawyer register notice:", backendErr);
         // If already registered or other response, proceed with Supabase synchronization
       }
+
+      const isAutoApproved = registeredLawyer?.approved === true && registeredLawyer?.verification_status === "VERIFIED";
+      const initialStatus = isAutoApproved ? "VERIFIED" : "PENDING_VERIFICATION";
 
       // 2. Synchronize into Supabase lawyers table
       try {
@@ -374,8 +400,8 @@ function LawyerLayout() {
           offers_call: true,
           offers_chat: true,
           offers_in_person: false,
-          approved: true,
-          verification_status: "VERIFIED",
+          approved: isAutoApproved,
+          verification_status: initialStatus,
         });
         if (upsertErr) {
           console.warn("Supabase upsert lawyer:", upsertErr);
@@ -392,6 +418,8 @@ function LawyerLayout() {
             full_name: name,
             bar_reg_no: cleanBar,
             state_bar_council: stateBarCouncil,
+            approved: isAutoApproved,
+            verification_status: initialStatus,
             courts: JSON.stringify(["Supreme Court of India", "Delhi High Court"]),
           },
         });
@@ -399,14 +427,56 @@ function LawyerLayout() {
         console.warn("Supabase auth updateUser error:", authErr);
       }
 
-      // 4. Save local session state
+      // 4. Save local session state and sync with founder registry pool
       if (typeof window !== "undefined") {
-        localStorage.setItem(`trana_lawyer_verified_${user.id}`, "true");
+        localStorage.setItem(`trana_lawyer_verified_${user.id}`, isAutoApproved ? "true" : "false");
+        localStorage.setItem(`trana_lawyer_status_${user.id}`, initialStatus);
         localStorage.setItem(`trana_lawyer_bar_${user.id}`, cleanBar);
+
+        try {
+          const rawPool = localStorage.getItem("trana_all_registered_lawyers");
+          let pool: any[] = [];
+          if (rawPool) {
+            try {
+              const parsed = JSON.parse(rawPool);
+              if (Array.isArray(parsed)) pool = parsed;
+            } catch {}
+          }
+          const entry = {
+            id: registeredLawyer?.id || user.id,
+            user_id: user.id,
+            full_name: name,
+            email: cleanEmail,
+            phone: cleanPhone,
+            bar_reg_no: cleanBar,
+            state_bar_council: stateBarCouncil,
+            year_of_enrollment: Number(yearOfEnrollment) || 2021,
+            aibe_cop_number: aibeCopNumber.trim() || null,
+            bar_association: barAssociation,
+            specialisation: specialisationInput,
+            experience_years: Number(experienceYears) || 1,
+            city: cityInput.trim() || "New Delhi",
+            state: stateInput.trim() || "Delhi",
+            chamber_address: chamberAddress.trim() || null,
+            courts: ["Supreme Court of India", "Delhi High Court"],
+            approved: isAutoApproved,
+            verification_status: initialStatus,
+            verification_notes: registeredLawyer?.verification_notes || "Queued for manual founder verification",
+            created_at: new Date().toISOString(),
+          };
+          const filtered = pool.filter((l: any) => l.bar_reg_no !== cleanBar && l.email !== cleanEmail);
+          filtered.unshift(entry);
+          localStorage.setItem("trana_all_registered_lawyers", JSON.stringify(filtered));
+          window.dispatchEvent(new CustomEvent("trana_lawyer_status_changed", { detail: entry }));
+        } catch {}
       }
 
       await refetch();
-      toast.success("Bar Council credentials verified! Welcome to the Legal Professional Workspace.");
+      if (isAutoApproved) {
+        toast.success("Bar Council credentials verified! Welcome to the Legal Professional Workspace.");
+      } else {
+        toast.info("Sanad submitted! Your application is under Founder review. You will receive workspace access upon founder approval.");
+      }
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Failed to submit Bar credentials.");
@@ -415,8 +485,8 @@ function LawyerLayout() {
     }
   }
 
-  // Verification Gate for non-registered users
-  if (!isLoading && (!lawyer || !lawyer.is_verified_lawyer)) {
+  // Verification Gate for non-registered users (Sanad credentials submission)
+  if (!isLoading && (!lawyer || !lawyer.is_registered)) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <Toaster />
@@ -739,6 +809,117 @@ function LawyerLayout() {
                 </Link>
               </div>
             </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Pending Founder Verification Gate (Restricts unverified advocates from accessing private cases, queries, or drafter)
+  if (!isLoading && lawyer && (!lawyer.approved || lawyer.verification_status === "PENDING_VERIFICATION")) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] text-[#F0F0F0] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+        <Toaster />
+        <div className="w-full max-w-2xl bg-[#141414] border border-amber-500/30 p-8 md:p-10 shadow-2xl relative rounded-2xl">
+          <div className="flex items-center justify-between border-b border-[#252525] pb-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <Clock className="h-5 w-5 animate-pulse" />
+              </div>
+              <div>
+                <span className="font-display text-xl font-semibold tracking-wider text-white">TRANA ADVOCATE</span>
+                <p className="text-xs text-neutral-400 tracking-wider uppercase">Founder Verification Desk</p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-1.5 border border-amber-500/30 bg-amber-500/10 px-3 py-1 rounded-full text-xs text-amber-300 font-mono">
+              <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+              <span>Pending Founder Review</span>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <div>
+              <h1 className="font-display text-2xl font-semibold text-white">
+                Advocate Verification Under Review
+              </h1>
+              <p className="mt-2 text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                Welcome, <strong className="text-white">{lawyer.full_name}</strong>. Your State Bar Council Sanad credentials have been received and are currently queued for verification by TRANA founders in compliance with Advocates Act, 1961 rules.
+              </p>
+            </div>
+
+            {/* Application credentials card */}
+            <div className="rounded-xl border border-white/10 bg-[#0e0e12] p-4 text-xs space-y-2.5 font-mono">
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-neutral-400">Sanad / Bar Enrollment:</span>
+                <span className="text-amber-300 font-semibold">{lawyer.bar_reg_no || "Under Review"}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-neutral-400">State Bar Council:</span>
+                <span className="text-neutral-200">{lawyer.state_bar_council}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-neutral-400">Enrollment Year:</span>
+                <span className="text-neutral-200">{lawyer.year_of_enrollment}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-neutral-400">Bar Association:</span>
+                <span className="text-neutral-200">{lawyer.bar_association}</span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-neutral-400">Field of Practice:</span>
+                <span className="text-neutral-200">{lawyer.specialisation}</span>
+              </div>
+            </div>
+
+            {/* Informational notice */}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-300/90 leading-relaxed flex items-start gap-3">
+              <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-300">Why is founder review required?</p>
+                <p className="mt-1 text-neutral-400">
+                  To safeguard citizen complaints, FIR evaluations, client communications, and privileged legal files under Section 126 of the Indian Evidence Act, workspace features remain locked until credentials are fully approved by the Founders.
+                </p>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  toast.info("Checking approval status with Founders Desk...");
+                  const result = await refetch();
+                  if (result.data?.approved && result.data?.verification_status === "VERIFIED") {
+                    toast.success("Congratulations! Your credentials have been verified. Access unlocked.");
+                  } else {
+                    toast.info("Your application remains in the founder review queue.");
+                  }
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs tracking-wider uppercase transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Check Status</span>
+              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <Link
+                  to="/dashboard"
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs text-neutral-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  Citizen Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    window.location.href = "/";
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-red-500/20 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

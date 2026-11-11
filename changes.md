@@ -181,3 +181,49 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 ### 3. Find a Legal Professional Privacy Banner (`src/routes/_authenticated/dashboard.lawyers.tsx`)
 - **Feature**: Added a "Consent & Privacy Shield Protected" banner under the directory header with a direct link to manage sharing consent on the Citizen Dashboard.
 
+
+---
+
+## [2026-11-12] - Founder Verification & Lawyer Workspace Gating Fixes
+
+### 1. Root Causes Pinpointed & Eliminated
+1. **Premature Dashboard Access for Unverified Advocates**:
+   - `src/routes/_authenticated/lawyer.tsx`:
+     - When an advocate submitted their credentials, `handleRegisterAdvocate` previously set `localStorage.setItem('trana_lawyer_verified_${user.id}', 'true')`, marked `approved: true`, and `verification_status: "VERIFIED"`.
+     - `LawyerLayout` rendered `<Outlet />` whenever registered, only displaying an optional top banner if pending, giving full access to all workspace tabs (`/lawyer/queries`, `/lawyer/cases`, `/lawyer/inbox`, `/lawyer/drafter`, etc.).
+2. **Missing Registered Advocates on Founder Review Page (`/founders/lawyers`)**:
+   - `models/db_models.py`:
+     - In PostgreSQL / Supabase, `lawyers.id` and `lawyers.user_id` are of type `UUID`.
+     - `db_models.py` had defined `id = Column(String)` and `user_id = Column(String)`, which caused psycopg/SQLAlchemy to emit `%(id)s::VARCHAR`. PostgreSQL rejected the insert with `psycopg.errors.DatatypeMismatch: column "id" is of type uuid but expression is of type character varying`, aborting the database transaction with an unhandled exception on `POST /api/lawyers/register`.
+   - `models/schemas.py`:
+     - `year_of_enrollment` had a restrictive `le=2030` validation constraint, causing FastAPI to return HTTP 422 if an enrollment year/roll (e.g. `2187`) was entered.
+   - `services/lawyer_verification_service.py`:
+     - `verify_via_statutory_rules` returned key `"reason"` (singular) when Sanad format validation failed, while `execute_automated_advocate_verification` called `rule_eval["reasons"]`, causing a fatal `KeyError: 'reasons'`.
+   - `main.py`:
+     - When an advocate re-registered or updated a pending application, `register_lawyer` raised HTTP 400 (`"An advocate application with this Bar Enrollment Number is already registered"`) instead of updating the existing pending record.
+
+### 2. Comprehensive Implementation & Fixes
+- **Database Model Typing (`models/db_models.py`)**:
+  - Imported `from sqlalchemy.dialects.postgresql import UUID as PG_UUID`.
+  - Updated `Lawyer.id` and `Lawyer.user_id` (and `AdvocateDisclaimer`) to use `PG_UUID(as_uuid=False)`, enabling seamless binding as native PostgreSQL `uuid` while allowing string manipulation in Python.
+- **Backend Verification Pipeline (`services/lawyer_verification_service.py`)**:
+  - Fixed `verify_via_statutory_rules` to always return `"reasons": list[str]`.
+  - In `execute_automated_advocate_verification`, safely accessed `rule_eval.get("reasons") or [rule_eval.get("reason", "Sanad requires manual review")]`.
+  - Ensured non-standard or pending Sanad formats are queued as `PENDING_VERIFICATION` (not `REJECTED`) so they land cleanly on the Founder verification desk.
+- **Backend Registration Endpoint (`main.py`)**:
+  - If an existing advocate is found during `POST /api/lawyers/register`, updates their pending application fields and re-queues them rather than raising HTTP 400.
+- **Schema Validation (`models/schemas.py`)**:
+  - Adjusted `year_of_enrollment` to `Optional[int] = Field(default=None, ge=1900)` so roll number or future year typos never throw HTTP 422.
+- **Frontend Workspace Gating (`src/routes/_authenticated/lawyer.tsx`)**:
+  - Updated `useLawyerAuth`: `approved` is true ONLY when confirmed by the backend/Supabase as verified and not pending; `is_verified_lawyer` is strictly `Boolean(approved && verification_status === "VERIFIED")`.
+  - In `handleRegisterAdvocate`: set `approved: isAutoApproved`, `verification_status: initialStatus`. Synced with shared registry `trana_all_registered_lawyers` in localStorage.
+  - In `LawyerLayout`: implemented two strict gates:
+    1. **Unregistered Gate**: shows Bar Council Sanad registration form.
+    2. **Pending Founder Verification Gate**: if registered but `!lawyer.approved || lawyer.verification_status === "PENDING_VERIFICATION"`, renders a dedicated, elegant holding screen with applicant Sanad details, Advocates Act compliance explanations, "Check Status" refetch button, and logout/citizen dashboard links. **Strictly omits `<Outlet />`**, completely preventing unverified advocates from viewing or touching workspace features.
+- **Citizen Queries Privacy Guard (`src/routes/_authenticated/lawyer.queries.tsx`)**:
+  - Added dedicated protection guard preventing unverified advocates from viewing or passing queries.
+  - Wrapped `handlePassOn` in bulletproof error handling with `Array.isArray(selectedQuery.passed_by)` validation and isolated try/catch blocks for cache and Supabase updates.
+- **Founder Page Sync (`src/routes/founders.lawyers.tsx`)**:
+  - `queryFn` now calls `getPublicLawyers({ allMembers: true })` and reads `trana_all_registered_lawyers` from localStorage, guaranteeing that newly registered pending advocates appear instantly under the "Pending Verification" tab.
+  - `handleApprove` updates the backend via `verifyLawyerAdmin`, updates Supabase, updates `trana_all_registered_lawyers`, and broadcasts `trana_lawyer_status_changed` so the advocate gains instant workspace access.
+

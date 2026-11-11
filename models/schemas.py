@@ -497,7 +497,7 @@ class LawyerRegisterRequest(BaseModel):
     phone: str = Field(..., description="Mobile Phone Number for urgent alerts and client routing")
     bar_reg_no: str = Field(..., description="State Bar Council Enrollment No, e.g. D/1429/2019")
     state_bar_council: str = Field(..., description="State Bar Council Name, e.g. Bar Council of Delhi")
-    year_of_enrollment: int = Field(..., ge=1950, le=2030, description="Year of Bar Council Enrollment")
+    year_of_enrollment: Optional[int] = Field(default=None, ge=1900, description="Year of Bar Council Enrollment")
     aibe_cop_number: Optional[str] = Field(default=None, description="AIBE Certificate of Practice (COP) Roll/Reg Number")
     bar_association: Optional[str] = Field(default=None, description="Primary Bar Association Membership, e.g. DHCBA")
     specialisation: str = Field(default="Criminal Defence & Bail", description="Primary Specialisation Areas")

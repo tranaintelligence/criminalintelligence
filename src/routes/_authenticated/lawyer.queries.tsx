@@ -340,7 +340,8 @@ function CitizenQueriesPage() {
     if (!selectedQuery) return;
     try {
       const myId = lawyer?.id || lawyer?.bar_reg_no || lawyer?.full_name || "counsel";
-      const updatedPassed = Array.from(new Set([...(selectedQuery.passed_by || []), myId]));
+      const existingPassed = Array.isArray(selectedQuery.passed_by) ? selectedQuery.passed_by : [];
+      const updatedPassed = Array.from(new Set([...existingPassed, myId]));
 
       // 1. Save locally to passed tracker
       try {
@@ -348,8 +349,10 @@ function CitizenQueriesPage() {
         let existing: string[] = [];
         const rawExisting = localStorage.getItem(passedKey);
         if (rawExisting) {
-          const parsed = JSON.parse(rawExisting);
-          if (Array.isArray(parsed)) existing = parsed;
+          try {
+            const parsed = JSON.parse(rawExisting);
+            if (Array.isArray(parsed)) existing = parsed;
+          } catch {}
         }
         localStorage.setItem(passedKey, JSON.stringify(Array.from(new Set([...existing, queryId]))));
       } catch (storageErr) {
@@ -378,10 +381,14 @@ function CitizenQueriesPage() {
       }
 
       // 3. Optimistically update React Query cache so the card reflects "Passed" immediately
-      qc.setQueriesData({ queryKey: ["citizen-queries"] }, (old: CitizenQuery[] | undefined) => {
-        if (!old || !Array.isArray(old)) return old;
-        return old.map((q) => (q.id === queryId ? { ...q, passed_by: updatedPassed } : q));
-      });
+      try {
+        qc.setQueriesData({ queryKey: ["citizen-queries"] }, (old: CitizenQuery[] | undefined) => {
+          if (!old || !Array.isArray(old)) return old;
+          return old.map((q) => (q.id === queryId ? { ...q, passed_by: updatedPassed } : q));
+        });
+      } catch (cacheErr) {
+        console.warn("Cache update note:", cacheErr);
+      }
 
       // 4. Try updating Supabase analyses table in the background (ONLY if it's a valid UUID, safe from throwing)
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(queryId);
@@ -412,11 +419,34 @@ function CitizenQueriesPage() {
       toast.info("Query passed on. It remains active on the server for other panel advocates to reply.");
       setSelectedQuery(null);
       setResponseText("");
-      refetch();
+      try {
+        refetch();
+      } catch {}
     } catch (err) {
       console.error("Pass query error:", err);
       toast.error("Could not pass query.");
     }
+  }
+
+  if (lawyer && (!lawyer.approved || lawyer.verification_status === "PENDING_VERIFICATION")) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="max-w-md w-full p-8 rounded-2xl apple-glass-card border-amber-500/30 text-center space-y-4">
+          <div className="h-12 w-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+            <Scale className="h-6 w-6" />
+          </div>
+          <h2 className="font-display text-lg font-semibold text-white">Citizen Inquiries Protected</h2>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            Live citizen legal queries and FIR evaluations contain sensitive confidential disclosures. Access is restricted until your Bar Council credentials have been verified by TRANA founders.
+          </p>
+          <div className="pt-2">
+            <span className="apple-glass-pill px-3 py-1 text-amber-300 font-mono text-xs">
+              Status: Verification Under Review
+            </span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -754,7 +784,28 @@ function CitizenQueriesPage() {
                   const isPassed = selectedQuery.passed_by?.some(
                     (p) => p === myId || p === lawyer?.id || (lawyer?.bar_reg_no && p === lawyer.bar_reg_no) || (lawyer?.full_name && p === lawyer.full_name)
                   );
-                  return (
+                  if (lawyer && (!lawyer.approved || lawyer.verification_status === "PENDING_VERIFICATION")) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="max-w-md w-full p-8 rounded-2xl apple-glass-card border-amber-500/30 text-center space-y-4">
+          <div className="h-12 w-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+            <Scale className="h-6 w-6" />
+          </div>
+          <h2 className="font-display text-lg font-semibold text-white">Citizen Inquiries Protected</h2>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            Live citizen legal queries and FIR evaluations contain sensitive confidential disclosures. Access is restricted until your Bar Council credentials have been verified by TRANA founders.
+          </p>
+          <div className="pt-2">
+            <span className="apple-glass-pill px-3 py-1 text-amber-300 font-mono text-xs">
+              Status: Verification Under Review
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
                     <button
                       type="button"
                       onClick={() => handlePassOn(selectedQuery.id)}

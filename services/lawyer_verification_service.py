@@ -228,10 +228,12 @@ def verify_via_statutory_rules(
     """Rigorous structural & statutory validation against BCI & State Bar Council standards."""
     parsed = parse_bar_reg_no(bar_reg_no)
     if not parsed:
+        reason_msg = f"Non-standard Sanad format or pending manual review: '{bar_reg_no}'."
         return {
             "valid": False,
             "score": 0.0,
-            "reason": f"Invalid Sanad format: '{bar_reg_no}'. Must follow STATE/NUMBER/YEAR format.",
+            "reason": reason_msg,
+            "reasons": [reason_msg],
         }
 
     score = 0.5
@@ -291,13 +293,16 @@ async def execute_automated_advocate_verification(
         aibe_cop_number=aibe_cop_number,
     )
 
-    if not rule_eval["valid"]:
+    reasons_list = rule_eval.get("reasons") or [rule_eval.get("reason", "Sanad requires manual founder review")]
+
+    if not rule_eval.get("valid"):
         return {
             "verified": False,
-            "status": "REJECTED",
-            "method": "statutory_rule_engine",
-            "score": rule_eval["score"],
-            "notes": " ; ".join(rule_eval["reasons"]),
+            "status": "PENDING_VERIFICATION",
+            "method": "queued_for_founder_desk",
+            "score": rule_eval.get("score", 0.0),
+            "notes": " ; ".join(reasons_list),
+            "details": rule_eval,
             "timestamp": datetime.utcnow().isoformat(),
         }
 

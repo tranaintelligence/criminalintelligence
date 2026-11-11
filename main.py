@@ -3667,12 +3667,6 @@ async def register_lawyer(
         (db_models.Lawyer.email == req.email.strip().lower())
     ).first()
 
-    if existing is not None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"An advocate application with this Bar Enrollment Number ({clean_bar}) or Email ({req.email}) is already registered."
-        )
-
     # Optional current user extraction
     user_id = None
     if authorization and authorization.lower().startswith("bearer "):
@@ -3717,6 +3711,41 @@ async def register_lawyer(
         verification_notes = auto_ver.get("notes", "Queued for Bar Council review")
 
     courts_str = json.dumps(req.courts) if req.courts else json.dumps(["Supreme Court of India", "Delhi High Court"])
+
+    if existing is not None:
+        # If applicant is updating or resubmitting their pending application
+        existing.full_name = req.full_name.strip()
+        existing.email = req.email.strip().lower()
+        existing.phone = req.phone.strip()
+        existing.bar_reg_no = clean_bar
+        existing.state_bar_council = req.state_bar_council.strip()
+        existing.year_of_enrollment = req.year_of_enrollment
+        existing.aibe_cop_number = req.aibe_cop_number.strip() if req.aibe_cop_number else None
+        existing.bar_association = req.bar_association.strip() if req.bar_association else None
+        existing.specialisation = req.specialisation.strip()
+        existing.experience_years = req.experience_years
+        existing.city = req.city.strip()
+        existing.state = req.state.strip() if req.state else "Delhi"
+        existing.chamber_address = req.chamber_address.strip() if req.chamber_address else None
+        existing.courts = courts_str
+        existing.bio = req.bio.strip() if req.bio else None
+        existing.offers_call = req.offers_call
+        existing.offers_chat = req.offers_chat
+        existing.offers_in_person = req.offers_in_person
+        existing.consultation_fee = req.consultation_fee
+        if user_id:
+            existing.user_id = user_id
+        if not existing.approved:
+            existing.approved = approved
+            existing.verification_status = verification_status
+            existing.verified_at = verified_at
+            existing.verified_by = verified_by
+            existing.verification_notes = verification_notes
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        logger.info("Advocate record updated/re-queued: %s (%s) - status: %s", existing.full_name, existing.bar_reg_no, existing.verification_status)
+        return _lawyer_to_dict(existing)
 
     new_lawyer = db_models.Lawyer(
         id=str(uuid.uuid4()),
