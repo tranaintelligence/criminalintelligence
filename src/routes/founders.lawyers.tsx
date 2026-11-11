@@ -408,10 +408,16 @@ function FoundersLawyersPage() {
         ];
 
         defaultAdvocates.forEach((adv) => {
-          if (!removedIds.includes(adv.id)) {
-            const key = (adv.email || adv.bar_reg_no || adv.id).toLowerCase().trim();
-            mergedMap.set(key, adv);
+          if (
+            removedIds.includes(String(adv.id)) ||
+            removedIds.includes(adv.full_name) ||
+            removedIds.includes(adv.email) ||
+            (adv.bar_reg_no && removedIds.includes(adv.bar_reg_no))
+          ) {
+            return;
           }
+          const key = (adv.email || adv.bar_reg_no || adv.id).toLowerCase().trim();
+          mergedMap.set(key, adv);
         });
       }
 
@@ -595,7 +601,37 @@ function FoundersLawyersPage() {
     if (!confirmed) return;
 
     try {
-      // 1. Non-blocking attempt to delete from backend API
+      // 1. Mark removed in persistent localStorage blacklist
+      try {
+        const removed = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
+        if (!removed.includes(id)) removed.push(id);
+        if (!removed.includes(name)) removed.push(name);
+        localStorage.setItem("trana_founders_removed_lawyers", JSON.stringify(removed));
+      } catch {}
+
+      // 2. Optimistically update React Query cache so the card vanishes immediately
+      qc.setQueriesData({ queryKey: ["founders-advocates-registry"] }, (old: any) => {
+        if (!old) return old;
+        const currentList: any[] = Array.isArray(old) ? old : (old.lawyers || []);
+        const filtered = currentList.filter((l: any) => 
+          String(l.id) !== String(id) && 
+          String(l.user_id) !== String(id) &&
+          l.full_name !== name
+        );
+        if (Array.isArray(old)) return filtered;
+        return {
+          ...old,
+          total: filtered.length,
+          verified: filtered.filter((l: any) => l.verification_status === "VERIFIED" || l.approved).length,
+          pending: filtered.filter((l: any) => l.verification_status === "PENDING_VERIFICATION" && !l.approved).length,
+          suspended: filtered.filter((l: any) => l.verification_status === "SUSPENDED" || l.verification_status === "REJECTED").length,
+          lawyers: filtered,
+        };
+      });
+
+      if (selectedLawyer?.id === id) setSelectedLawyer(null);
+
+      // 3. Non-blocking attempt to delete from backend API
       if (credential) {
         try {
           await deleteLawyerAdmin(credential, id);
@@ -604,29 +640,14 @@ function FoundersLawyersPage() {
         }
       }
 
-      // 2. Direct deletion in Supabase database
+      // 4. Direct deletion in Supabase database
       try {
         await supabase.from("lawyers").delete().or(`id.eq.${id},user_id.eq.${id}`);
       } catch (sbErr) {
-        console.warn("Supabase lawyer delete error:", sbErr);
+        console.warn("Supabase lawyer delete notice:", sbErr);
       }
-
-      // 3. Mark removed in persistent localStorage blacklist
-      try {
-        const removed = JSON.parse(localStorage.getItem("trana_founders_removed_lawyers") || "[]");
-        if (!removed.includes(id)) removed.push(id);
-        if (!removed.includes(name)) removed.push(name);
-        localStorage.setItem("trana_founders_removed_lawyers", JSON.stringify(removed));
-      } catch {}
-
-      if (selectedLawyer?.id === id) setSelectedLawyer(null);
 
       toast.success(`Advocate ${name} removed from registry.`);
-      try {
-        await refetch();
-      } catch (refetchErr) {
-        console.warn("Lawyers list refetch notice:", refetchErr);
-      }
     } catch (e: any) {
       toast.error(e.message || "Failed to delete advocate.");
     }

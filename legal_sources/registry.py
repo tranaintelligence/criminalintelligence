@@ -176,6 +176,7 @@ CONCORDANCE_MAP: dict[tuple[str, str], tuple[str, str, str, str]] = {
     ("IPC", "499"): ("BNS", "356", "previously Section 499 IPC", "Defamation"),
     ("IPC", "500"): ("BNS", "356", "previously Section 500 IPC", "Punishment for defamation"),
     ("IPC", "503"): ("BNS", "351", "previously Section 503 IPC", "Criminal intimidation"),
+    ("IPC", "504"): ("BNS", "352", "previously Section 504 IPC", "Intentional insult with intent to provoke breach of peace"),
     ("IPC", "506"): ("BNS", "351", "previously Section 506 IPC", "Punishment for criminal intimidation"),
     ("IPC", "509"): ("BNS", "79", "previously Section 509 IPC", "Word, gesture or act intended to insult modesty of woman"),
 
@@ -262,20 +263,39 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNS", "303"), ("BNS", "305")],
     },
     {
-        "keywords": ["snatch", "snatching", "chain snatching", "mobile snatching", "chinauti"],
-        "targets": [("BNS", "304")],
+        "keywords": [
+            "snatch", "snatched", "snatching", "chain snatching", "mobile snatching", "phone snatching",
+            "chinauti", "chheen", "chheena", "chheen liya", "chheen kar", "cheen liya", "cheena"
+        ],
+        "targets": [("BNS", "304"), ("BNS", "309")],
     },
     {
-        "keywords": ["extortion", "blackmail", "blackmailing", "hafta", "vasooli"],
-        "targets": [("BNS", "308")],
+        "keywords": [
+            "extortion", "extort", "extorted", "extorting", "demanded money", "demanding money",
+            "demanded cash", "demand money", "hafta", "vasooli", "rangdari", "threatened to burn",
+            "burn down", "burn property", "blackmail", "blackmailing", "ransom"
+        ],
+        "targets": [("BNS", "308"), ("BNS", "351")],
     },
     {
-        "keywords": ["robbery", "dacoity", "loot", "dacoit"],
-        "targets": [("BNS", "309"), ("BNS", "310")],
+        "keywords": [
+            "robbery", "robbed", "robbing", "loot", "looted", "looting", "dacoity", "dacoit",
+            "snatched by force", "snatched with violence", "snatched using force", "robbed phone"
+        ],
+        "targets": [("BNS", "309"), ("BNS", "308")],
     },
     {
-        "keywords": ["threat", "threatening", "threatened", "intimidation", "dhamki"],
-        "targets": [("BNS", "351")],
+        "keywords": [
+            "threat", "threatening", "threatened", "intimidation", "dhamki", "dhamkaya",
+            "threatened to kill", "threatened to burn", "criminal intimidation", "jaan se marne ki dhamki"
+        ],
+        "targets": [("BNS", "351"), ("BNS", "352")],
+    },
+    {
+        "keywords": [
+            "insult", "insulted", "abused", "abusive language", "gaali", "provoke breach of peace", "intentional insult"
+        ],
+        "targets": [("BNS", "352")],
     },
     {
         "keywords": ["rash", "negligent driving", "accident", "vehicle", "hit and run", "car crash", "rash driving"],
@@ -286,7 +306,10 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNS", "85"), ("BNS", "86"), ("BNS", "80")],
     },
     {
-        "keywords": ["assault", "beating", "fight", "marpeet", "hurt", "grievous hurt", "fracture", "chot", "injury"],
+        "keywords": [
+            "assault", "slap", "slapped", "slapping", "thappad", "beating", "beaten", "hit", "punched",
+            "marpeet", "fight", "hurt", "grievous hurt", "fracture", "chot", "injury", "physical violence"
+        ],
         "targets": [("BNS", "115"), ("BNS", "117"), ("BNS", "118")],
     },
     {
@@ -314,7 +337,7 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNSS", "35"), ("BNSS", "47"), ("BNSS", "58"), ("BNSS", "36")],
     },
     {
-        "keywords": ["search", "seizure", "seize", "seized", "phone", "mobile", "laptop", "raids", "talashi", "chhapamari", "confiscate", "without warrant"],
+        "keywords": ["search", "seizure", "seize", "seized", "raids", "talashi", "chhapamari", "confiscate", "without warrant"],
         "targets": [("BNSS", "185"), ("BNSS", "103"), ("BNSS", "105"), ("BNSS", "94")],
     },
     {
@@ -326,8 +349,11 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNSS", "480"), ("BNSS", "478"), ("BNSS", "483")],
     },
     {
-        "keywords": ["fir", "first information report", "police complaint", "zero fir"],
-        "targets": [("BNSS", "173"), ("BNSS", "175")],
+        "keywords": [
+            "fir", "first information report", "police complaint", "zero fir", "refusal to register fir",
+            "police not registering", "lodge fir", "police station complaint", "lodging complaint"
+        ],
+        "targets": [("BNSS", "173"), ("BNSS", "175"), ("BNSS", "170")],
     },
     {
         "keywords": ["police questioning", "witness", "interrogation", "statement to police", "161"],
@@ -457,6 +483,17 @@ class LawSourceRegistry:
             if target_rec is not None:
                 return replace(target_rec, former_citation=former, canonical_title=title)
 
+        # 6. Model confusion on FIR and procedural sections
+        if norm_code in {"BNS", "BNSS"} and norm_sec in {"154", "154A"}:
+            target_rec = self.lookup(code="BNSS", section="173")
+            if target_rec is not None:
+                return replace(target_rec, former_citation="previously Section 154 CrPC", canonical_title="Information in cognizable cases (FIR)")
+
+        if norm_code == "BNS" and norm_sec == "151":
+            target_rec = self.lookup(code="BNS", section="351")
+            if target_rec is not None:
+                return replace(target_rec, former_citation="previously Section 506 IPC", canonical_title="Criminal intimidation")
+
         return None
 
     def find_relevant_statutes(self, query: str, top_k: int = 4) -> list[tuple[LawRecord, str, str]]:
@@ -467,8 +504,18 @@ class LawSourceRegistry:
         results: list[tuple[LawRecord, str, str]] = []
         seen_keys: set[tuple[str, str]] = set()
 
-        def add_record(rec: LawRecord, former: str = "", title: str = ""):
+        # Non-offence preliminary definition sections that should never be returned as substantive offences
+        preliminary_sections = {
+            ("BNS", "1"), ("BNS", "2"), ("BNS", "3"), ("BNS", "4"), ("BNS", "5"),
+            ("BNS", "6"), ("BNS", "7"), ("BNS", "8"), ("BNS", "9"), ("BNS", "10"),
+            ("BNSS", "1"), ("BNSS", "2"), ("BNSS", "6"), ("BNSS", "7"), ("BNSS", "8"),
+            ("BNSS", "9"), ("BNSS", "10"), ("BSA", "1"), ("BSA", "2"), ("BSA", "8"),
+        }
+
+        def add_record(rec: LawRecord, former: str = "", title: str = "", allow_preliminary: bool = False):
             key = (rec.code, rec.section)
+            if not allow_preliminary and key in preliminary_sections:
+                return
             if key not in seen_keys:
                 seen_keys.add(key)
                 rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get(key, (None, None))
@@ -480,7 +527,7 @@ class LawSourceRegistry:
         q_clean = query or ""
         q_lower = q_clean.lower()
 
-        # Step 1: Check explicit mentions of acts + sections (e.g. IPC 420, BNS 318, CrPC 438, BNSS 482)
+        # Step 1: Explicit mentions of acts + sections (e.g. IPC 420, BNS 318, CrPC 438, BNSS 482)
         explicit_re = re.compile(
             r"\b(BNS|BNSS|BSA|IPC|CRPC|IEA|EVIDENCE)\s*(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)\b|"
             r"\b(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)\s+(?:of\s+)?(BNS|BNSS|BSA|IPC|CRPC|IEA|EVIDENCE)\b",
@@ -494,26 +541,9 @@ class LawSourceRegistry:
             rec = self.resolve_concordance(raw_code, raw_sec)
             if rec is not None:
                 rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                add_record(rec, rev_former, rev_title)
+                add_record(rec, rev_former, rev_title, allow_preliminary=True)
 
-        # Step 2: Check standalone prominent section numbers (e.g. "420", "302", "307", "498A", "438", "41A")
-        num_matches = re.findall(r"\b(\d+[A-Za-z]?)\b", q_clean)
-        for num in num_matches:
-            num_clean = num.upper()
-            for old_code in ("IPC", "CRPC", "IEA"):
-                if (old_code, num_clean) in CONCORDANCE_MAP:
-                    rec = self.resolve_concordance(old_code, num_clean)
-                    if rec is not None:
-                        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                        add_record(rec, rev_former, rev_title)
-            # Also check direct new section
-            for new_code in ("BNS", "BNSS", "BSA"):
-                rec = self.lookup(code=new_code, section=num_clean)
-                if rec is not None:
-                    rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                    add_record(rec, rev_former, rev_title)
-
-        # Step 3: Match concept rules
+        # Step 2: Match factual concept rules FIRST before standalone numbers
         for rule in CONCEPT_RULES:
             matches_rule = any(
                 re.search(r"\b" + re.escape(kw) + r"\b", q_lower)
@@ -530,7 +560,47 @@ class LawSourceRegistry:
             if len(results) >= top_k:
                 break
 
-        # Step 4: If still fewer than top_k and query is specific, search text
+        # Step 3: Check numbers explicitly designated as sections (e.g. "Section 308", "sec 309", "dhara 351")
+        explicit_sec_matches = re.findall(r"\b(?:section|sec|s\.|dhara|u/s)\s*(\d+[A-Za-z]?)\b", q_clean, re.IGNORECASE)
+        for sec_num in explicit_sec_matches:
+            num_clean = sec_num.upper()
+            for old_code in ("IPC", "CRPC", "IEA"):
+                if (old_code, num_clean) in CONCORDANCE_MAP:
+                    rec = self.resolve_concordance(old_code, num_clean)
+                    if rec is not None:
+                        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
+                        add_record(rec, rev_former, rev_title)
+            for new_code in ("BNS", "BNSS", "BSA"):
+                rec = self.lookup(code=new_code, section=num_clean)
+                if rec is not None:
+                    rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
+                    add_record(rec, rev_former, rev_title)
+
+        # Step 4: Standalone numbers ONLY if in well-known criminal section whitelist (prevents "8" matching Section 8)
+        well_known_standalone_sections = {
+            "420", "302", "307", "376", "498A", "379", "384", "390", "392", "323", "504", "506",
+            "438", "437", "436", "41A", "144", "161", "164", "138", "65B", "154", "318", "103",
+            "106", "85", "64", "303", "304", "308", "309", "115", "351", "352", "482", "480",
+            "478", "173", "175", "185",
+        }
+        num_matches = re.findall(r"\b(\d+[A-Za-z]?)\b", q_clean)
+        for num in num_matches:
+            num_clean = num.upper()
+            if num_clean not in well_known_standalone_sections:
+                continue
+            for old_code in ("IPC", "CRPC", "IEA"):
+                if (old_code, num_clean) in CONCORDANCE_MAP:
+                    rec = self.resolve_concordance(old_code, num_clean)
+                    if rec is not None:
+                        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
+                        add_record(rec, rev_former, rev_title)
+            for new_code in ("BNS", "BNSS", "BSA"):
+                rec = self.lookup(code=new_code, section=num_clean)
+                if rec is not None:
+                    rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
+                    add_record(rec, rev_former, rev_title)
+
+        # Step 5: If still fewer than top_k and query is specific, search text
         if len(results) < top_k:
             query_tokens = [w for w in re.findall(r"\w{4,}", q_lower) if w not in {"what", "when", "where", "which", "about", "there", "their", "under", "police", "court"}]
             if query_tokens:

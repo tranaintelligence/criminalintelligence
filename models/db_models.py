@@ -335,3 +335,25 @@ class FounderEmail(Base):
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class PeerConnection(Base):
+    """Real-time professional network connection invitations and links between advocates and scholars."""
+
+    __tablename__ = "peer_connections"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    from_user_id = Column(String, index=True, nullable=False)
+    from_user_name = Column(String, nullable=False)
+    from_user_role = Column(String, nullable=False, default="lawyer")
+    from_user_role_label = Column(String, nullable=True)
+    from_user_city = Column(String, nullable=True)
+    to_user_id = Column(String, index=True, nullable=False)
+    to_user_name = Column(String, nullable=False)
+    to_user_role = Column(String, nullable=False, default="lawyer")
+    to_user_role_label = Column(String, nullable=True)
+    to_user_city = Column(String, nullable=True)
+    status = Column(String(32), nullable=False, default="pending", index=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

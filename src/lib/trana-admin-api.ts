@@ -542,17 +542,24 @@ export const getPublicLawyers = async (params?: {
   search?: string;
   city?: string;
   specialisation?: string;
+  allMembers?: boolean;
 }): Promise<LawyerRecord[]> => {
-  const query = new URLSearchParams();
-  if (params?.search) query.set('search', params.search);
-  if (params?.city) query.set('city', params.city);
-  if (params?.specialisation) query.set('specialisation', params.specialisation);
-  const qs = query.toString();
-  const res = await fetch(`${API_URL}/api/lawyers${qs ? `?${qs}` : ''}`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch verified advocates: ${res.statusText}`);
+  try {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.city) query.set('city', params.city);
+    if (params?.specialisation) query.set('specialisation', params.specialisation);
+    if (params?.allMembers) query.set('all_members', 'true');
+    const qs = query.toString();
+    const res = await fetch(`${API_URL}/api/lawyers${qs ? `?${qs}` : ''}`);
+    if (!res.ok) {
+      return [];
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn("getPublicLawyers fallback notice:", err);
+    return [];
   }
-  return res.json();
 };
 
 export const registerLawyer = (

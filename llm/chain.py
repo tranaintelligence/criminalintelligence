@@ -592,19 +592,26 @@ def _clean_model_text(
 
 
 _COMMON_HALLUCINATION_PATTERNS = [
-    (re.compile(r"\b(?:Section\s+)?420\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 318 of BNS (formerly Section 420 IPC)"),
-    (re.compile(r"\b(?:Section\s+)?302\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 103 of BNS (formerly Section 302 IPC)"),
-    (re.compile(r"\b(?:Section\s+)?304A\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 106 of BNS (formerly Section 304A IPC)"),
-    (re.compile(r"\b(?:Section\s+)?498A\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 85 of BNS (formerly Section 498A IPC)"),
-    (re.compile(r"\b(?:Section\s+)?376\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 64 of BNS (formerly Section 376 IPC)"),
-    (re.compile(r"\b(?:Section\s+)?379\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 303 of BNS (formerly Section 379 IPC)"),
-    (re.compile(r"\b(?:Section\s+)?506\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 351 of BNS (formerly Section 506 IPC)"),
-    (re.compile(r"\b(?:Section\s+)?41A?\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 35 of BNSS (formerly Section 41/41A CrPC)"),
-    (re.compile(r"\b(?:Section\s+)?438\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 482 of BNSS (formerly Section 438 CrPC)"),
-    (re.compile(r"\b(?:Section\s+)?437\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 480 of BNSS (formerly Section 437 CrPC)"),
-    (re.compile(r"\b(?:Section\s+)?436\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 478 of BNSS (formerly Section 436 CrPC)"),
-    (re.compile(r"\b(?:Section\s+)?165\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 185 of BNSS (formerly Section 165 CrPC)"),
-    (re.compile(r"\b(?:Section\s+)?65B\s+(?:of\s+)?BSA\b", re.IGNORECASE), "Section 63 of BSA (formerly Section 65B Indian Evidence Act)"),
+    (re.compile(r"\b(?:Section\s+)?420\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 318 of BNS (formerly Section 420 IPC - Cheating)"),
+    (re.compile(r"\b(?:Section\s+)?302\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 103 of BNS (formerly Section 302 IPC - Murder)"),
+    (re.compile(r"\b(?:Section\s+)?304A\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 106 of BNS (formerly Section 304A IPC - Death by negligence)"),
+    (re.compile(r"\b(?:Section\s+)?498A\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 85 of BNS (formerly Section 498A IPC - Cruelty by husband/in-laws)"),
+    (re.compile(r"\b(?:Section\s+)?376\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 64 of BNS (formerly Section 376 IPC - Rape)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?379\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?379)\b", re.IGNORECASE), "Section 303 of BNS (formerly Section 379 IPC - Theft)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?384\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?384)\b", re.IGNORECASE), "Section 308 of BNS (formerly Section 384 IPC - Extortion)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?392\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?392)\b", re.IGNORECASE), "Section 309 of BNS (formerly Section 392 IPC - Robbery)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?323\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?323)\b", re.IGNORECASE), "Section 115(2) of BNS (formerly Section 323 IPC - Voluntarily causing hurt)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?504\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?504)\b", re.IGNORECASE), "Section 352 of BNS (formerly Section 504 IPC - Intentional insult)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?506\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?506)\b", re.IGNORECASE), "Section 351 of BNS (formerly Section 506 IPC - Criminal intimidation)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?154\s*A\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?154\s*A)\b", re.IGNORECASE), "Section 173(4) / 175(3) of BNSS (procedure when police refuse to register FIR; BNSS 154A is fictitious)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?154\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?154)\b", re.IGNORECASE), "Section 173 of BNSS (FIR registration — formerly Section 154 CrPC)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?151\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?151)\b", re.IGNORECASE), "Section 351 of BNS (Criminal Intimidation) / Section 170 of BNSS (Preventive action)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?41A?\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?41A?)\b", re.IGNORECASE), "Section 35 of BNSS (formerly Section 41/41A CrPC)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?438\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?438)\b", re.IGNORECASE), "Section 482 of BNSS (formerly Section 438 CrPC - Anticipatory bail)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?437\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?437)\b", re.IGNORECASE), "Section 480 of BNSS (formerly Section 437 CrPC - Regular bail)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?436\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?436)\b", re.IGNORECASE), "Section 478 of BNSS (formerly Section 436 CrPC - Bailable bail)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?165\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?165)\b", re.IGNORECASE), "Section 185 of BNSS (formerly Section 165 CrPC - Police search)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?65B\s+(?:of\s+)?BSA|BSA\s+(?:Sec(?:tion)?\.?\s*)?65B)\b", re.IGNORECASE), "Section 63 of BSA (formerly Section 65B Indian Evidence Act - Electronic records)"),
 ]
 
 
@@ -768,9 +775,15 @@ def _verify_law_candidates(
 
     # Backfill with verified statutes retrieved for this query if model produced no valid laws
     if not verified_laws and fallback_statutes:
-        for record in fallback_statutes[:3]:
+        preliminary_sections = {
+            ("BNS", "1"), ("BNS", "2"), ("BNS", "3"), ("BNS", "4"), ("BNS", "5"),
+            ("BNS", "6"), ("BNS", "7"), ("BNS", "8"), ("BNS", "9"), ("BNS", "10"),
+            ("BNSS", "1"), ("BNSS", "2"), ("BNSS", "6"), ("BNSS", "7"), ("BNSS", "8"),
+            ("BNSS", "9"), ("BNSS", "10"), ("BSA", "1"), ("BSA", "2"), ("BSA", "8"),
+        }
+        for record in fallback_statutes[:4]:
             key = (record.code, record.section)
-            if key in seen_keys:
+            if key in seen_keys or key in preliminary_sections:
                 continue
             seen_keys.add(key)
             flaw = ApplicableLaw(

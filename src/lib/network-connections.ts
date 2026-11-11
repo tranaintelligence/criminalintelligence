@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { API_URL } from "@/lib/trana-backend";
 
 export type NetworkRole = "lawyer" | "student";
 
@@ -62,7 +63,46 @@ export function saveLocalConnections(list: ConnectionRecord[]) {
 export async function fetchAllConnections(currentUserId: string): Promise<ConnectionRecord[]> {
   const local = getLocalConnections();
 
-  // Query Supabase consultations where consult_type = 'peer_connection'
+  // 1. Fetch real-time peer connections from TRANA backend API
+  try {
+    const uParam = currentUserId ? `?user_id=${encodeURIComponent(currentUserId)}` : "";
+    const backendRes = await fetch(`${API_URL}/api/network/connections${uParam}`);
+    if (backendRes.ok) {
+      const backendRows = await backendRes.json();
+      if (Array.isArray(backendRows)) {
+        backendRows.forEach((r: any) => {
+          const cId = r.id;
+          const existingIdx = local.findIndex((c) => c.id === cId);
+          const mapped: ConnectionRecord = {
+            id: cId,
+            fromUserId: r.from_user_id,
+            fromUserName: r.from_user_name,
+            fromUserRole: r.from_user_role || "lawyer",
+            fromUserRoleLabel: r.from_user_role_label || "Verified Advocate",
+            fromUserCity: r.from_user_city || "New Delhi",
+            toUserId: r.to_user_id,
+            toUserName: r.to_user_name,
+            toUserRole: r.to_user_role || "lawyer",
+            toUserRoleLabel: r.to_user_role_label || "Verified Advocate",
+            toUserCity: r.to_user_city || "New Delhi",
+            status: r.status,
+            note: r.note,
+            createdAt: r.created_at || new Date().toISOString(),
+            updatedAt: r.updated_at || new Date().toISOString(),
+          };
+          if (existingIdx !== -1) {
+            local[existingIdx] = mapped;
+          } else {
+            local.push(mapped);
+          }
+        });
+      }
+    }
+  } catch (backendErr) {
+    console.warn("Backend peer connections fetch fallback:", backendErr);
+  }
+
+  // 2. Query Supabase consultations where consult_type = 'peer_connection'
   try {
     const { data: dbRows, error: dbErr } = await supabase
       .from("consultations")
@@ -84,7 +124,6 @@ export async function fetchAllConnections(currentUserId: string): Promise<Connec
         const isDeclined = row.status === "denied" || row.status === "cancelled";
         const st: "accepted" | "declined" | "pending" = isAccepted ? "accepted" : isDeclined ? "declined" : "pending";
 
-        // Find existing match in local by DB connId OR matching user pair
         const existingIdx = local.findIndex((c) => {
           if (c.id === connId) return true;
           const cFrom = c.fromUserId.toLowerCase().trim();
@@ -93,7 +132,6 @@ export async function fetchAllConnections(currentUserId: string): Promise<Connec
         });
 
         if (existingIdx !== -1) {
-          // Reconcile ID and update status from DB truth
           local[existingIdx].id = connId;
           local[existingIdx].status = st;
           local[existingIdx].updatedAt = row.created_at || new Date().toISOString();
@@ -116,7 +154,7 @@ export async function fetchAllConnections(currentUserId: string): Promise<Connec
       });
     }
   } catch (e) {
-    console.warn("fetchAllConnections fetch error:", e);
+    console.warn("fetchAllConnections Supabase fetch error:", e);
   }
 
   // Deduplicate array so each unique pair of users has strictly ONE record,
@@ -217,7 +255,34 @@ export async function sendConnectionRequest(params: {
 
   let newConnId = `CONN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-  // Sync to Supabase consultations first to obtain DB primary key
+  // 1. Send peer connection to TRANA backend database
+  try {
+    const res = await fetch(`${API_URL}/api/network/connections`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from_user_id: params.fromUser.id,
+        from_user_name: params.fromUser.name,
+        from_user_role: params.fromUser.role,
+        from_user_role_label: params.fromUser.roleLabel || "Verified Advocate",
+        from_user_city: params.fromUser.city || "New Delhi",
+        to_user_id: params.toUser.id,
+        to_user_name: params.toUser.name,
+        to_user_role: params.toUser.role,
+        to_user_role_label: params.toUser.roleLabel || "Verified Advocate",
+        to_user_city: params.toUser.city || "New Delhi",
+        note: params.note || "",
+      }),
+    });
+    if (res.ok) {
+      const dbConn = await res.json();
+      if (dbConn?.id) newConnId = dbConn.id;
+    }
+  } catch (backendErr) {
+    console.warn("Backend peer connection request error:", backendErr);
+  }
+
+  // 2. Sync to Supabase consultations for cross-platform replication
   try {
     const basePayload = {
       user_id: params.fromUser.id,
@@ -302,7 +367,18 @@ export async function acceptConnectionRequest(connectionId: string): Promise<voi
   conn.updatedAt = new Date().toISOString();
   saveLocalConnections(local);
 
-  // Establish chat channel for both parties
+  // 1. Sync accepted status to TRANA backend
+  try {
+    await fetch(`${API_URL}/api/network/connections/${encodeURIComponent(conn.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ACCEPT" }),
+    });
+  } catch (backendErr) {
+    console.warn("Backend acceptConnectionRequest error:", backendErr);
+  }
+
+  // 2. Establish chat channel for both parties
   const chatKey = `trana_consult_chat_${conn.id}`;
   const initialMessages = [
     {
@@ -375,6 +451,14 @@ export async function declineConnectionRequest(connectionId: string): Promise<vo
   saveLocalConnections(updated);
 
   try {
+    await fetch(`${API_URL}/api/network/connections/${encodeURIComponent(connectionId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "DECLINE" }),
+    });
+  } catch {}
+
+  try {
     const rawId = connectionId.replace(/^CONN-/, "");
     if (conn) {
       await supabase
@@ -394,6 +478,12 @@ export async function removeConnection(connectionId: string): Promise<void> {
 
   const updated = local.filter((c) => c.id !== connectionId);
   saveLocalConnections(updated);
+
+  try {
+    await fetch(`${API_URL}/api/network/connections/${encodeURIComponent(connectionId)}`, {
+      method: "DELETE",
+    });
+  } catch {}
 
   try {
     const rawId = connectionId.replace(/^CONN-/, "");

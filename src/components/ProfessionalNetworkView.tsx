@@ -89,10 +89,10 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
         .select("*")
         .order("created_at", { ascending: false });
 
-      // 2. Fetch public lawyers from backend API
+      // 2. Fetch lawyers from backend API (including all network members)
       let apiRows: any[] = [];
       try {
-        apiRows = await getPublicLawyers();
+        apiRows = await getPublicLawyers({ allMembers: true });
       } catch {}
 
       // 3. Merge both sources deduplicated by user_id / email / id

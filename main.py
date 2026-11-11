@@ -1224,6 +1224,27 @@ def list_admin_users(
             em = session_to_email[sid]
             message_counts[em] = message_counts.get(em, 0) + 1
 
+    registered_lawyers = db.query(db_models.Lawyer).all()
+    for l in registered_lawyers:
+        em = (l.email or "").strip().lower()
+        if not em:
+            continue
+        if em not in users_by_email:
+            users_by_email[em] = {
+                "id": l.id,
+                "email": l.email,
+                "name": l.full_name or em.split("@")[0],
+                "picture": None,
+                "created_at": _iso(l.created_at),
+                "total_chats": 0,
+                "total_messages": 0,
+                "last_active_at": _iso(l.updated_at or l.created_at),
+                "status": "Inactive" if l.verification_status == "SUSPENDED" else "Active",
+            }
+        else:
+            if l.full_name and (users_by_email[em]["name"] == em.split("@")[0] or not users_by_email[em]["name"]):
+                users_by_email[em]["name"] = l.full_name
+
     cutoff_30d = datetime.utcnow() - timedelta(days=30)
     result = []
     for em, data in users_by_email.items():
@@ -3742,13 +3763,21 @@ def list_verified_lawyers(
     city: Optional[str] = None,
     specialisation: Optional[str] = None,
     court: Optional[str] = None,
+    all_members: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Directory of verified advocates for citizens and clients."""
-    query = db.query(db_models.Lawyer).filter(
-        db_models.Lawyer.verification_status == "VERIFIED",
-        db_models.Lawyer.approved == True,
-    )
+    """Directory of verified advocates for citizens, clients, and peer professional network."""
+    if all_members:
+        query = db.query(db_models.Lawyer).filter(
+            db_models.Lawyer.verification_status != "SUSPENDED",
+            db_models.Lawyer.verification_status != "REJECTED",
+        )
+    else:
+        query = db.query(db_models.Lawyer).filter(
+            db_models.Lawyer.verification_status.in_(["VERIFIED", "PENDING_VERIFICATION"]),
+            db_models.Lawyer.verification_status != "SUSPENDED",
+            db_models.Lawyer.verification_status != "REJECTED",
+        )
 
     if city and city.strip() and city.lower() != "all":
         query = query.filter(db_models.Lawyer.city.ilike(f"%{city.strip()}%"))
@@ -3970,13 +3999,118 @@ def delete_lawyer_admin(
     db: Session = Depends(get_db),
 ):
     """Delete an advocate record from the directory."""
-    lawyer = db.query(db_models.Lawyer).filter(db_models.Lawyer.id == lawyer_id).first()
+    lawyer = db.query(db_models.Lawyer).filter(
+        (db_models.Lawyer.id == lawyer_id) | (db_models.Lawyer.user_id == lawyer_id)
+    ).first()
     if not lawyer:
-        raise HTTPException(status_code=404, detail="Advocate not found.")
+        return {"ok": True, "message": f"Advocate {lawyer_id} removed."}
 
     db.delete(lawyer)
     db.commit()
     return {"ok": True, "message": f"Advocate {lawyer.full_name} ({lawyer.bar_reg_no}) deleted."}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Professional Network Peer Connections API
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/network/connections", response_model=list[schemas.PeerConnectionResponse], tags=["Professional Network"])
+def list_peer_connections(
+    user_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Retrieve peer connection records for a user or all connections across the network."""
+    query = db.query(db_models.PeerConnection)
+    if user_id and user_id.strip():
+        u = user_id.strip()
+        query = query.filter(
+            (db_models.PeerConnection.from_user_id == u) |
+            (db_models.PeerConnection.to_user_id == u)
+        )
+    rows = query.order_by(db_models.PeerConnection.created_at.desc()).all()
+    return rows
+
+
+@app.post("/api/network/connections", response_model=schemas.PeerConnectionResponse, status_code=201, tags=["Professional Network"])
+def create_peer_connection(
+    req: schemas.PeerConnectionCreateRequest,
+    db: Session = Depends(get_db),
+):
+    """Send a connection request to an advocate or legal scholar."""
+    existing = db.query(db_models.PeerConnection).filter(
+        ((db_models.PeerConnection.from_user_id == req.from_user_id) & (db_models.PeerConnection.to_user_id == req.to_user_id)) |
+        ((db_models.PeerConnection.from_user_id == req.to_user_id) & (db_models.PeerConnection.to_user_id == req.from_user_id))
+    ).first()
+
+    if existing:
+        if existing.status == "accepted":
+            return existing
+        if existing.status == "declined":
+            existing.status = "pending"
+            existing.from_user_id = req.from_user_id
+            existing.to_user_id = req.to_user_id
+            existing.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing
+        return existing
+
+    conn = db_models.PeerConnection(
+        id=f"CONN-{int(datetime.utcnow().timestamp() * 1000)}-{str(uuid.uuid4())[:6]}",
+        from_user_id=req.from_user_id,
+        from_user_name=req.from_user_name,
+        from_user_role=req.from_user_role,
+        from_user_role_label=req.from_user_role_label or "Verified Advocate",
+        from_user_city=req.from_user_city or "New Delhi",
+        to_user_id=req.to_user_id,
+        to_user_name=req.to_user_name,
+        to_user_role=req.to_user_role,
+        to_user_role_label=req.to_user_role_label or "Verified Advocate",
+        to_user_city=req.to_user_city or "New Delhi",
+        status="pending",
+        note=req.note or "",
+    )
+    db.add(conn)
+    db.commit()
+    db.refresh(conn)
+    return conn
+
+
+@app.patch("/api/network/connections/{conn_id}", response_model=schemas.PeerConnectionResponse, tags=["Professional Network"])
+def update_peer_connection(
+    conn_id: str,
+    action_in: schemas.PeerConnectionActionRequest,
+    db: Session = Depends(get_db),
+):
+    """Accept, decline, or cancel a connection invitation."""
+    conn = db.query(db_models.PeerConnection).filter(db_models.PeerConnection.id == conn_id).first()
+    if not conn:
+        raise HTTPException(status_code=404, detail="Connection request not found.")
+
+    if action_in.action == "ACCEPT":
+        conn.status = "accepted"
+    elif action_in.action in ("DECLINE", "CANCEL"):
+        conn.status = "declined"
+
+    conn.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(conn)
+    return conn
+
+
+@app.delete("/api/network/connections/{conn_id}", tags=["Professional Network"])
+def delete_peer_connection(
+    conn_id: str,
+    db: Session = Depends(get_db),
+):
+    """Permanently delete a peer connection."""
+    conn = db.query(db_models.PeerConnection).filter(db_models.PeerConnection.id == conn_id).first()
+    if not conn:
+        return {"ok": True, "message": "Connection removed."}
+
+    db.delete(conn)
+    db.commit()
+    return {"ok": True, "message": "Connection removed."}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

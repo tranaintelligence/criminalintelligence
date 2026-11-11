@@ -604,3 +604,42 @@ class FounderEmailResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PeerConnectionCreateRequest(BaseModel):
+    from_user_id: str
+    from_user_name: str
+    from_user_role: str = "lawyer"
+    from_user_role_label: Optional[str] = "Verified Advocate"
+    from_user_city: Optional[str] = "New Delhi"
+    to_user_id: str
+    to_user_name: str
+    to_user_role: str = "lawyer"
+    to_user_role_label: Optional[str] = "Verified Advocate"
+    to_user_city: Optional[str] = "New Delhi"
+    note: Optional[str] = None
+
+
+class PeerConnectionActionRequest(BaseModel):
+    action: Literal["ACCEPT", "DECLINE", "CANCEL"] = Field(..., description="Action: ACCEPT, DECLINE, or CANCEL")
+
+
+class PeerConnectionResponse(BaseModel):
+    id: str
+    from_user_id: str
+    from_user_name: str
+    from_user_role: str
+    from_user_role_label: Optional[str] = None
+    from_user_city: Optional[str] = None
+    to_user_id: str
+    to_user_name: str
+    to_user_role: str
+    to_user_role_label: Optional[str] = None
+    to_user_city: Optional[str] = None
+    status: str
+    note: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

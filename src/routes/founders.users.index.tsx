@@ -6,6 +6,7 @@ import {
   GraduationCap, CheckCircle2, XCircle, Clock, Eye, X, Image as ImageIcon, ExternalLink, Check, Scale
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { API_URL } from "@/lib/trana-backend";
 import { useTranaCredential } from "@/lib/trana-auth";
 import { getAdminUsers, getPublicLawyers, type AdminUser } from "@/lib/trana-admin-api";
 import { downloadCSV } from "@/lib/csv-export";
@@ -178,31 +179,35 @@ function FoundersUsersPage() {
     staleTime: 30000,
   });
 
-  // 3. Query Supabase lawyers table with backend and default advocate fallback
+  // 3. Query backend and Supabase lawyers table
   const { data: dbLawyers = [], refetch: refetchLawyers } = useQuery({
     queryKey: ["founders-db-lawyers-lookup"],
     queryFn: async () => {
+      const merged = new Map<string, any>();
+
+      // 1. Backend public & registered lawyers (including under review)
+      try {
+        const publicRows = await getPublicLawyers({ allMembers: true } as any);
+        if (publicRows && Array.isArray(publicRows)) {
+          publicRows.forEach((l) => {
+            const k = (l.email || l.bar_reg_no || l.id).toLowerCase().trim();
+            merged.set(k, l);
+          });
+        }
+      } catch {}
+
+      // 2. Supabase lawyers table
       try {
         const { data } = await supabase.from("lawyers").select("*");
-        if (data && data.length > 0) return data;
-      } catch {}
-
-      try {
-        const publicRows = await getPublicLawyers();
-        if (publicRows && publicRows.length > 0) return publicRows;
-      } catch {}
-
-      return [
-        {
-          id: "adv-krish-chauhan-delhi",
-          full_name: "Adv. Krish Chauhan",
-          email: "ckhraiushh1@gmail.com",
-          bar_reg_no: "D/2104/2021",
-          city: "New Delhi",
-          created_at: new Date(Date.now() - 3600 * 1000 * 240).toISOString(),
-          verification_status: "VERIFIED",
+        if (data && Array.isArray(data)) {
+          data.forEach((l) => {
+            const k = (l.email || l.bar_reg_no || l.id).toLowerCase().trim();
+            if (!merged.has(k)) merged.set(k, l);
+          });
         }
-      ];
+      } catch {}
+
+      return Array.from(merged.values());
     },
     staleTime: 30000,
   });
@@ -220,15 +225,49 @@ function FoundersUsersPage() {
     staleTime: 30000,
   });
 
-  // 5. Query Supabase consultations (all citizen consultation requests & peer connections)
+  // 5. Query Supabase consultations and backend peer connections
   const { data: dbConsults = [], refetch: refetchConsults } = useQuery({
     queryKey: ["founders-db-consults-lookup"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("consultations")
-        .select("*")
-        .order("created_at", { ascending: false });
-      return data || [];
+      const items: any[] = [];
+      try {
+        const res = await fetch(`${API_URL}/api/network/connections`);
+        if (res.ok) {
+          const conns = await res.json();
+          if (Array.isArray(conns)) {
+            conns.forEach((c) => {
+              items.push({
+                id: c.id,
+                created_at: c.created_at,
+                note: JSON.stringify({
+                  fromUserId: c.from_user_id,
+                  fromUserName: c.from_user_name,
+                  fromUserRole: c.from_user_role,
+                  fromUserRoleLabel: c.from_user_role_label,
+                  fromUserCity: c.from_user_city,
+                  toUserId: c.to_user_id,
+                  toUserName: c.to_user_name,
+                  toUserRole: c.to_user_role,
+                  toUserRoleLabel: c.to_user_role_label,
+                  toUserCity: c.to_user_city,
+                }),
+              });
+            });
+          }
+        }
+      } catch {}
+
+      try {
+        const { data } = await supabase
+          .from("consultations")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (data && Array.isArray(data)) {
+          items.push(...data);
+        }
+      } catch {}
+
+      return items;
     },
     staleTime: 30000,
   });
