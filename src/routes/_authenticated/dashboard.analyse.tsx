@@ -217,29 +217,35 @@ function Analyse() {
         }
       }
 
-      // Analyze endpoint call with structured 5-point FIR analysis protocol
+      // Analyze endpoint call with structured TRANA Complaint & FIR Analyser protocol
       const queryPrompt = text.trim()
-        ? `Perform a complete 5-point criminal complaint / FIR analysis on this case.
-CRITICAL FORMATTING & LAYMAN'S TERMS INSTRUCTIONS:
-- Explain everything in clear, reassuring layman's terms that an ordinary family member can understand at midnight, while retaining the full depth and exact statutory data.
-- Avoid legal jargon. If a technical legal term is necessary, explain it in one simple sentence.
-- For each section, format with bold headers and clean line breaks:
-  ### Section <Number>, <Act Full Name>
-  **Plain meaning:** <Clear layman explanation of what this offence is and its punishment>
-  **Statutory reference:** [Ref: <Act Full Name>, Section <X> — previously Section <Y> <Old Code>]
-  **Key points of the provision:**
-  1. ...
-  2. ...
-  **Legal rights of the accused under this section:**
-  - ...
-  **Potential mis-application or exaggeration:**
-  - ...
-  **One most important next step:**
-  - ...
+        ? `You are the TRANA Complaint and FIR Analyser. Perform a complete criminal complaint / FIR analysis following your official instructions.
+Explain in plain language for an ordinary Indian family in this exact order:
+1. What this document is (FIR, complaint or other, date, police station/court if stated)
+2. What it says happened (neutral words, "The complainant says...", allegations not proven facts)
+3. Sections mentioned (one line per BNS section on what it covers in simple words; cognizable, bailable, and punishment range only if certain; statutory reference [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC])
+4. Do the sections match the facts? (compare sections with facts written, flag missing/vague/exaggerated/misapplied with careful words)
+5. What is missing or unclear (no sections, no date/place, unclear names, long delay, no description of act)
+6. What this means for you (tailored to role: accused, complainant, witness, or family member)
+7. Your rights now (protections under BNS, BNSS, BSA in simple words)
+8. The one most important thing to do next, then at most three short steps for the next 24 hours if in an active situation (skip 24h steps if no one is in danger)
+Offer at the end: "Would you like information on how to reach a lawyer?"
+End with: "This is general information, not legal advice."
 
-Case Details:
+Case / Complaint Details:
 ${text.trim()}`
-        : `Analyze the uploaded document (${file?.name}) thoroughly. Perform a complete 5-point criminal complaint / FIR analysis in clear layman's terms with zero jargon: list every BNS section with statutory references [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC], explain allegations in simple language with bold headers and clean spacing, check whether sections match facts and flag misapplications, assess bail eligibility, list immediate rights under each section, and provide the one most important next step.`;
+        : `You are the TRANA Complaint and FIR Analyser. Analyze the uploaded document (${file?.name}) thoroughly following your official instructions.
+Explain in plain language for an ordinary Indian family in this exact order:
+1. What this document is (FIR, complaint or other, date, police station/court if stated)
+2. What it says happened (neutral words, allegations not proven facts)
+3. Sections mentioned (with official statutory references [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC])
+4. Do the sections match the facts? (compare sections with facts, flag misapplication or exaggeration)
+5. What is missing or unclear
+6. What this means for you (tailored to role)
+7. Your rights now under BNS, BNSS, BSA
+8. The one most important thing to do next, then at most three short steps for the next 24 hours if in an active situation
+Offer at the end: "Would you like information on how to reach a lawyer?"
+End with: "This is general information, not legal advice."`;
 
       const endpoint = credential ? `${API_URL}/api/analyze` : `${API_URL}/api/analyze/temporary`;
       const bodyPayload: Record<string, unknown> = {
@@ -696,16 +702,16 @@ ${text.trim()}`
               onClick={() => setAnalysisMode("professional")}
               className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                 analysisMode === "professional"
-                  ? "border-amber-500/60 bg-amber-500/15 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-500/40"
+                  ? "border-emerald-500/60 bg-emerald-500/15 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/40"
                   : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
-                  <Scale className="h-4 w-4 text-amber-400" />
+                  <Scale className="h-4 w-4 text-emerald-400" />
                   <span className="font-semibold text-white text-sm">Legal Professional Written Opinion</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   ₹50 &bull; Verified Written Opinion
                 </span>
               </div>
@@ -771,20 +777,20 @@ ${text.trim()}`
         <div className="mt-10 space-y-6">
           {/* Paid Legal Professional Status Banner */}
           {(paidReviewSuccess || analysisMode === "professional") && (
-            <div className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-[#1a140b] to-[#121215] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_0_25px_rgba(245,158,11,0.15)]">
+            <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-[#0c1a12] to-[#121215] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_0_25px_rgba(16,185,129,0.15)]">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 shrink-0">
+                <div className="h-9 w-9 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 shrink-0">
                   <Scale className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white text-sm">Legal Professional Review Active</span>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-300 border border-amber-500/40">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
                       ₹50 Paid &bull; Priority
                     </span>
                   </div>
                   <p className="text-xs text-neutral-300 mt-0.5">
-                    Your complaint details have been prioritized and delivered anonymously to our verified panel advocates for detailed written review.
+                    Your complaint details have been prioritized and delivered anonymously to our verified panel legal professionals for detailed written review.
                   </p>
                 </div>
               </div>
@@ -1015,15 +1021,18 @@ ${text.trim()}`
             </SectionCard>
           )}
 
-          {/* Legal Professional Written Opinion Callout */}
-          <div className="apple-glass-card rounded-2xl p-6 md:p-8 border border-emerald-500/35 bg-gradient-to-r from-emerald-500/15 via-[#0e1712] to-emerald-950/30 backdrop-blur-2xl shadow-[0_0_35px_rgba(16,185,129,0.15)]">
+          {/* Legal Professional Written Opinion & Connect Callout */}
+          <div className="apple-glass-card rounded-2xl p-6 md:p-8 border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-[#0e1712] to-emerald-950/30 backdrop-blur-2xl shadow-[0_0_35px_rgba(16,185,129,0.2)]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="font-display text-2xl font-semibold text-emerald-300">
-                  Legal Professional Written Opinion (₹50)
+                <span className="text-[0.65rem] uppercase tracking-widest text-emerald-400 font-mono block">
+                  LEGAL REPRESENTATION & CONSULTATION
+                </span>
+                <h3 className="font-display text-2xl font-semibold text-emerald-300 mt-1">
+                  Would you like information on how to reach a lawyer?
                 </h3>
                 <p className="mt-2 text-sm text-neutral-200 max-w-2xl leading-relaxed">
-                  TRANA has decoded the statutory provisions and immediate rights for you. For formal fact-checking, charge verification, and comprehensive legal strategy, get a verified legal professional written opinion for ₹50.
+                  TRANA has decoded the statutory provisions and immediate rights for you. For formal fact-checking, charge verification, and comprehensive legal strategy, get a verified legal professional written opinion for ₹50 or connect directly with verified counsel.
                 </p>
               </div>
               <div className="px-3.5 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-emerald-300 font-mono text-sm font-bold shrink-0 self-start sm:self-center">
@@ -1049,7 +1058,7 @@ ${text.trim()}`
               <button
                 type="button"
                 onClick={() => setIsConnectModalOpen(true)}
-                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center gap-2 cursor-pointer transition-all"
+                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/35 flex items-center gap-2 cursor-pointer transition-all"
               >
                 <HeartHandshake className="h-3.5 w-3.5" />
                 <span>Free Legal Aid (15100)</span>
@@ -1064,7 +1073,7 @@ ${text.trim()}`
           </div>
 
           <p className="text-xs text-neutral-500 text-center leading-relaxed">
-            This analysis is generated by TRANA Statutory AI for legal education and first-aid only. It does not establish an attorney-client relationship. Always consult a qualified legal professional for representation before judicial authorities.
+            This is general information, not legal advice. It does not establish an attorney-client relationship. Always consult a qualified legal professional for representation before judicial authorities.
           </p>
         </div>
       )}

@@ -36,7 +36,12 @@ from key_manager import (
     rotate_key,
 )
 from legal_sources.registry import LawSourceRegistry, get_registry
-from llm.prompts import DIRECT_ANALYSIS_PROMPT, SYSTEM_PROMPT
+from llm.prompts import (
+    COMPLAINT_FIR_ANALYSIS_PROMPT,
+    COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT,
+    DIRECT_ANALYSIS_PROMPT,
+    SYSTEM_PROMPT,
+)
 from models.schemas import AnalysisResponse, SourceChunk, StructuredAnalysis
 from utils.logger import get_logger
 
@@ -858,6 +863,20 @@ async def run_analysis_pipeline(
     )
 
 
+def _is_complaint_fir_analysis(query: str) -> bool:
+    q = (query or "").lower()
+    return any(marker in q for marker in [
+        "trana complaint and fir analyser",
+        "complaint and fir analyser",
+        "complaint / fir analysis",
+        "criminal complaint / fir analysis",
+        "complaint and fir analysis",
+        "complaint analyser",
+        "fir analyser",
+        "analyze the uploaded document",
+    ])
+
+
 def _build_prompt_messages(
     query: str,
     ephemeral_context: Optional[str],
@@ -894,10 +913,17 @@ def _build_prompt_messages(
             ),
         ]
 
-    prompt = DIRECT_ANALYSIS_PROMPT.format(
-        question=query,
-        ephemeral_context=ephemeral_context or "(No uploaded document was provided.)",
-    )
+    is_complaint_fir = _is_complaint_fir_analysis(query)
+    if is_complaint_fir:
+        prompt = COMPLAINT_FIR_ANALYSIS_PROMPT.format(
+            question=query,
+            ephemeral_context=ephemeral_context or "(No uploaded document was provided.)",
+        )
+    else:
+        prompt = DIRECT_ANALYSIS_PROMPT.format(
+            question=query,
+            ephemeral_context=ephemeral_context or "(No uploaded document was provided.)",
+        )
     if media_attachments:
         prompt += (
             "\n\nATTACHMENT-LED INSTRUCTIONS: The user has supplied image or scanned-document "
@@ -949,7 +975,8 @@ def _build_prompt_messages(
                 + "\n\n---\n\n".join(statute_blocks)
             )
 
-    messages = [SystemMessage(content=SYSTEM_PROMPT)]
+    active_system_prompt = COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT if is_complaint_fir else SYSTEM_PROMPT
+    messages = [SystemMessage(content=active_system_prompt)]
     for item in conversation_history or []:
         role = item.get("role")
         content = str(item.get("content") or "").strip()
