@@ -716,8 +716,8 @@ function Analyse() {
               onClick={() => setAnalysisMode("professional")}
               className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                 analysisMode === "professional"
-                  ? "border-emerald-500/60 bg-emerald-500/15 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/40"
-                  : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+                  ? "border-emerald-500 bg-emerald-500/20 shadow-[0_0_25px_rgba(16,185,129,0.25)] ring-2 ring-emerald-500/50"
+                  : "border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/40 hover:border-emerald-500/50"
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
@@ -1036,24 +1036,31 @@ function Analyse() {
           )}
 
           {/* Legal Professional Written Opinion & Connect Callout */}
-          <div className="apple-glass-card rounded-2xl p-6 md:p-8 border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-[#0e1712] to-emerald-950/30 backdrop-blur-2xl shadow-[0_0_35px_rgba(16,185,129,0.2)]">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div 
+            style={{ backgroundColor: "rgba(6, 78, 59, 0.45)", borderColor: "rgba(16, 185, 129, 0.65)" }}
+            className="rounded-2xl p-6 md:p-8 border-2 bg-gradient-to-br from-emerald-950/90 via-[#062f22] to-emerald-900/80 backdrop-blur-2xl shadow-[0_0_40px_rgba(16,185,129,0.3)] relative overflow-hidden"
+          >
+            {/* Ambient green light effects */}
+            <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-500/25 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-emerald-400/20 blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-[0.65rem] uppercase tracking-widest text-emerald-400 font-mono block">
+                <span className="text-[0.65rem] uppercase tracking-widest text-emerald-300 font-mono block font-semibold">
                   LEGAL REPRESENTATION & CONSULTATION
                 </span>
-                <h3 className="font-display text-2xl font-semibold text-emerald-300 mt-1">
+                <h3 className="font-display text-2xl font-bold text-emerald-200 mt-1">
                   Would you like information on how to reach a lawyer?
                 </h3>
-                <p className="mt-2 text-sm text-neutral-200 max-w-2xl leading-relaxed">
+                <p className="mt-2 text-sm text-emerald-100/90 max-w-2xl leading-relaxed">
                   TRANA has decoded the statutory provisions and immediate rights for you. For formal fact-checking, charge verification, and comprehensive legal strategy, get a verified legal professional written opinion for ₹50 or connect directly with verified counsel.
                 </p>
               </div>
-              <div className="px-3.5 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-emerald-300 font-mono text-sm font-bold shrink-0 self-start sm:self-center">
+              <div className="px-3.5 py-1.5 rounded-xl border border-emerald-400/60 bg-emerald-500/30 text-emerald-200 font-mono text-sm font-bold shrink-0 self-start sm:self-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
                 Fee: ₹50
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="relative z-10 mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -1063,7 +1070,7 @@ function Analyse() {
                     setIsPaymentModalOpen(true);
                   }
                 }}
-                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500 text-black hover:bg-emerald-400 border border-emerald-400 flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.35)] active:scale-95"
+                className="px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500 text-neutral-950 hover:bg-emerald-400 border border-emerald-300 flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_25px_rgba(16,185,129,0.55)] active:scale-95 hover:scale-[1.02]"
               >
                 <Scale className="h-3.5 w-3.5" />
                 <span>{paidReviewSuccess ? "Legal Professional Written Opinion Active (₹50 Paid)" : "Get Legal Professional Written Opinion (₹50)"}</span>
@@ -1072,14 +1079,14 @@ function Analyse() {
               <button
                 type="button"
                 onClick={() => setIsConnectModalOpen(true)}
-                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/35 flex items-center gap-2 cursor-pointer transition-all"
+                className="px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-950/70 text-emerald-200 hover:bg-emerald-900/80 border border-emerald-500/40 flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_15px_rgba(16,185,129,0.15)]"
               >
-                <HeartHandshake className="h-3.5 w-3.5" />
+                <HeartHandshake className="h-3.5 w-3.5 text-emerald-300" />
                 <span>Free Legal Aid (15100)</span>
               </button>
               <Link
                 to="/dashboard/consultations"
-                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/10 text-white hover:bg-white/20 border border-white/25 flex items-center gap-2 cursor-pointer transition-all"
+                className="px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-950/50 text-emerald-100 hover:bg-emerald-900/70 border border-emerald-500/30 flex items-center gap-2 cursor-pointer transition-all"
               >
                 <span>My Consultations</span>
               </Link>
