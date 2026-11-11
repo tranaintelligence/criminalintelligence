@@ -257,6 +257,29 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 - Updated the landing page footer links to include both **Privacy Policy** and **Terms & Conditions** with direct query parameter links (`/privacy-policy?tab=privacy` and `/privacy-policy?tab=terms`).
 
 
+---
+
+## [2026-11-12] - Publication of Comprehensive "About TRANA" Page & Founders Spotlight
+
+### 1. "About TRANA" Portal (`src/routes/about.tsx`)
+- **Problem**: The `/about` route was previously a basic "Coming Soon" placeholder.
+- **Implementation**:
+  - Replaced the placeholder with a brand portal detailing:
+    - **Our Mission: Democratizing Legal Intelligence**: Transforming how individuals interact with the Indian criminal justice system, bridging the gap between dense procedures and everyday citizens.
+    - **The Problem We Solve**: Breaking down archaic legal language and decoding FIRs, notices, and procedural rights during stressful 24-hour crisis windows.
+    - **Our Solution**: Acting as a digital legal first responder providing rapid legal first-aid while offering a unified, secure digital workspace for advocates and law students.
+    - **The Meaning of TRANA**: Deep dive into the Devanagari script identity (**त्राण / त्राणा** — protection, shelter, preservation, and relief).
+    - **Our Commitment to Neutrality**: Independent technology interface adhering strictly to Bar Council of India (BCI) Rule 36 anti-solicitation ethics.
+    - **Meet the Founders (Second-Year BA LLB Hons Innovators)**:
+      - **Swastik Mishra (Founder & CEO)**: Lead architect, product strategy & technological direction; Delhi roots, advocate family upbringing, former competitive gamer/streamer, cricketer, Taekwondo black belt, fitness, cars, music, and travel.
+      - **Soumil Krishn Sharma (Cofounder - Finance & Operations)**: Financial structure, operational discipline, and statutory compliance; Faridabad based, motorsport photographer, competitive badminton player, skilled beatboxer, motorcycle enthusiast, and Japanese culture aficionado.
+      - **Aditya Amist (Cofounder - Marketing & PR)**: Civic outreach, brand voice, public relations, and societal impact; Noida based, sharp business acumen, passionate student of Indian history & sociopolitical landscapes, automotive and music lover.
+    - **Interactive Features**: Dynamic founder tab switcher, "Beyond the Boardroom" interest pills, and "Share Link" action.
+    - **The Collaborative Engine & Core Philosophy**: Uncompromising belief that *"Knowledge must be shared for the betterment of society, and understanding your legal rights should never be a luxury."*
+    - **The Five-Year Vision**: Establishing TRANA as the definitive first response application for every Indian citizen, fostering an empowered, happy, and secure Republic.
+
+
+
 ### 1. Complaint Analyser Prompt Reply Modernization (`src/routes/_authenticated/dashboard.analyse.tsx`)
 - **Problem**: The LLM prompt generates a rich 8-part criminal procedural breakdown (`situation_meaning`), but previously the frontend dumped this entire response into a single, generic markdown text card, causing text bloat and duplicate statutory sections.
 - **Improvements**:
