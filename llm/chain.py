@@ -376,6 +376,25 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
     async with httpx.AsyncClient(timeout=request_timeout) as client:
         response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
     if response.status_code >= 400:
+        # Check if provider returned failed_generation (e.g. Groq json_validate_failed)
+        try:
+            err_body = response.json()
+            err_info = err_body.get("error", {})
+            failed_gen = err_info.get("failed_generation")
+            if failed_gen and isinstance(failed_gen, str) and failed_gen.strip():
+                logger.info("%s returned non-JSON text in failed_generation: rescuing response", record.provider)
+                text = failed_gen.strip()
+                try:
+                    return _require_readable_analysis(_parse_structured_analysis_content(text))
+                except Exception:
+                    return StructuredAnalysis(
+                        general_analysis=text,
+                        situation_meaning=text,
+                        is_conversational=True,
+                        suggest_lawyer=False,
+                    )
+        except Exception:
+            pass
         raise RuntimeError(f"{record.provider} HTTP {response.status_code}: {response.text[:300]}")
     body = response.json()
     try:
@@ -514,8 +533,11 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
             error_text = str(exc).lower()
             retryable = quota_error or any(marker in error_text for marker in (
                 "http 408", "http 500", "http 502", "http 503", "connection", "temporarily",
+                "http 400", "failed to generate json", "json_validate_failed", "invalid_request_error",
             ))
             if not retryable:
+                if len(routes) > 1 and len(attempted) < len(routes):
+                    continue
                 if empty_analysis_error is None:
                     raise RuntimeError(f"Quick Thinking provider configuration failed: {exc}") from exc
                 continue
