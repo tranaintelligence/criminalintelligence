@@ -374,7 +374,7 @@ function LawyerCaseInboxPage() {
   // Auto-scroll messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, selectedCaseId]);
 
   // Mark active case as read
   useEffect(() => {
@@ -582,17 +582,17 @@ function LawyerCaseInboxPage() {
   }, [cases, categoryFilter, search]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Header */}
-      <div className="border-b border-[#222222] pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="border-b border-[#222222] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <span className="text-[0.65rem] uppercase tracking-widest text-[#888888] font-mono block">
             CONFIDENTIAL INBOX & PEER NETWORK
           </span>
-          <h1 className="font-display text-4xl md:text-5xl font-medium text-white mt-1">
+          <h1 className="font-display text-2xl md:text-3xl font-medium text-white mt-0.5">
             Inbox
           </h1>
-          <p className="mt-1.5 text-xs text-[#999999]">
+          <p className="mt-0.5 text-xs text-[#999999]">
             Active client consultations, peer advocate collaboration channels, and transmitted case referrals.
           </p>
         </div>
@@ -600,7 +600,7 @@ function LawyerCaseInboxPage() {
         <div className="flex items-center gap-2">
           <Link
             to="/lawyer/network"
-            className="border border-white/20 bg-[#1A1A1A] hover:bg-[#252525] px-3.5 py-1.5 text-xs font-mono text-white rounded transition-colors"
+            className="border border-white/20 bg-[#1A1A1A] hover:bg-[#252525] px-3 py-1.5 text-xs font-mono text-white rounded transition-colors"
           >
             + Connect With Colleagues
           </Link>
@@ -608,11 +608,11 @@ function LawyerCaseInboxPage() {
       </div>
 
       {/* Master-Detail Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[640px] bg-[#141414] border border-[#2E2E2E] rounded-xl overflow-hidden shadow-2xl">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:h-[calc(100vh-175px)] min-h-[540px] lg:max-h-[850px] bg-[#141414] border border-[#2E2E2E] rounded-xl overflow-hidden shadow-2xl">
         {/* Left Column: Cases List */}
-        <div className="lg:col-span-4 border-r border-[#262626] flex flex-col h-full bg-[#121212]">
+        <div className="lg:col-span-4 border-r border-[#262626] flex flex-col h-full bg-[#121212] overflow-hidden">
           {/* Search Bar */}
-          <div className="p-3.5 border-b border-[#262626]">
+          <div className="p-3 border-b border-[#262626]">
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#666666]" />
               <input
@@ -620,12 +620,12 @@ function LawyerCaseInboxPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search clients, colleagues, or matter..."
-                className="w-full border border-[#333333] bg-[#0A0A0A] py-2 pl-9 pr-3 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none rounded"
+                className="w-full border border-[#333333] bg-[#0A0A0A] py-1.5 pl-9 pr-3 text-xs text-white placeholder:text-[#555555] focus:border-white focus:outline-none rounded"
               />
             </div>
 
             {/* Split Citizen Consultations vs Peer Colleague Chats */}
-            <div className="grid grid-cols-2 gap-1.5 mt-3 p-1 rounded-xl bg-black/50 border border-white/10 font-sans text-xs">
+            <div className="grid grid-cols-2 gap-1.5 mt-2.5 p-1 rounded-xl bg-black/50 border border-white/10 font-sans text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -633,7 +633,7 @@ function LawyerCaseInboxPage() {
                   const firstClient = cases.find((c) => c.category === "client");
                   if (firstClient) setSelectedCaseId(firstClient.id);
                 }}
-                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 font-medium transition-all ${
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 font-medium transition-all ${
                   categoryFilter === "client"
                     ? "bg-white text-black shadow-md font-semibold"
                     : "text-neutral-400 hover:text-white hover:bg-white/5"
@@ -650,7 +650,7 @@ function LawyerCaseInboxPage() {
                   const firstPeer = cases.find((c) => c.category === "peer");
                   if (firstPeer) setSelectedCaseId(firstPeer.id);
                 }}
-                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 font-medium transition-all ${
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 font-medium transition-all ${
                   categoryFilter === "peer"
                     ? "bg-white text-black shadow-md font-semibold"
                     : "text-neutral-400 hover:text-white hover:bg-white/5"
@@ -663,7 +663,7 @@ function LawyerCaseInboxPage() {
           </div>
 
           {/* Cases Feed */}
-          <div className="flex-1 overflow-y-auto divide-y divide-[#202020] max-h-[580px]">
+          <div className="flex-1 overflow-y-auto divide-y divide-[#202020]">
             {filteredCases.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#777777] font-mono">
                 {search ? "No matches found." : "No conversations found in this category."}
@@ -679,7 +679,7 @@ function LawyerCaseInboxPage() {
                   <button
                     key={c.id}
                     onClick={() => setSelectedCaseId(c.id)}
-                    className={`w-full text-left p-4 transition-colors block ${
+                    className={`w-full text-left p-3 transition-colors block ${
                       isSelected
                         ? "bg-[#1E1E1E] border-l-2 border-white"
                         : "hover:bg-[#181818] border-l-2 border-transparent"
@@ -727,11 +727,11 @@ function LawyerCaseInboxPage() {
                       </span>
                     </div>
 
-                    <p className="text-xs text-[#CCCCCC] mt-1.5 line-clamp-1 font-sans">
+                    <p className="text-xs text-[#CCCCCC] mt-1 line-clamp-1 font-sans">
                       {c.matterType}
                     </p>
 
-                    <div className="mt-2.5 flex items-center justify-between text-[0.65rem] text-[#888888] font-mono">
+                    <div className="mt-1.5 flex items-center justify-between text-[0.65rem] text-[#888888] font-mono">
                       <span className="flex items-center gap-1">
                         {isPeer ? (
                           <Users className="h-2.5 w-2.5 text-sky-400" />
@@ -753,9 +753,9 @@ function LawyerCaseInboxPage() {
 
         {/* Right Column: Live Case Chat */}
         {activeCase ? (
-          <div className="lg:col-span-8 flex flex-col h-full bg-[#0F0F0F]">
+          <div className="lg:col-span-8 flex flex-col h-full bg-[#0F0F0F] overflow-hidden">
             {/* Chat Header */}
-            <div className="p-4 border-b border-[#262626] bg-[#161616] flex items-start justify-between gap-3">
+            <div className="p-3 md:px-4 border-b border-[#262626] bg-[#161616] flex items-center justify-between gap-3 shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   {activeCase.category === "peer" ? (
@@ -784,10 +784,10 @@ function LawyerCaseInboxPage() {
                     {activeCase.status}
                   </span>
                 </div>
-                <h2 className="mt-1 font-display text-2xl font-medium text-white">
+                <h2 className="mt-0.5 font-display text-lg md:text-xl font-medium text-white">
                   {activeCase.client}
                 </h2>
-                <p className="text-xs text-[#999999] mt-0.5">
+                <p className="text-xs text-[#999999]">
                   Matter: {activeCase.matterType}
                 </p>
               </div>
@@ -834,7 +834,7 @@ function LawyerCaseInboxPage() {
             </div>
 
             {/* Privacy Compliance Strip */}
-            <div className="bg-[#121212] border-b border-[#222222] px-4 py-2 text-[0.7rem] text-[#888888] flex items-center gap-2 font-mono">
+            <div className="bg-[#121212] border-b border-[#222222] px-4 py-1.5 text-[0.68rem] text-[#888888] flex items-center gap-2 font-mono shrink-0">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
               <span>
                 Zero Evasion Guard: All phone numbers, sequences, and Morse code are automatically masked to XXXXX.
@@ -842,14 +842,14 @@ function LawyerCaseInboxPage() {
             </div>
 
             {/* Messages Feed */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#0C0C0C]">
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-2 bg-[#0C0C0C]">
               {messages.map((m, mIdx) => {
                 if (!m) return null;
                 const mKey = m.id || `msg-${mIdx}`;
                 if (m.sender === "system") {
                   return (
-                    <div key={mKey} className="text-center my-2">
-                      <div className="inline-block max-w-[85%] border border-[#262626] bg-[#141414] px-3.5 py-2 text-[0.75rem] text-[#AAAAAA] rounded font-mono leading-relaxed">
+                    <div key={mKey} className="text-center my-1.5">
+                      <div className="inline-block max-w-[85%] border border-[#262626] bg-[#141414] px-3 py-1.5 text-[0.72rem] text-[#AAAAAA] rounded font-mono leading-relaxed">
                         {m.text}
                       </div>
                     </div>
@@ -881,7 +881,7 @@ function LawyerCaseInboxPage() {
                     key={mKey}
                     className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
                   >
-                    <div className="flex items-center gap-1.5 text-[0.65rem] text-[#777777] font-mono mb-1">
+                    <div className="flex items-center gap-1.5 text-[0.62rem] text-[#777777] font-mono mb-0.5">
                       <span className={`font-semibold ${isMe ? "text-white" : "text-[#AAAAAA]"}`}>
                         {m.senderName || "Advocate"}
                       </span>
@@ -889,7 +889,7 @@ function LawyerCaseInboxPage() {
                       <span>{m.timestamp || ""}</span>
                     </div>
                     <div
-                      className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
+                      className={`max-w-[85%] rounded-xl px-3.5 py-1.5 md:py-2 text-xs md:text-sm leading-relaxed ${
                         isMe
                           ? "bg-white text-black font-sans shadow-md rounded-tr-none"
                           : "bg-[#1C1C1C] text-white border border-[#2B2B2B] rounded-tl-none"
@@ -904,18 +904,18 @@ function LawyerCaseInboxPage() {
             </div>
 
             {/* Message Input Box */}
-            <form onSubmit={handleSend} className="border-t border-[#262626] bg-[#161616] p-3 flex gap-2">
+            <form onSubmit={handleSend} className="border-t border-[#262626] bg-[#161616] p-2.5 flex gap-2 shrink-0">
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={`Message ${activeCase.client}... (Numbers & sequences masked to XXXXX)`}
-                className="flex-1 border border-[#333333] bg-[#0A0A0A] px-3.5 py-2.5 text-sm text-white placeholder:text-[#555555] focus:border-white focus:outline-none"
+                className="flex-1 border border-[#333333] bg-[#0A0A0A] px-3.5 py-2 text-xs md:text-sm text-white placeholder:text-[#555555] focus:border-white focus:outline-none rounded"
               />
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="bg-white text-black px-4 py-2.5 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                className="bg-white text-black px-3.5 py-2 text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-colors disabled:opacity-40 flex items-center gap-1.5 rounded"
               >
                 <Send className="h-3.5 w-3.5" />
                 <span>Send</span>

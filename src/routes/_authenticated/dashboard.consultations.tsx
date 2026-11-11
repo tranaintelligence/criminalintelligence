@@ -251,7 +251,7 @@ function Consultations() {
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeChat?.messages]);
+  }, [activeChat?.messages, selectedChatId]);
 
   // Mark active chat as read by citizen
   useEffect(() => {
@@ -669,14 +669,14 @@ function Consultations() {
                 </div>
 
                 {/* Messages Feed */}
-                <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#080808]">
+                <div className="flex-1 p-3 md:p-4 overflow-y-auto space-y-2 bg-[#080808]">
                   {activeChat.messages.map((msg, msgIdx) => {
                     if (!msg) return null;
                     const msgKey = msg.id || `msg-${msgIdx}`;
                     if (msg.sender === "system") {
                       return (
-                        <div key={msgKey} className="flex justify-center my-3">
-                          <div className="border border-[#282828] bg-[#121212] px-4 py-1.5 text-[0.7rem] text-[#888888] font-mono max-w-md text-center flex items-center gap-1.5 rounded-full shadow-sm">
+                        <div key={msgKey} className="flex justify-center my-1.5">
+                          <div className="border border-[#282828] bg-[#121212] px-3.5 py-1 text-[0.68rem] text-[#888888] font-mono max-w-md text-center flex items-center gap-1.5 rounded-full shadow-sm">
                             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                             <span>{msg.text}</span>
                           </div>
@@ -691,7 +691,7 @@ function Consultations() {
                         key={msgKey}
                         className={`flex flex-col ${isClient ? "items-end" : "items-start"}`}
                       >
-                        <div className="flex items-center gap-1.5 mb-1 text-[0.65rem] font-mono text-[#777777]">
+                        <div className="flex items-center gap-1.5 mb-0.5 text-[0.62rem] font-mono text-[#777777]">
                           <span className={isClient ? "text-neutral-300 font-medium" : "text-emerald-400 font-medium"}>
                             {msg.senderName || "User"}
                           </span>
@@ -700,7 +700,7 @@ function Consultations() {
                         </div>
 
                         <div
-                          className={`max-w-md md:max-w-lg p-3.5 rounded-2xl text-xs md:text-sm leading-relaxed border ${
+                          className={`max-w-md md:max-w-lg px-3.5 py-2 rounded-xl text-xs md:text-sm leading-relaxed border ${
                             isClient
                               ? "bg-[#16291E] border-emerald-500/30 text-white rounded-tr-none shadow-md"
                               : "bg-[#181818] border-[#2C2C2C] text-[#F0F0F0] rounded-tl-none shadow-md"
