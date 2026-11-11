@@ -117,7 +117,7 @@ function Index() {
           TRANA makes legal information easier to understand and connects you with the right legal professional when it matters most.
         </p>
         <div className="reveal mt-6 md:mt-10 flex flex-col gap-3 md:flex-row md:gap-4">
-          <Link to="/dashboard/chat" className="btn-solid text-center">Get Legal Guidance</Link>
+          <Link to="/dashboard" className="btn-solid text-center">Get Legal Guidance</Link>
           <Link to="/dashboard/lawyers" className="btn-solid text-center">Talk to a Legal Professional</Link>
         </div>
         <p className="reveal mt-5 md:mt-8 max-w-md text-xs text-muted-foreground">{Disclaimer}</p>
@@ -281,7 +281,7 @@ function Index() {
           <h2 className="font-display text-4xl md:text-6xl lg:text-8xl font-medium">Don't face it alone.</h2>
           <p className="mt-4 md:mt-6 text-base md:text-lg font-light text-muted-foreground md:text-ink-muted">Get legal guidance or connect with a legal professional today.</p>
           <div className="mt-6 md:mt-10 flex flex-col sm:flex-row flex-wrap justify-center gap-3 md:gap-4">
-            <Link to="/dashboard/chat" className="btn-solid md:btn-ink">Get Legal Guidance</Link>
+            <Link to="/dashboard" className="btn-solid md:btn-ink">Get Legal Guidance</Link>
             <Link to="/dashboard/lawyers" className="btn-solid md:btn-ink sm:w-auto w-full">Talk to a Legal Professional</Link>
           </div>
           <p className="mt-6 md:mt-8 font-display text-lg md:text-xl leading-tight text-muted-foreground md:hidden">
