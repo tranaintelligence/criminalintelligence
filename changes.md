@@ -227,3 +227,34 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - `queryFn` now calls `getPublicLawyers({ allMembers: true })` and reads `trana_all_registered_lawyers` from localStorage, guaranteeing that newly registered pending advocates appear instantly under the "Pending Verification" tab.
   - `handleApprove` updates the backend via `verifyLawyerAdmin`, updates Supabase, updates `trana_all_registered_lawyers`, and broadcasts `trana_lawyer_status_changed` so the advocate gains instant workspace access.
 
+
+---
+
+## [2026-11-12] - Complaint Analyser Prompt Reply Overhaul & Citizen Query Modal Resilience
+
+### 1. Complaint Analyser Prompt Reply Modernization (`src/routes/_authenticated/dashboard.analyse.tsx`)
+- **Problem**: The LLM prompt generates a rich 8-part criminal procedural breakdown (`situation_meaning`), but previously the frontend dumped this entire response into a single, generic markdown text card, causing text bloat and duplicate statutory sections.
+- **Improvements**:
+  - **Dynamic Segment Parsing (`parseAnalysisBreakdown`)**: Added an intelligent regex parser that splits the model's 8-part response into discrete legal modules:
+    - *Document Identification & Origin* (`FileSearch`, Case Filing Record badge)
+    - *Reported Allegations & Sequence of Events* (`FileText`, Complainant Narrative badge with statutory safeguarding banner)
+    - *Do the Sections Match the Alleged Facts?* (`Scale`, Statutory Consistency badge)
+    - *Ambiguities, Delays & Missing Particulars* (`AlertTriangle`, Procedural Scrutiny badge)
+    - *What This Means For You* (`Shield`, Direct Legal Impact badge)
+    - *Paramount Immediate Action* (High-priority amber banner with clock icon)
+    - *Conversational / Guidance Fallback* (Clean card for resumes, non-complaint text, or conversational replies)
+  - **Interactive View Filters**: Added pill tabs allowing citizens to toggle between:
+    - `All Breakdown`: Comprehensive view of all sections.
+    - `Facts & Consistency`: Filters to allegations, sequence of events, and factual matching.
+    - `Sections & Bail`: Focuses on statutory sections, penalty provisions, and bail classifications.
+    - `Immediate Actions & Rights`: Highlights the 24-hour action checklist and statutory rights.
+  - **Interactive Next 24 Hours Checklist**: Replaced static numbered lists with interactive checkbox items allowing citizens to track completed procedural steps in real-time.
+  - **Enhanced Statutory Cards**: Section cards now feature distinct badges for Cognizable/Non-Cognizable, Bailable/Non-Bailable, maximum penalties, and official act expansions.
+
+### 2. Citizen Query Pass On Resilience & Error Elimination (`src/routes/_authenticated/lawyer.queries.tsx`)
+- **Problem**: When an advocate clicked `Pass On to Other Advocates`, an unhandled Supabase update failure or UUID mismatch threw an error that surfaced `Could not pass query.` toasts.
+- **Fixes**:
+  - `handlePassOn` now safely updates `localStorage` passed trackers, updates local queries pool, optimistically mutates React Query cache, and only executes background Supabase updates if the ID is a valid UUID, wrapped safely in isolated error handling.
+  - Added protection so that unverified advocates pending Founder review are kept on the holding screen and cannot inadvertently attempt mutations on protected citizen inquiries.
+
+

@@ -4,7 +4,7 @@ import {
   Upload, X, FileText, Scale, ShieldCheck, CheckCircle2, 
   AlertTriangle, ArrowRight, ExternalLink, Copy, Check, Sparkles, 
   MessageSquare, Loader2, RotateCcw, Clock, Trash2, History, HeartHandshake,
-  Users, CreditCard, QrCode, Shield
+  Users, CreditCard, QrCode, Shield, FileSearch, Gavel, Info, Layers, CheckSquare, Square, SlidersHorizontal
 } from "lucide-react";
 import { marked } from "marked";
 import { toast } from "sonner";
@@ -38,6 +38,8 @@ interface ApplicableLaw {
 }
 
 interface StructuredAnalysis {
+  is_conversational?: boolean;
+  conversational_reply?: string;
   general_analysis?: string;
   situation_meaning?: string;
   bail_status?: string;
@@ -46,6 +48,45 @@ interface StructuredAnalysis {
   handling_authority?: string;
   applicable_laws?: ApplicableLaw[];
   suggest_lawyer?: boolean;
+}
+
+interface AnalysisBreakdown {
+  documentOverview?: string;
+  allegations?: string;
+  sectionsMentioned?: string;
+  sectionsMatching?: string;
+  missingDetails?: string;
+  whatItMeans?: string;
+  rightsExplained?: string;
+  primaryAction?: string;
+}
+
+function parseAnalysisBreakdown(raw?: string): AnalysisBreakdown | null {
+  if (!raw || typeof raw !== "string") return null;
+
+  const regexes: Record<keyof AnalysisBreakdown, RegExp> = {
+    documentOverview: /(?:###?\s*(?:1\.?\s*)?What this document is[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+    allegations: /(?:###?\s*(?:2\.?\s*)?What it says happened[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+    sectionsMentioned: /(?:###?\s*(?:3\.?\s*)?Sections mentioned[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+    sectionsMatching: /(?:###?\s*(?:4\.?\s*)?Do the sections match the facts\??[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+    missingDetails: /(?:###?\s*(?:5\.?\s*)?What is missing or unclear[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+    whatItMeans: /(?:###?\s*(?:6\.?\s*)?What this means for you[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+    rightsExplained: /(?:###?\s*(?:7\.?\s*)?Your rights now[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+    primaryAction: /(?:###?\s*(?:8\.?\s*)?The one most important thing to do next[^\n]*\n)([\s\S]*?)(?=\n###?|\n\*\*|$)/i,
+  };
+
+  const parsed: Partial<AnalysisBreakdown> = {};
+  let count = 0;
+
+  for (const [key, reg] of Object.entries(regexes) as [keyof AnalysisBreakdown, RegExp][]) {
+    const match = raw.match(reg);
+    if (match && match[1]?.trim()) {
+      parsed[key] = match[1].trim();
+      count++;
+    }
+  }
+
+  return count >= 2 ? (parsed as AnalysisBreakdown) : null;
 }
 
 interface SourceChunk {
@@ -131,6 +172,8 @@ function Analyse() {
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [activeSectionView, setActiveSectionView] = useState<"all" | "facts" | "sections" | "actions">("all");
+  const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>({});
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<"ai" | "professional">("ai");
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -423,6 +466,7 @@ function Analyse() {
   };
 
   const a = result?.analysis;
+  const parsedBreakdown = parseAnalysisBreakdown(a?.situation_meaning || a?.general_analysis);
 
   return (
     <div className="max-w-5xl mx-auto py-4 px-3 sm:px-6 pb-20">
@@ -873,32 +917,224 @@ function Analyse() {
             </div>
           </div>
 
-          {/* Meaning / General Analysis */}
-          {(a.situation_meaning || a.general_analysis) && (
+          {/* Segmented View Mode Filter Tabs */}
+          {!a.is_conversational && (
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/10 text-xs overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setActiveSectionView("all")}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  activeSectionView === "all"
+                    ? "bg-white text-black shadow-sm font-semibold"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>All Breakdown</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSectionView("facts")}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  activeSectionView === "facts"
+                    ? "bg-white text-black shadow-sm font-semibold"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>Facts & Consistency</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSectionView("sections")}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  activeSectionView === "sections"
+                    ? "bg-white text-black shadow-sm font-semibold"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <Scale className="h-3.5 w-3.5" />
+                <span>Sections & Bail</span>
+                {a.applicable_laws && a.applicable_laws.length > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${activeSectionView === "sections" ? "bg-black/10 text-black" : "bg-white/10 text-neutral-300"}`}>
+                    {a.applicable_laws.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSectionView("actions")}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  activeSectionView === "actions"
+                    ? "bg-white text-black shadow-sm font-semibold"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Immediate Actions & Rights</span>
+              </button>
+            </div>
+          )}
+
+          {/* Conversational or Guidance Notice (Non-FIR or Small Talk) */}
+          {a.is_conversational && (
             <SectionCard
-              icon={FileText}
-              title="What This Situation Means"
-              subtitle="Plain-language breakdown of the allegations and circumstances"
-              badge="Plain-Language Breakdown"
-              badgeVariant="success"
+              icon={Sparkles}
+              title="TRANA Legal Assistant"
+              subtitle="Document Guidance & Assistant Response"
+              badge="Assistant Note"
+              badgeVariant="warning"
             >
               <div
                 className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
-                  prose-headings:font-bold prose-headings:text-amber-300 prose-headings:tracking-tight prose-headings:mt-5 prose-headings:mb-2.5
-                  prose-h3:text-base sm:prose-h3:text-lg prose-h3:font-bold prose-h3:text-amber-300 prose-h3:border-b prose-h3:border-amber-500/25 prose-h3:pb-2
-                  prose-strong:font-bold prose-strong:text-amber-200/95
-                  prose-p:my-3.5 prose-p:leading-relaxed prose-p:text-neutral-100
-                  prose-ul:my-2.5 prose-li:my-1.5 prose-li:text-neutral-200
-                  prose-code:text-emerald-300 prose-code:font-mono prose-code:text-xs"
+                  prose-p:my-2.5 prose-p:leading-relaxed prose-strong:text-amber-200"
                 dangerouslySetInnerHTML={{
-                  __html: marked.parse(a.situation_meaning || a.general_analysis || "") as string,
+                  __html: marked.parse(a.conversational_reply || a.situation_meaning || a.general_analysis || "Please provide the text of an FIR or complaint for analysis.") as string,
                 }}
               />
             </SectionCard>
           )}
 
+          {/* STRUCTURED BREAKDOWN CARDS */}
+          {parsedBreakdown ? (
+            <>
+              {/* Part 1: Document Classification & Origin */}
+              {parsedBreakdown.documentOverview && (activeSectionView === "all" || activeSectionView === "facts") && (
+                <SectionCard
+                  icon={FileSearch}
+                  title="Document Identification & Origin"
+                  subtitle="Official classification, filing station, and case recording timeline"
+                  badge="Case Filing Record"
+                  badgeVariant="default"
+                >
+                  <div
+                    className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
+                      prose-headings:font-bold prose-headings:text-amber-300 prose-headings:tracking-tight
+                      prose-strong:font-bold prose-strong:text-amber-200/95
+                      prose-p:my-2 prose-p:leading-relaxed text-neutral-200"
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(parsedBreakdown.documentOverview) as string,
+                    }}
+                  />
+                </SectionCard>
+              )}
+
+              {/* Part 2: Reported Allegations & Sequence of Events */}
+              {parsedBreakdown.allegations && (activeSectionView === "all" || activeSectionView === "facts") && (
+                <SectionCard
+                  icon={FileText}
+                  title="Reported Allegations & Sequence of Events"
+                  subtitle="Plain-language breakdown of what the complainant alleges took place"
+                  badge="Complainant Narrative"
+                  badgeVariant="default"
+                >
+                  <div className="mb-3.5 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2">
+                    <Info className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span><strong>Statutory Safeguard:</strong> These are factual allegations recorded in the initial complaint; they represent the complainant's assertion and do not constitute judicially proven guilt.</span>
+                  </div>
+                  <div
+                    className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
+                      prose-headings:font-bold prose-headings:text-amber-300
+                      prose-strong:font-bold prose-strong:text-amber-200/95
+                      prose-p:my-2.5 prose-p:leading-relaxed text-neutral-200"
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(parsedBreakdown.allegations) as string,
+                    }}
+                  />
+                </SectionCard>
+              )}
+
+              {/* Part 4: Do the Sections Match the Facts? */}
+              {parsedBreakdown.sectionsMatching && (activeSectionView === "all" || activeSectionView === "facts" || activeSectionView === "sections") && (
+                <SectionCard
+                  icon={Scale}
+                  title="Do the Sections Match the Alleged Facts?"
+                  subtitle="Objective legal ingredient verification and potential charge overreach analysis"
+                  badge="Statutory Consistency"
+                  badgeVariant="warning"
+                >
+                  <div
+                    className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
+                      prose-headings:font-bold prose-headings:text-amber-300
+                      prose-strong:font-bold prose-strong:text-amber-200/95
+                      prose-p:my-2.5 prose-p:leading-relaxed text-neutral-200"
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(parsedBreakdown.sectionsMatching) as string,
+                    }}
+                  />
+                </SectionCard>
+              )}
+
+              {/* Part 5: Ambiguities, Delays & Missing Particulars */}
+              {parsedBreakdown.missingDetails && (activeSectionView === "all" || activeSectionView === "facts") && (
+                <SectionCard
+                  icon={AlertTriangle}
+                  title="Ambiguities, Delays & Missing Particulars"
+                  subtitle="Procedural irregularities, unexplained reporting delays, or lack of factual specificity"
+                  badge="Procedural Scrutiny"
+                  badgeVariant="warning"
+                >
+                  <div
+                    className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
+                      prose-headings:font-bold prose-headings:text-amber-300
+                      prose-strong:font-bold prose-strong:text-amber-200/95
+                      prose-p:my-2.5 prose-p:leading-relaxed text-neutral-200"
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(parsedBreakdown.missingDetails) as string,
+                    }}
+                  />
+                </SectionCard>
+              )}
+
+              {/* Part 6: Role-Specific Impact (What This Means for You) */}
+              {parsedBreakdown.whatItMeans && (activeSectionView === "all" || activeSectionView === "facts" || activeSectionView === "actions") && (
+                <SectionCard
+                  icon={Shield}
+                  title="What This Means For You"
+                  subtitle="Immediate procedural consequences, police powers, and bail exposure"
+                  badge="Direct Legal Impact"
+                  badgeVariant="success"
+                >
+                  <div
+                    className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
+                      prose-headings:font-bold prose-headings:text-amber-300
+                      prose-strong:font-bold prose-strong:text-amber-200/95
+                      prose-p:my-2.5 prose-p:leading-relaxed text-neutral-200"
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(parsedBreakdown.whatItMeans) as string,
+                    }}
+                  />
+                </SectionCard>
+              )}
+            </>
+          ) : (
+            /* Fallback when reply is not in 8-part markdown */
+            !a.is_conversational && (a.situation_meaning || a.general_analysis) && (
+              <SectionCard
+                icon={FileText}
+                title="What This Situation Means"
+                subtitle="Plain-language breakdown of the allegations and circumstances"
+                badge="Plain-Language Breakdown"
+                badgeVariant="success"
+              >
+                <div
+                  className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
+                    prose-headings:font-bold prose-headings:text-amber-300 prose-headings:tracking-tight prose-headings:mt-5 prose-headings:mb-2.5
+                    prose-h3:text-base sm:prose-h3:text-lg prose-h3:font-bold prose-h3:text-amber-300 prose-h3:border-b prose-h3:border-amber-500/25 prose-h3:pb-2
+                    prose-strong:font-bold prose-strong:text-amber-200/95
+                    prose-p:my-3.5 prose-p:leading-relaxed prose-p:text-neutral-100
+                    prose-ul:my-2.5 prose-li:my-1.5 prose-li:text-neutral-200
+                    prose-code:text-emerald-300 prose-code:font-mono prose-code:text-xs"
+                  dangerouslySetInnerHTML={{
+                    __html: marked.parse(a.situation_meaning || a.general_analysis || "") as string,
+                  }}
+                />
+              </SectionCard>
+            )
+          )}
+
           {/* Sections Identified */}
-          {a.applicable_laws && a.applicable_laws.length > 0 && (
+          {a.applicable_laws && a.applicable_laws.length > 0 && (activeSectionView === "all" || activeSectionView === "sections") && (
             <SectionCard
               icon={Scale}
               title="Statutory Sections & Allegations Identified"
@@ -912,24 +1148,36 @@ function Analyse() {
                     className="p-4 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
                   >
                     <div>
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <span className="font-semibold text-white font-mono text-sm">
-                          {law.act || law.code} {law.section ? `Sec. ${law.section}` : ""}
-                        </span>
-                        {law.bailable !== undefined && law.bailable !== null && (
-                          <span
-                            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                              law.bailable
-                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                                : "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                            }`}
-                          >
-                            {law.bailable ? "Bailable" : "Non-Bailable"}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <span className="font-semibold text-white font-mono text-sm block">
+                            {law.act || law.code} {law.section ? `Sec. ${law.section}` : ""}
                           </span>
-                        )}
+                          <span className="text-[10px] text-neutral-400 font-mono block">
+                            {law.act?.includes("BNS") ? "Bharatiya Nyaya Sanhita, 2023" : (law.act || law.code)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {law.bailable !== undefined && law.bailable !== null && (
+                            <span
+                              className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                                law.bailable
+                                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-semibold"
+                                  : "bg-rose-500/20 text-rose-300 border-rose-500/30 font-semibold"
+                              }`}
+                            >
+                              {law.bailable ? "Bailable" : "Non-Bailable"}
+                            </span>
+                          )}
+                          {law.cognizable !== undefined && law.cognizable !== null && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                              {law.cognizable ? "Cognizable" : "Non-Cognizable"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {law.offense && (
-                        <p className="text-xs text-amber-200 font-medium mb-1">
+                        <p className="text-xs text-amber-200 font-semibold mb-1">
                           {law.offense}
                         </p>
                       )}
@@ -940,8 +1188,9 @@ function Analyse() {
                       )}
                     </div>
                     {law.punishment && (
-                      <div className="mt-3 pt-2 border-t border-white/10 text-[11px] text-neutral-400 font-mono">
-                        Penalty: {law.punishment}
+                      <div className="mt-3 pt-2.5 border-t border-white/10 text-[11px] text-neutral-400 font-mono flex items-center gap-1.5">
+                        <Gavel className="h-3 w-3 text-amber-400 shrink-0" />
+                        <span>Penalty: {law.punishment}</span>
                       </div>
                     )}
                   </div>
@@ -951,46 +1200,94 @@ function Analyse() {
           )}
 
           {/* Bail Status */}
-          {a.bail_status && !/^(?:not applicable|none|n\/?a)$/i.test(a.bail_status.trim()) && (
+          {a.bail_status && !/^(?:not applicable|none|n\/?a)$/i.test(a.bail_status.trim()) && (activeSectionView === "all" || activeSectionView === "sections") && (
             <SectionCard
               icon={ShieldCheck}
               title="Bail Eligibility & Legal Assessment"
               subtitle="Procedural guidance under Bharatiya Nagarik Suraksha Sanhita (BNSS)"
               badge="Bail Assessment"
-              badgeVariant="warning"
+              badgeVariant={/non-bailable/i.test(a.bail_status) ? "warning" : "success"}
             >
               <div className="p-4 rounded-xl bg-amber-400/[0.05] border border-amber-400/20 space-y-2">
-                <p className="font-medium text-amber-100">{a.bail_status}</p>
+                <p className="font-medium text-amber-100 text-sm leading-relaxed">{a.bail_status}</p>
               </div>
             </SectionCard>
           )}
 
-          {/* Next 24 Hours */}
-          {a.next_24_hours && a.next_24_hours.length > 0 && (
+          {/* Next 24 Hours Action Plan */}
+          {((a.next_24_hours && a.next_24_hours.length > 0) || parsedBreakdown?.primaryAction) && (activeSectionView === "all" || activeSectionView === "actions") && (
             <SectionCard
               icon={CheckCircle2}
               title="Immediate Action Steps (Next 24 Hours)"
               subtitle="Step-by-step guidance to safeguard yourself and maintain legal composure"
+              badge="Action Plan"
+              badgeVariant="success"
             >
-              <ol className="space-y-3">
-                {a.next_24_hours.map((step, idx) => (
-                  <li key={idx} className="flex items-start gap-3">
-                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-xs font-mono font-bold shrink-0 mt-0.5 border border-amber-400/30">
-                      {idx + 1}
-                    </span>
-                    <span className="text-sm text-neutral-200 leading-relaxed">{step}</span>
-                  </li>
-                ))}
-              </ol>
+              <div className="space-y-4">
+                {/* Priority Primary Action Callout */}
+                {parsedBreakdown?.primaryAction && (
+                  <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-[#0e2118] to-transparent p-4 flex items-start gap-3 shadow-sm">
+                    <div className="h-7 w-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 shrink-0 mt-0.5">
+                      <AlertTriangle className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold block">
+                        Paramount Immediate Action
+                      </span>
+                      <p className="text-xs sm:text-sm text-neutral-100 font-medium mt-0.5 leading-relaxed">
+                        {parsedBreakdown.primaryAction}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Numbered Step-by-Step Checklist */}
+                {a.next_24_hours && a.next_24_hours.length > 0 && (
+                  <ol className="space-y-2.5">
+                    {a.next_24_hours.map((step, idx) => {
+                      const isDone = Boolean(completedSteps[idx]);
+                      return (
+                        <li 
+                          key={idx} 
+                          onClick={() => setCompletedSteps(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                            isDone 
+                              ? "bg-emerald-500/10 border-emerald-500/30 opacity-75" 
+                              : "bg-white/[0.03] border-white/10 hover:border-white/20"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            className="mt-0.5 shrink-0 text-neutral-400 hover:text-white transition-colors"
+                            aria-label={`Toggle step ${idx + 1}`}
+                          >
+                            {isDone ? (
+                              <CheckSquare className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <Square className="h-4 w-4 text-neutral-500" />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-xs sm:text-sm leading-relaxed block ${isDone ? "line-through text-neutral-400" : "text-neutral-200"}`}>
+                              {step}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </div>
             </SectionCard>
           )}
 
           {/* Rights */}
-          {a.rights && a.rights.length > 0 && (
+          {a.rights && a.rights.length > 0 && (activeSectionView === "all" || activeSectionView === "actions") && (
             <SectionCard
               icon={ShieldCheck}
               title="Your Essential Legal Rights"
               subtitle="Constitutional and statutory protections guaranteed under Indian law"
+              badge="Statutory Safeguards"
             >
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {a.rights.map((right, idx) => (
@@ -1007,7 +1304,7 @@ function Analyse() {
           )}
 
           {/* Competent Authority */}
-          {a.handling_authority && !/^(?:not applicable|none|n\/?a)$/i.test(a.handling_authority.trim()) && (
+          {a.handling_authority && !/^(?:not applicable|none|n\/?a)$/i.test(a.handling_authority.trim()) && (activeSectionView === "all" || activeSectionView === "sections") && (
             <SectionCard
               icon={Scale}
               title="Competent Court & Authority"
