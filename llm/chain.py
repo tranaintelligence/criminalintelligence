@@ -603,9 +603,13 @@ _COMMON_HALLUCINATION_PATTERNS = [
     (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?323\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?323)\b", re.IGNORECASE), "Section 115(2) of BNS (formerly Section 323 IPC - Voluntarily causing hurt)"),
     (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?504\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?504)\b", re.IGNORECASE), "Section 352 of BNS (formerly Section 504 IPC - Intentional insult)"),
     (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?506\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?506)\b", re.IGNORECASE), "Section 351 of BNS (formerly Section 506 IPC - Criminal intimidation)"),
-    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?154\s*A\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?154\s*A)\b", re.IGNORECASE), "Section 173(4) / 175(3) of BNSS (procedure when police refuse to register FIR; BNSS 154A is fictitious)"),
-    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?154\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?154)\b", re.IGNORECASE), "Section 173 of BNSS (FIR registration — formerly Section 154 CrPC)"),
-    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?151\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?151)\b", re.IGNORECASE), "Section 351 of BNS (Criminal Intimidation) / Section 170 of BNSS (Preventive action)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?8\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?8)\b", re.IGNORECASE), "Section 308/309 of BNS (Extortion / Robbery)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?8\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?8)\b", re.IGNORECASE), "Section 173 of BNSS (FIR registration)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?8\s+(?:of\s+)?BSA|BSA\s+(?:Sec(?:tion)?\.?\s*)?8)\b", re.IGNORECASE), "Section 8 of BSA (Relevancy of motive and conduct)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?154\s*A\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?154\s*A)\b", re.IGNORECASE), "Section 173(4) / 175(3) of BNSS (statutory procedure upon police refusal to register FIR)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?154\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?154)(?!\s*\(4\))\b", re.IGNORECASE), "Section 173 of BNSS (FIR registration — formerly Section 154 CrPC)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?154\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?154)\b", re.IGNORECASE), "Section 173 of BNSS (FIR registration under new criminal code)"),
+    (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?151\s+(?:of\s+)?BNS|BNS\s+(?:Sec(?:tion)?\.?\s*)?151)\b", re.IGNORECASE), "Section 351 of BNS (Criminal Intimidation — formerly Section 506 IPC)"),
     (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?41A?\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?41A?)\b", re.IGNORECASE), "Section 35 of BNSS (formerly Section 41/41A CrPC)"),
     (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?438\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?438)\b", re.IGNORECASE), "Section 482 of BNSS (formerly Section 438 CrPC - Anticipatory bail)"),
     (re.compile(r"\b(?:(?:Sec(?:tion)?\.?\s*)?437\s+(?:of\s+)?BNSS|BNSS\s+(?:Sec(?:tion)?\.?\s*)?437)\b", re.IGNORECASE), "Section 480 of BNSS (formerly Section 437 CrPC - Regular bail)"),
@@ -658,6 +662,107 @@ def _sanitize_analysis(analysis: StructuredAnalysis) -> StructuredAnalysis:
     return analysis
 
 
+NON_BAILABLE_SECTIONS: set[tuple[str, str]] = {
+    ("BNS", "309"),  # Robbery
+    ("BNS", "308"),  # Extortion
+    ("BNS", "304"),  # Snatching
+    ("BNS", "310"),  # Dacoity
+    ("BNS", "311"),  # Dacoity with murder
+    ("BNS", "103"),  # Murder
+    ("BNS", "105"),  # Culpable homicide
+    ("BNS", "106"),  # Causing death by negligence / Hit and run
+    ("BNS", "108"),  # Abetment of suicide
+    ("BNS", "109"),  # Attempt to murder
+    ("BNS", "64"),   # Rape
+    ("BNS", "70"),   # Gang rape
+    ("BNS", "85"),   # Cruelty by husband / relatives
+    ("BNS", "117"),  # Voluntarily causing grievous hurt
+    ("BNS", "118"),  # Voluntarily causing hurt/grievous hurt by dangerous weapons
+    ("BNS", "124"),  # Acid attack
+    ("BNS", "137"),  # Kidnapping
+    ("BNS", "140"),  # Kidnapping or abducting with intent to secretly confine
+    ("BNS", "305"),  # Theft in dwelling house
+    ("BNS", "331"),  # House-trespass after preparation for hurt/assault
+    ("BNS", "111"),  # Organised crime
+    ("BNS", "112"),  # Petty organised crime
+    ("BNS", "113"),  # Terrorist act
+}
+
+
+def _enforce_bail_and_statutory_remedies(
+    analysis: StructuredAnalysis,
+    context_text: str = "",
+) -> StructuredAnalysis:
+    """Deterministically classify bail eligibility and enforce statutory remedies under BNSS."""
+
+    text_corpus = (
+        f"{context_text} "
+        f"{analysis.situation_meaning or ''} "
+        f"{analysis.general_analysis or ''} "
+        f"{analysis.bail_status or ''}"
+    ).lower()
+
+    has_non_bailable_law = any(
+        (getattr(l, "code", "") or "").upper() == code and str(getattr(l, "section", "")).strip() == sec
+        for code, sec in NON_BAILABLE_SECTIONS
+        for l in (analysis.applicable_laws or [])
+    )
+
+    non_bailable_keywords = [
+        "robbery", "robbed", "robbing", "extortion", "extort", "extorted",
+        "hafta", "vasooli", "rangdari", "snatch", "snatched", "snatching",
+        "burn down", "threatened to burn", "arson", "murder", "killing",
+        "rape", "sexual assault", "gang rape", "dacoity", "acid attack"
+    ]
+    has_non_bailable_keyword = any(kw in text_corpus for kw in non_bailable_keywords)
+
+    if has_non_bailable_law or has_non_bailable_keyword:
+        current_bail = (analysis.bail_status or "").lower()
+        needs_override = (
+            not current_bail
+            or "cannot be determined" in current_bail
+            or "may be bailable" in current_bail
+            or "might be bailable" in current_bail
+            or "likely bailable" in current_bail
+            or "uncertain" in current_bail
+            or "depends on" in current_bail
+            or "non-bailable" not in current_bail
+        )
+        if needs_override:
+            analysis.bail_status = (
+                "NON-BAILABLE: Under the First Schedule of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS), "
+                "substantive offences involving Robbery (BNS Sec. 309), Snatching (BNS Sec. 304), and aggravated "
+                "Extortion (BNS Sec. 308) are strictly Cognizable and Non-Bailable. Police cannot grant bail at the police station. "
+                "Regular bail can only be considered at judicial discretion by the competent Judicial Magistrate or Court of Session "
+                "under Sections 480 / 483 of BNSS upon a formal bail application."
+            )
+
+    fir_refusal_keywords = [
+        "refused to lodge", "refuse to lodge", "refused to register", "refusing to register",
+        "police refused", "refused fir", "no fir", "not filing fir", "police station refused"
+    ]
+    if any(kw in text_corpus for kw in fir_refusal_keywords):
+        sp_remedy = (
+            "Right against refusal to register FIR: Under Section 173(4) of BNSS, if the officer in charge of a "
+            "police station refuses to record your complaint for a cognizable offence, you have the statutory right to "
+            "send the substance of the information in writing and by post to the Superintendent of Police (SP / DCP)."
+        )
+        magistrate_remedy = (
+            "Judicial Magistrate Application: If the SP fails to investigate or register the FIR, you have the right "
+            "to make an application before the competent Judicial Magistrate under Section 175(3) & 175(4) of BNSS "
+            "directing the police to investigate."
+        )
+        existing_rights = [r.lower() for r in (analysis.rights or [])]
+        rights_list = list(analysis.rights or [])
+        if not any("173(4)" in r or "superintendent of police" in r for r in existing_rights):
+            rights_list.insert(0, sp_remedy)
+        if not any("175(3)" in r or "magistrate" in r for r in existing_rights):
+            rights_list.append(magistrate_remedy)
+        analysis.rights = rights_list[:5]
+
+    return analysis
+
+
 def _get_llm(model_preference: str = "deep", force_reinit: bool = False, key_record=None):
     """Lazily initialize the selected Google model for the active API key."""
 
@@ -701,6 +806,13 @@ def _verify_law_candidates(
 
     from models.schemas import ApplicableLaw
 
+    preliminary_sections = {
+        ("BNS", "1"), ("BNS", "2"), ("BNS", "3"), ("BNS", "4"), ("BNS", "5"),
+        ("BNS", "6"), ("BNS", "7"), ("BNS", "8"), ("BNS", "9"), ("BNS", "10"),
+        ("BNSS", "1"), ("BNSS", "2"), ("BNSS", "6"), ("BNSS", "7"), ("BNSS", "8"),
+        ("BNSS", "9"), ("BNSS", "10"), ("BSA", "1"), ("BSA", "2"), ("BSA", "8"),
+    }
+
     source_chunks: list[SourceChunk] = []
     verified_laws = []
     seen_keys: set[tuple[str, str]] = set()
@@ -737,6 +849,14 @@ def _verify_law_candidates(
             continue
 
         key = (record.code, record.section)
+        if key in preliminary_sections:
+            logger.warning(
+                "Discarding preliminary/definition law candidate from model: code=%r section=%r",
+                record.code,
+                record.section,
+            )
+            continue
+
         if key in seen_keys:
             continue
         seen_keys.add(key)
@@ -773,15 +893,9 @@ def _verify_law_candidates(
             )
         )
 
-    # Backfill with verified statutes retrieved for this query if model produced no valid laws
-    if not verified_laws and fallback_statutes:
-        preliminary_sections = {
-            ("BNS", "1"), ("BNS", "2"), ("BNS", "3"), ("BNS", "4"), ("BNS", "5"),
-            ("BNS", "6"), ("BNS", "7"), ("BNS", "8"), ("BNS", "9"), ("BNS", "10"),
-            ("BNSS", "1"), ("BNSS", "2"), ("BNSS", "6"), ("BNSS", "7"), ("BNSS", "8"),
-            ("BNSS", "9"), ("BNSS", "10"), ("BSA", "1"), ("BSA", "2"), ("BSA", "8"),
-        }
-        for record in fallback_statutes[:4]:
+    # Backfill with verified substantive statutes if model produced fewer than 4 valid laws
+    if len(verified_laws) < 4 and fallback_statutes:
+        for record in fallback_statutes:
             key = (record.code, record.section)
             if key in seen_keys or key in preliminary_sections:
                 continue
@@ -819,6 +933,8 @@ def _verify_law_candidates(
                     quote_status="backend_verified",
                 )
             )
+            if len(verified_laws) >= 4:
+                break
 
     # Retain up to 4 applicable laws and source chunks
     analysis.applicable_laws = verified_laws[:4]
@@ -849,8 +965,9 @@ async def run_analysis_pipeline(
 
     start_time = time.time()
     registry = source_registry if source_registry is not None else get_registry()
+    scan_text = f"{query or ''}\n{ephemeral_context or ''}".strip()
     requested_law = _requested_law_record(query, registry)
-    relevant_statutes = registry.find_relevant_statutes(query, top_k=4)
+    relevant_statutes = registry.find_relevant_statutes(scan_text, top_k=6)
     fallback_records = [rec for rec, _, _ in relevant_statutes]
     has_media = bool(media_attachments)
     if has_media and not any(
@@ -883,6 +1000,7 @@ async def run_analysis_pipeline(
         if requested_law is not None and _DIRECT_SECTION_INTENT.search(query or "") and not has_media:
             _enforce_direct_section_match(structured_analysis, requested_law, registry)
         source_chunks = _verify_law_candidates(structured_analysis, registry, fallback_statutes=fallback_records)
+        structured_analysis = _enforce_bail_and_statutory_remedies(structured_analysis, scan_text)
         elapsed = round(time.time() - start_time, 2)
         return AnalysisResponse(
             query=query,
@@ -971,6 +1089,7 @@ async def run_analysis_pipeline(
     if requested_law is not None and _DIRECT_SECTION_INTENT.search(query or "") and not media_attachments:
         _enforce_direct_section_match(structured_analysis, requested_law, registry)
     source_chunks = _verify_law_candidates(structured_analysis, registry, fallback_statutes=fallback_records)
+    structured_analysis = _enforce_bail_and_statutory_remedies(structured_analysis, scan_text)
     elapsed = round(time.time() - start_time, 2)
     logger.info(
         "Direct analysis complete — %d verified sources, %.2fs elapsed.",
@@ -987,8 +1106,8 @@ async def run_analysis_pipeline(
     )
 
 
-def _is_complaint_fir_analysis(query: str) -> bool:
-    q = (query or "").lower()
+def _is_complaint_fir_analysis(query: str, ephemeral_context: Optional[str] = None) -> bool:
+    q = f"{query or ''} {ephemeral_context or ''}".lower()
     return any(marker in q for marker in [
         "trana complaint and fir analyser",
         "complaint and fir analyser",
@@ -998,6 +1117,15 @@ def _is_complaint_fir_analysis(query: str) -> bool:
         "complaint analyser",
         "fir analyser",
         "analyze the uploaded document",
+        "fir",
+        "complaint",
+        "police station",
+        "police complaint",
+        "snatched",
+        "extortion",
+        "robbery",
+        "slapped",
+        "assault",
     ])
 
 
@@ -1037,7 +1165,7 @@ def _build_prompt_messages(
             ),
         ]
 
-    is_complaint_fir = _is_complaint_fir_analysis(query)
+    is_complaint_fir = _is_complaint_fir_analysis(query, ephemeral_context)
     if is_complaint_fir:
         prompt = COMPLAINT_FIR_ANALYSIS_PROMPT.format(
             question=query,

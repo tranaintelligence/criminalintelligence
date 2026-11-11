@@ -541,7 +541,7 @@ class LawSourceRegistry:
             rec = self.resolve_concordance(raw_code, raw_sec)
             if rec is not None:
                 rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                add_record(rec, rev_former, rev_title, allow_preliminary=True)
+                add_record(rec, rev_former, rev_title, allow_preliminary=False)
 
         # Step 2: Match factual concept rules FIRST before standalone numbers
         for rule in CONCEPT_RULES:
