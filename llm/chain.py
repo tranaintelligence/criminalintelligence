@@ -45,8 +45,8 @@ logger = get_logger(__name__)
 _llms = {}
 _REPEATED_WORDS = re.compile(r"\b(\w+)(?:\s+\1){2,}\b", re.IGNORECASE)
 _EXPLICIT_LAW_SECTION = re.compile(
-    r"(?<!\w)(?:(BNS|BNSS|BSA)\s*(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)|"
-    r"(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)\s+(?:of\s+)?(BNS|BNSS|BSA))(?!\w)",
+    r"(?<!\w)(?:(BNS|BNSS|BSA|IPC|CRPC|IEA)\s*(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)|"
+    r"(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)\s+(?:of\s+)?(BNS|BNSS|BSA|IPC|CRPC|IEA))(?!\w)",
     re.IGNORECASE,
 )
 _DIRECT_SECTION_INTENT = re.compile(
@@ -475,8 +475,34 @@ def _clean_model_text(
     return cleaned[:boundary].rstrip() + "…"
 
 
+_COMMON_HALLUCINATION_PATTERNS = [
+    (re.compile(r"\b(?:Section\s+)?420\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 318 of BNS (formerly Section 420 IPC)"),
+    (re.compile(r"\b(?:Section\s+)?302\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 103 of BNS (formerly Section 302 IPC)"),
+    (re.compile(r"\b(?:Section\s+)?304A\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 106 of BNS (formerly Section 304A IPC)"),
+    (re.compile(r"\b(?:Section\s+)?498A\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 85 of BNS (formerly Section 498A IPC)"),
+    (re.compile(r"\b(?:Section\s+)?376\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 64 of BNS (formerly Section 376 IPC)"),
+    (re.compile(r"\b(?:Section\s+)?379\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 303 of BNS (formerly Section 379 IPC)"),
+    (re.compile(r"\b(?:Section\s+)?506\s+(?:of\s+)?BNS\b", re.IGNORECASE), "Section 351 of BNS (formerly Section 506 IPC)"),
+    (re.compile(r"\b(?:Section\s+)?41A?\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 35 of BNSS (formerly Section 41/41A CrPC)"),
+    (re.compile(r"\b(?:Section\s+)?438\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 482 of BNSS (formerly Section 438 CrPC)"),
+    (re.compile(r"\b(?:Section\s+)?437\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 480 of BNSS (formerly Section 437 CrPC)"),
+    (re.compile(r"\b(?:Section\s+)?436\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 478 of BNSS (formerly Section 436 CrPC)"),
+    (re.compile(r"\b(?:Section\s+)?165\s+(?:of\s+)?BNSS\b", re.IGNORECASE), "Section 185 of BNSS (formerly Section 165 CrPC)"),
+    (re.compile(r"\b(?:Section\s+)?65B\s+(?:of\s+)?BSA\b", re.IGNORECASE), "Section 63 of BSA (formerly Section 65B Indian Evidence Act)"),
+]
+
+
+def _correct_common_statutory_hallucinations(text: str) -> str:
+    if not text:
+        return text
+    cleaned = text
+    for pattern, replacement in _COMMON_HALLUCINATION_PATTERNS:
+        cleaned = pattern.sub(replacement, cleaned)
+    return cleaned
+
+
 def _sanitize_analysis(analysis: StructuredAnalysis) -> StructuredAnalysis:
-    """Bound structured fields so malformed long generations remain readable."""
+    """Bound structured fields and fix common statutory hallucinations."""
 
     for field_name in (
         "conversational_reply",
@@ -487,6 +513,7 @@ def _sanitize_analysis(analysis: StructuredAnalysis) -> StructuredAnalysis:
     ):
         value = getattr(analysis, field_name)
         if isinstance(value, str):
+            value = _correct_common_statutory_hallucinations(value)
             if field_name == "general_analysis":
                 setattr(
                     analysis,
@@ -499,6 +526,7 @@ def _sanitize_analysis(analysis: StructuredAnalysis) -> StructuredAnalysis:
     for field_name in ("next_24_hours", "rights"):
         cleaned_values = []
         for value in getattr(analysis, field_name)[:5]:
+            value = _correct_common_statutory_hallucinations(value)
             cleaned = _clean_model_text(value, max_length=400)
             if cleaned and cleaned not in cleaned_values:
                 cleaned_values.append(cleaned)
@@ -544,11 +572,16 @@ def _get_llm(model_preference: str = "deep", force_reinit: bool = False, key_rec
 def _verify_law_candidates(
     analysis: StructuredAnalysis,
     registry: LawSourceRegistry,
+    fallback_statutes: list | None = None,
 ) -> list[SourceChunk]:
-    """Hydrate model candidates from the registry and discard model quotations."""
+    """Hydrate model candidates from the registry, resolve concordances, and strictly discard hallucinations."""
+
+    from models.schemas import ApplicableLaw
 
     source_chunks: list[SourceChunk] = []
     verified_laws = []
+    seen_keys: set[tuple[str, str]] = set()
+
     for law in analysis.applicable_laws:
         # Never trust quote/exact_text supplied by the provider, even if a model
         # ignores the prompt and returns a plausible-looking quotation.
@@ -567,45 +600,23 @@ def _verify_law_candidates(
             subsection=law.subsection,
         )
         if record is None:
-            logger.info(
-                "Legal citation preserved as statutory reference: act=%r code=%r section=%r",
+            # Deterministically resolve concordances (e.g. IPC 420 -> BNS 318, CrPC 438 -> BNSS 482)
+            record = registry.resolve_concordance(law.code or law.act, law.section)
+
+        if record is None:
+            # STRICT GUARD: Discard hallucinated or unverified sections
+            logger.warning(
+                "Discarding unverified/hallucinated legal citation: act=%r code=%r section=%r",
                 law.act,
                 law.code,
                 law.section,
             )
-            law.quote_status = "statutory_reference"
-            law.verified = False
-            act_clean = (law.act or law.code or "").lower()
-            if "nyaya" in act_clean or "bns" in act_clean:
-                law.source_url = "https://www.mha.gov.in/sites/default/files/2024-04/250883_english_01042024.pdf"
-            elif "nagarik" in act_clean or "bnss" in act_clean:
-                law.source_url = "https://www.mha.gov.in/sites/default/files/2024-04/250884_2_english_01042024.pdf"
-            elif "sakshya" in act_clean or "bsa" in act_clean:
-                law.source_url = "https://www.mha.gov.in/sites/default/files/2024-04/250882_english_01042024_0.pdf"
-            elif "motor vehicle" in act_clean or "mva" in act_clean:
-                law.source_url = "https://www.indiacode.nic.in/handle/123456789/1798"
-            else:
-                law.source_url = "https://www.indiacode.nic.in"
-
-            law.quote = law.explanation or f"Statutory provision under {law.act or law.code} Section {law.section}."
-            verified_laws.append(law)
-            source_chunks.append(
-                SourceChunk(
-                    content=law.explanation or f"Statutory provision under {law.act or law.code} Section {law.section}.",
-                    document_name=law.act or law.code or "Indian Statute",
-                    act=law.act or law.code or "Indian Statute",
-                    code=law.code or law.act or "Statute",
-                    section=law.section or "",
-                    subsection=law.subsection,
-                    exact_text=law.explanation or None,
-                    quote=law.quote or "",
-                    verified=False,
-                    relevance_score=0.0,
-                    source_url=law.source_url,
-                    quote_status="statutory_reference",
-                )
-            )
             continue
+
+        key = (record.code, record.section)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
 
         law.act = record.act
         law.code = record.code
@@ -639,6 +650,47 @@ def _verify_law_candidates(
             )
         )
 
+    # Backfill with verified statutes retrieved for this query if model produced no valid laws
+    if not verified_laws and fallback_statutes:
+        for record in fallback_statutes[:3]:
+            key = (record.code, record.section)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            flaw = ApplicableLaw(
+                act=record.act,
+                code=record.code,
+                section=record.section,
+                subsection=record.subsection,
+                exact_text=record.exact_text,
+                quote=record.exact_text,
+                explanation=record.heading or getattr(record, "canonical_title", "") or f"Statutory provision under {record.code} Section {record.section}.",
+                source_url=record.source_url,
+                source_version=record.source_version,
+                source_hash=record.source_hash,
+                quote_status="backend_verified",
+                verified=True,
+            )
+            verified_laws.append(flaw)
+            source_chunks.append(
+                SourceChunk(
+                    content=record.exact_text,
+                    document_name=record.act,
+                    act=record.act,
+                    code=record.code,
+                    section=record.section,
+                    subsection=record.subsection,
+                    exact_text=record.exact_text,
+                    quote=record.exact_text,
+                    verified=True,
+                    relevance_score=1.0,
+                    source_url=record.source_url,
+                    source_version=record.source_version,
+                    source_hash=record.source_hash,
+                    quote_status="backend_verified",
+                )
+            )
+
     # Retain up to 4 applicable laws and source chunks
     analysis.applicable_laws = verified_laws[:4]
     return source_chunks[:4]
@@ -669,6 +721,8 @@ async def run_analysis_pipeline(
     start_time = time.time()
     registry = source_registry if source_registry is not None else get_registry()
     requested_law = _requested_law_record(query, registry)
+    relevant_statutes = registry.find_relevant_statutes(query, top_k=4)
+    fallback_records = [rec for rec, _, _ in relevant_statutes]
     has_media = bool(media_attachments)
     if has_media and not any(
         record.provider == "google" and "gemini" in (record.model or "").lower()
@@ -688,6 +742,7 @@ async def run_analysis_pipeline(
         ephemeral_context,
         conversation_history,
         requested_law=requested_law,
+        relevant_statutes=relevant_statutes,
         media_attachments=media_attachments,
     )
 
@@ -698,7 +753,7 @@ async def run_analysis_pipeline(
         )
         if requested_law is not None and _DIRECT_SECTION_INTENT.search(query or "") and not has_media:
             _enforce_direct_section_match(structured_analysis, requested_law, registry)
-        source_chunks = _verify_law_candidates(structured_analysis, registry)
+        source_chunks = _verify_law_candidates(structured_analysis, registry, fallback_statutes=fallback_records)
         elapsed = round(time.time() - start_time, 2)
         return AnalysisResponse(
             query=query,
@@ -786,7 +841,7 @@ async def run_analysis_pipeline(
 
     if requested_law is not None and _DIRECT_SECTION_INTENT.search(query or "") and not media_attachments:
         _enforce_direct_section_match(structured_analysis, requested_law, registry)
-    source_chunks = _verify_law_candidates(structured_analysis, registry)
+    source_chunks = _verify_law_candidates(structured_analysis, registry, fallback_statutes=fallback_records)
     elapsed = round(time.time() - start_time, 2)
     logger.info(
         "Direct analysis complete — %d verified sources, %.2fs elapsed.",
@@ -808,6 +863,7 @@ def _build_prompt_messages(
     ephemeral_context: Optional[str],
     conversation_history: Optional[list[dict[str, str]]],
     requested_law=None,
+    relevant_statutes: Optional[list] = None,
     media_attachments: Optional[list[dict]] = None,
 ) -> list:
     """Build messages with prior turns before the newest user prompt."""
@@ -816,17 +872,23 @@ def _build_prompt_messages(
         # A direct provision lookup is self-contained. Use a narrow system
         # instruction and omit chat history so a previous mistaken answer
         # cannot compete with the registry text for the model's attention.
+        ref_line = (
+            f"[Ref: {requested_law.act}, Section {requested_law.section} — {requested_law.former_citation}]"
+            if getattr(requested_law, "former_citation", None)
+            else f"[Ref: {requested_law.act}, Section {requested_law.section}]"
+        )
         return [
             SystemMessage(content=_SECTION_SOURCE_SYSTEM_PROMPT),
             HumanMessage(
                 content=(
                     "Explain the provision requested below in plain language. "
-                    "The verified record is the source of truth.\n\n"
+                    "The verified record is the sole authority for this provision.\n\n"
                     f"USER QUERY:\n{query}\n\n"
                     f"VERIFIED ACT: {requested_law.act}\n"
                     f"VERIFIED CODE: {requested_law.code}\n"
                     f"VERIFIED SECTION: {requested_law.section}\n"
-                    "VERIFIED STATUTORY TEXT:\n"
+                    f"MANDATORY REFERENCE: {ref_line}\n"
+                    "VERIFIED STATUTORY TEXT FROM THE OFFICIAL GAZETTE:\n"
                     f"{requested_law.exact_text}"
                 )
             ),
@@ -849,16 +911,44 @@ def _build_prompt_messages(
             "or is not a contract/legal document, explain what you can and cannot identify."
         )
     if requested_law is not None:
+        ref_line = (
+            f"[Ref: {requested_law.act}, Section {requested_law.section} — {requested_law.former_citation}]"
+            if getattr(requested_law, "former_citation", None)
+            else f"[Ref: {requested_law.act}, Section {requested_law.section}]"
+        )
         prompt += (
             "\n\nEXACT REQUESTED STATUTE FROM THE VERIFIED SOURCE REGISTRY "
             "(this Act and section are the user's requested subject; do not "
             "substitute another code's same-numbered section):\n"
             f"Act/code: {requested_law.act} ({requested_law.code})\n"
             f"Section: {requested_law.section}\n"
+            f"Official Reference: {ref_line}\n"
             f"Text: {requested_law.exact_text}\n"
             "Explain only this provision. Do not describe another Act's "
             "section with the same number. Cite this exact Act and section."
         )
+    elif relevant_statutes:
+        statute_blocks = []
+        for rec, former, title in relevant_statutes:
+            ref_str = (
+                f"[Ref: {rec.act}, Section {rec.section} — {former}]"
+                if former
+                else f"[Ref: {rec.act}, Section {rec.section}]"
+            )
+            heading_str = f" ({title})" if title else ""
+            statute_blocks.append(
+                f"### {rec.code} Section {rec.section}{heading_str}\n"
+                f"Official Reference: {ref_str}\n"
+                f"Verbatim Statutory Text (Gazette of India):\n\"\"\"\n{rec.exact_text}\n\"\"\""
+            )
+        if statute_blocks:
+            prompt += (
+                "\n\nOFFICIAL STATUTORY PROVISIONS EXTRACTED VERBATIM FROM THE 2023 GAZETTE PUBLICATIONS (BNS, BNSS, BSA):\n"
+                "Ground your legal analysis, rights, bail determination, and procedures STRICTLY in the following official provisions. "
+                "Do NOT invent sections, and do NOT confuse IPC/CrPC numbers with BNS/BNSS numbers. Whenever citing a section, use the exact statutory reference format:\n\n"
+                + "\n\n---\n\n".join(statute_blocks)
+            )
+
     messages = [SystemMessage(content=SYSTEM_PROMPT)]
     for item in conversation_history or []:
         role = item.get("role")
@@ -898,7 +988,7 @@ def _requested_law_record(query: str, registry: LawSourceRegistry):
         code, section = match.group(1), match.group(2)
     else:
         section, code = match.group(3), match.group(4)
-    return registry.lookup(code=code, section=section)
+    return registry.resolve_concordance(code=code, section=section)
 
 
 def _enforce_direct_section_match(
