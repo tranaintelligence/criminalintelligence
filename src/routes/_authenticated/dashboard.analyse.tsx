@@ -217,35 +217,12 @@ function Analyse() {
         }
       }
 
-      // Analyze endpoint call with structured TRANA Complaint & FIR Analyser protocol
+      // Analyze endpoint call with compact TRANA Complaint & FIR Analyser identifier
+      // Backend llm/chain.py detects this identifier and automatically applies the full
+      // 8-point TRANA Complaint and FIR Analyser system prompt and Gazette reference grounding.
       const queryPrompt = text.trim()
-        ? `You are the TRANA Complaint and FIR Analyser. Perform a complete criminal complaint / FIR analysis following your official instructions.
-Explain in plain language for an ordinary Indian family in this exact order:
-1. What this document is (FIR, complaint or other, date, police station/court if stated)
-2. What it says happened (neutral words, "The complainant says...", allegations not proven facts)
-3. Sections mentioned (one line per BNS section on what it covers in simple words; cognizable, bailable, and punishment range only if certain; statutory reference [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC])
-4. Do the sections match the facts? (compare sections with facts written, flag missing/vague/exaggerated/misapplied with careful words)
-5. What is missing or unclear (no sections, no date/place, unclear names, long delay, no description of act)
-6. What this means for you (tailored to role: accused, complainant, witness, or family member)
-7. Your rights now (protections under BNS, BNSS, BSA in simple words)
-8. The one most important thing to do next, then at most three short steps for the next 24 hours if in an active situation (skip 24h steps if no one is in danger)
-Offer at the end: "Would you like information on how to reach a lawyer?"
-End with: "This is general information, not legal advice."
-
-Case / Complaint Details:
-${text.trim()}`
-        : `You are the TRANA Complaint and FIR Analyser. Analyze the uploaded document (${file?.name}) thoroughly following your official instructions.
-Explain in plain language for an ordinary Indian family in this exact order:
-1. What this document is (FIR, complaint or other, date, police station/court if stated)
-2. What it says happened (neutral words, allegations not proven facts)
-3. Sections mentioned (with official statutory references [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC])
-4. Do the sections match the facts? (compare sections with facts, flag misapplication or exaggeration)
-5. What is missing or unclear
-6. What this means for you (tailored to role)
-7. Your rights now under BNS, BNSS, BSA
-8. The one most important thing to do next, then at most three short steps for the next 24 hours if in an active situation
-Offer at the end: "Would you like information on how to reach a lawyer?"
-End with: "This is general information, not legal advice."`;
+        ? `[TRANA Complaint and FIR Analyser]: ${text.trim()}`
+        : `[TRANA Complaint and FIR Analyser]: Analyze the uploaded document (${file?.name || "criminal complaint"}).`;
 
       const endpoint = credential ? `${API_URL}/api/analyze` : `${API_URL}/api/analyze/temporary`;
       const bodyPayload: Record<string, unknown> = {
@@ -257,18 +234,55 @@ End with: "This is general information, not legal advice."`;
         bodyPayload.chat_id = createdChatId;
       }
 
-      const res = await authFetch(endpoint, credential, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyPayload),
-      });
+      let res: Response;
+      try {
+        res = await authFetch(endpoint, credential, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyPayload),
+        });
+      } catch (fetchErr) {
+        console.warn("Direct fetch error, attempting fallback to temporary analyze endpoint:", fetchErr);
+        res = await fetch(`${API_URL}/api/analyze/temporary`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: queryPrompt,
+            model_preference: "quick",
+          }),
+        });
+      }
+
+      // If authenticated endpoint returned an error (e.g. 401 expired session, 403, or 422),
+      // seamlessly retry with /api/analyze/temporary so citizen is never blocked
+      if (!res.ok && credential && endpoint !== `${API_URL}/api/analyze/temporary`) {
+        try {
+          const fallbackRes = await fetch(`${API_URL}/api/analyze/temporary`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: queryPrompt,
+              model_preference: "quick",
+            }),
+          });
+          if (fallbackRes.ok) {
+            res = fallbackRes;
+          }
+        } catch (fallbackErr) {
+          console.warn("Fallback to temporary analyze endpoint also failed:", fallbackErr);
+        }
+      }
 
       if (!res.ok) {
         let msg = "Could not complete the analysis. Please check your connection and try again.";
         try {
           const errorData = await res.json();
-          if (errorData?.detail) {
-            msg = typeof errorData.detail === "string" ? errorData.detail : errorData.detail.message || msg;
+          if (typeof errorData?.detail === "string") {
+            msg = errorData.detail;
+          } else if (Array.isArray(errorData?.detail)) {
+            msg = errorData.detail.map((d: any) => d?.msg || JSON.stringify(d)).join("; ");
+          } else if (errorData?.detail?.message) {
+            msg = errorData.detail.message;
           }
         } catch {
           // keep fallback
