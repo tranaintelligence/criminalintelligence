@@ -338,25 +338,29 @@ function Analyse() {
             const existingPool = JSON.parse(localStorage.getItem("trana_citizen_queries_pool") || "[]");
             localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.filter((x: any) => x.id !== queryId).slice(0, 49)]));
             
-            void supabase.from("analyses").insert({
-              id: queryId,
-              situation: text.trim() || `Complaint Document: ${file?.name || "Uploaded Document"}`,
-              result: {
-                situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
-                applicable_laws: data.analysis?.applicable_laws || [],
-                bail_status: data.analysis?.bail_status,
-                rights: data.analysis?.rights,
-                source: "complaint_analyser",
-                anonymous: true,
-                plan: "paid_professional",
-                fee: 50,
-                priority: "high",
-                responses: [],
-                passed_by: [],
-              },
-              is_criminal: true,
-              user_id: credential ? "citizen-user" : "anonymous-citizen",
-            }).catch((insertErr) => console.warn("Supabase analyses insert note:", insertErr));
+            try {
+              await supabase.from("analyses").insert({
+                id: queryId,
+                situation: text.trim() || `Complaint Document: ${file?.name || "Uploaded Document"}`,
+                result: {
+                  situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
+                  applicable_laws: data.analysis?.applicable_laws || [],
+                  bail_status: data.analysis?.bail_status,
+                  rights: data.analysis?.rights,
+                  source: "complaint_analyser",
+                  anonymous: true,
+                  plan: "paid_professional",
+                  fee: 50,
+                  priority: "high",
+                  responses: [],
+                  passed_by: [],
+                },
+                is_criminal: true,
+                user_id: credential ? "citizen-user" : "anonymous-citizen",
+              });
+            } catch (insertErr) {
+              console.warn("Supabase analyses insert note:", insertErr);
+            }
           }
         } catch {}
       } catch (saveErr) {

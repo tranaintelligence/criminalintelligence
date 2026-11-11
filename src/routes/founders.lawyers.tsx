@@ -622,7 +622,11 @@ function FoundersLawyersPage() {
       if (selectedLawyer?.id === id) setSelectedLawyer(null);
 
       toast.success(`Advocate ${name} removed from registry.`);
-      await refetch();
+      try {
+        await refetch();
+      } catch (refetchErr) {
+        console.warn("Lawyers list refetch notice:", refetchErr);
+      }
     } catch (e: any) {
       toast.error(e.message || "Failed to delete advocate.");
     }

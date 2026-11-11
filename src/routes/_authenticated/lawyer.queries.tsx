@@ -240,8 +240,7 @@ function CitizenQueriesPage() {
             priority: "high",
           } as any,
         })
-        .eq("id", selectedQuery.id)
-        .catch(() => {});
+        .eq("id", selectedQuery.id);
 
       // 2. Update local pool
       try {
@@ -304,8 +303,7 @@ function CitizenQueriesPage() {
             priority: "high",
           } as any,
         })
-        .eq("id", queryId)
-        .catch(() => {});
+        .eq("id", queryId);
 
       // Update local pool
       try {
