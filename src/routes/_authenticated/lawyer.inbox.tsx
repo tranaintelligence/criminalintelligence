@@ -18,9 +18,10 @@ interface LawyerInboxSearch {
 }
 
 export const Route = createFileRoute("/_authenticated/lawyer/inbox")({
-  validateSearch: (search: Record<string, unknown>): LawyerInboxSearch => ({
-    chat: typeof search.chat === "string" ? search.chat : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): LawyerInboxSearch => {
+    const chat = search?.["chat"];
+    return typeof chat === "string" && chat ? { chat } : {};
+  },
   head: () => ({
     meta: [
       { title: "Inbox — Legal Professional Workspace — TRANA" },
@@ -51,7 +52,7 @@ function LawyerCaseInboxPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"client" | "peer">("client");
-  const [selectedCaseId, setSelectedCaseId] = useState<string>(searchParams.chat || "");
+  const [selectedCaseId, setSelectedCaseId] = useState<string>(searchParams?.chat || "");
   const [showCaseSummary, setShowCaseSummary] = useState(false);
   const [messages, setMessages] = useState<ConsultationChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -125,7 +126,11 @@ function LawyerCaseInboxPage() {
       const rowId = row.id;
       if (list.some((existing) => existing.id === rowId)) return;
 
-      const briefText = row.intake_brief || row.note || "";
+      const briefText = typeof (row as any).intake_brief === "string" 
+        ? (row as any).intake_brief 
+        : typeof row.note === "string" 
+        ? row.note 
+        : "";
 
       // Ensure this consultation is relevant to the logged-in counsel
       if (myId || myName) {
@@ -141,9 +146,11 @@ function LawyerCaseInboxPage() {
       }
 
       const isPeer = row.consult_type === "peer" || 
+        row.consult_type === "peer_connection" ||
         briefText.includes("Peer Legal Collaboration") || 
         briefText.includes("Peer Collaboration") ||
-        briefText.includes("Client Referral from Advocate");
+        briefText.includes("Client Referral from Advocate") ||
+        briefText.includes("Connection Request");
 
       let matter = "Legal Consultation Request";
       let sectionStr = "Applicable Statutes";
@@ -240,7 +247,7 @@ function LawyerCaseInboxPage() {
 
   // Default selected case
   useEffect(() => {
-    if (cases.length > 0 && !selectedCaseId) {
+    if (cases.length > 0 && (!selectedCaseId || !cases.some((c) => c.id === selectedCaseId))) {
       setSelectedCaseId(cases[0].id);
     }
   }, [cases, selectedCaseId]);
@@ -362,7 +369,7 @@ function LawyerCaseInboxPage() {
       window.removeEventListener("storage", handleChatUpdate);
       window.removeEventListener("trana_consult_chat_update", handleChatUpdate);
     };
-  }, [activeCase, storageKey, lawyer?.full_name]);
+  }, [activeCase?.id, storageKey, lawyer?.full_name]);
 
   // Auto-scroll messages
   useEffect(() => {
@@ -379,7 +386,7 @@ function LawyerCaseInboxPage() {
 
   // Check for incoming messages to trigger the top-right notification popup
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && activeCase) {
       if (lastKnownMessagesCountRef.current > 0 && messages.length > lastKnownMessagesCountRef.current) {
         const newest = messages[messages.length - 1];
         const myNormName = (lawyer?.full_name || "").toLowerCase().replace(/^adv\.?\s*/i, "").trim();
@@ -388,8 +395,8 @@ function LawyerCaseInboxPage() {
         if (newest && newest.sender !== "system" && senderNormName !== myNormName && !myNormName.includes(senderNormName)) {
           setIncomingToast({
             chatId: activeCase.id,
-            senderName: newest.senderName,
-            text: newest.text,
+            senderName: newest.senderName || "Incoming Message",
+            text: newest.text || "",
             category: activeCase.category,
           });
         }
@@ -836,10 +843,12 @@ function LawyerCaseInboxPage() {
 
             {/* Messages Feed */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#0C0C0C]">
-              {messages.map((m) => {
+              {messages.map((m, mIdx) => {
+                if (!m) return null;
+                const mKey = m.id || `msg-${mIdx}`;
                 if (m.sender === "system") {
                   return (
-                    <div key={m.id} className="text-center my-2">
+                    <div key={mKey} className="text-center my-2">
                       <div className="inline-block max-w-[85%] border border-[#262626] bg-[#141414] px-3.5 py-2 text-[0.75rem] text-[#AAAAAA] rounded font-mono leading-relaxed">
                         {m.text}
                       </div>
@@ -869,15 +878,15 @@ function LawyerCaseInboxPage() {
 
                 return (
                   <div
-                    key={m.id}
+                    key={mKey}
                     className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
                   >
                     <div className="flex items-center gap-1.5 text-[0.65rem] text-[#777777] font-mono mb-1">
                       <span className={`font-semibold ${isMe ? "text-white" : "text-[#AAAAAA]"}`}>
-                        {m.senderName}
+                        {m.senderName || "Advocate"}
                       </span>
                       <span>•</span>
-                      <span>{m.timestamp}</span>
+                      <span>{m.timestamp || ""}</span>
                     </div>
                     <div
                       className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${

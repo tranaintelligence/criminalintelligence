@@ -11,15 +11,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { maskConfidentialPatterns } from "@/lib/privacy-mask";
 import { CaseSummaryModal } from "@/components/CaseSummaryViewer";
 import type { ConsultationChatMessage } from "@/components/ConsultationChatModal";
+import { useTranaCredential } from "@/lib/trana-auth";
 
 interface ConsultationsSearch {
   chat?: string;
 }
 
 export const Route = createFileRoute("/_authenticated/dashboard/consultations")({
-  validateSearch: (search: Record<string, unknown>): ConsultationsSearch => ({
-    chat: typeof search.chat === "string" ? search.chat : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): ConsultationsSearch => {
+    const chat = search?.["chat"];
+    return typeof chat === "string" && chat ? { chat } : {};
+  },
   head: () => ({
     meta: [
       { title: "My Consultations — TRANA" },
@@ -44,20 +46,22 @@ type UnifiedConsultation = {
 };
 
 function Consultations() {
-  const { user } = Route.useRouteContext();
+  const routeContext = Route.useRouteContext({ strict: false });
+  const { user: authUser } = useTranaCredential();
+  const user = routeContext?.user || authUser;
   const searchParams = Route.useSearch();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedChatId, setSelectedChatId] = useState<string>(searchParams.chat || "");
+  const [selectedChatId, setSelectedChatId] = useState<string>(searchParams?.chat || "");
   const [inputText, setInputText] = useState("");
   const [showCaseSummary, setShowCaseSummary] = useState(false);
   const [liveTrigger, setLiveTrigger] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const clientName =
-    (user as any).name || (user as any).user_metadata?.full_name || user.email?.split("@")[0] || "Citizen Client";
+    (user as any)?.name || (user as any)?.user_metadata?.full_name || user?.email?.split("@")[0] || "Citizen Client";
 
   // 1. Fetch consultations from Supabase database with real-time polling
   const { data: dbData = [], refetch } = useQuery({
@@ -229,13 +233,15 @@ function Consultations() {
   // Keep selected chat in sync with URL search param or fallback to first
   useEffect(() => {
     if (consultations.length > 0) {
-      if (searchParams.chat && consultations.some((c) => c.id === searchParams.chat)) {
+      if (searchParams?.chat && consultations.some((c) => c.id === searchParams.chat)) {
         setSelectedChatId(searchParams.chat);
       } else if (!selectedChatId || !consultations.some((c) => c.id === selectedChatId)) {
-        setSelectedChatId(consultations[0].id);
+        if (consultations[0]?.id) {
+          setSelectedChatId(consultations[0].id);
+        }
       }
     }
-  }, [consultations, searchParams.chat, selectedChatId]);
+  }, [consultations, searchParams?.chat, selectedChatId]);
 
   // Active selected consultation
   const activeChat = useMemo(() => {
@@ -254,7 +260,6 @@ function Consultations() {
       const bareId = activeChat.id.replace(/^REF-/, "").replace(/^CONN-/, "");
       localStorage.setItem(`trana_citizen_last_read_${bareId}`, String(Date.now()));
       window.dispatchEvent(new Event("trana_unread_count_update"));
-      window.dispatchEvent(new Event("trana_consult_chat_update"));
     }
   }, [activeChat?.id, activeChat?.messages?.length]);
 
@@ -515,7 +520,7 @@ function Consultations() {
             <div className="flex-1 overflow-y-auto divide-y divide-[#1D1D1D]">
               {filteredList.map((c) => {
                 const isSelected = c.id === activeChat?.id;
-                const initial = c.lawyerName.replace(/^adv\.?\s*/i, "").charAt(0) || "A";
+                const initial = (c.lawyerName || "Advocate").replace(/^adv\.?\s*/i, "").charAt(0) || "A";
                 const lastRead = Number(localStorage.getItem(`trana_citizen_last_read_${c.id}`)) || 0;
                 const updatedTime = c.lastUpdated ? new Date(c.lastUpdated).getTime() : 0;
                 const isUnread = Boolean(
@@ -599,7 +604,7 @@ function Consultations() {
                 <div className="p-3.5 px-5 border-b border-[#222222] bg-[#141414] flex items-center justify-between gap-3 shrink-0">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-10 w-10 rounded-full bg-[#2A2A2A] border border-white/10 flex items-center justify-center font-bold text-white uppercase text-sm shrink-0">
-                      {activeChat.lawyerName.replace(/^adv\.?\s*/i, "").charAt(0) || "A"}
+                      {(activeChat.lawyerName || "Advocate").replace(/^adv\.?\s*/i, "").charAt(0) || "A"}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -665,10 +670,12 @@ function Consultations() {
 
                 {/* Messages Feed */}
                 <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#080808]">
-                  {activeChat.messages.map((msg) => {
+                  {activeChat.messages.map((msg, msgIdx) => {
+                    if (!msg) return null;
+                    const msgKey = msg.id || `msg-${msgIdx}`;
                     if (msg.sender === "system") {
                       return (
-                        <div key={msg.id} className="flex justify-center my-3">
+                        <div key={msgKey} className="flex justify-center my-3">
                           <div className="border border-[#282828] bg-[#121212] px-4 py-1.5 text-[0.7rem] text-[#888888] font-mono max-w-md text-center flex items-center gap-1.5 rounded-full shadow-sm">
                             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                             <span>{msg.text}</span>
@@ -681,15 +688,15 @@ function Consultations() {
 
                     return (
                       <div
-                        key={msg.id}
+                        key={msgKey}
                         className={`flex flex-col ${isClient ? "items-end" : "items-start"}`}
                       >
                         <div className="flex items-center gap-1.5 mb-1 text-[0.65rem] font-mono text-[#777777]">
                           <span className={isClient ? "text-neutral-300 font-medium" : "text-emerald-400 font-medium"}>
-                            {msg.senderName}
+                            {msg.senderName || "User"}
                           </span>
                           <span>•</span>
-                          <span>{msg.timestamp}</span>
+                          <span>{msg.timestamp || ""}</span>
                         </div>
 
                         <div

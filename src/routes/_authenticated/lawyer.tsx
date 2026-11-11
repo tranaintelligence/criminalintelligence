@@ -76,11 +76,14 @@ const navItems = [
 ] as const;
 
 export function useLawyerAuth() {
-  const { user } = Route.useRouteContext();
-  const { credential } = useTranaCredential();
+  const routeCtx = Route.useRouteContext({ strict: false });
+  const { credential, user: authUser } = useTranaCredential();
+  const user = routeCtx?.user || authUser;
+  const userId = user?.id || (user as any)?.email || "default-lawyer";
+  const userEmail = user?.email || "";
   
   return useQuery({
-    queryKey: ["lawyer-profile", user.id, user.email],
+    queryKey: ["lawyer-profile", userId, userEmail],
     queryFn: async (): Promise<LawyerProfile> => {
       // 1. Try fetching via Backend API
       if (credential) {
@@ -92,9 +95,9 @@ export function useLawyerAuth() {
               : (apiLawyer.courts || "Supreme Court of India · Delhi High Court");
             return {
               id: apiLawyer.id,
-              user_id: apiLawyer.user_id || user.id,
+              user_id: apiLawyer.user_id || userId,
               full_name: apiLawyer.full_name,
-              email: apiLawyer.email || user.email,
+              email: apiLawyer.email || userEmail,
               phone: apiLawyer.phone || "+91 (Chamber Verified)",
               bar_reg_no: apiLawyer.bar_reg_no || "D/2104/2021",
               state_bar_council: apiLawyer.state_bar_council || "Bar Council of Delhi",
@@ -125,11 +128,15 @@ export function useLawyerAuth() {
       }
 
       // 2. Check Supabase lawyers table by user_id OR email
-      const { data: dbLawyers } = await supabase
-        .from("lawyers")
-        .select("*")
-        .or(`user_id.eq.${user.id},email.eq.${user.email}`)
-        .limit(1);
+      let query = supabase.from("lawyers").select("*");
+      if (userId && userEmail) {
+        query = query.or(`user_id.eq.${userId},email.eq.${userEmail}`);
+      } else if (userId) {
+        query = query.eq("user_id", userId);
+      } else if (userEmail) {
+        query = query.eq("email", userEmail);
+      }
+      const { data: dbLawyers } = await query.limit(1);
 
       const dbLawyer = dbLawyers && dbLawyers.length > 0 ? dbLawyers[0] : null;
 
@@ -137,34 +144,34 @@ export function useLawyerAuth() {
       const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
       const freshUser = authData?.user;
       const freshMeta = freshUser?.user_metadata || {};
-      const userMeta = Object.keys(freshMeta).length > 0 ? freshMeta : (user.user_metadata || {});
+      const userMeta = Object.keys(freshMeta).length > 0 ? freshMeta : (user?.user_metadata || {});
 
-      const { data: profile } = await supabase
+      const { data: profile } = userId ? await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
+        .eq("id", userId)
+        .maybeSingle() : { data: null };
 
-      const localVerification = typeof window !== "undefined" 
-        ? localStorage.getItem(`trana_lawyer_verified_${user.id}`) === "true" 
+      const localVerification = typeof window !== "undefined" && userId
+        ? localStorage.getItem(`trana_lawyer_verified_${userId}`) === "true" 
         : false;
 
       const isRegistered = Boolean(dbLawyer || localVerification || userMeta.role === "lawyer");
       const approved = dbLawyer?.approved ?? (dbLawyer?.verification_status === "VERIFIED") ?? localVerification ?? (userMeta.role === "lawyer");
 
-      const localCourts = typeof window !== "undefined" 
-        ? localStorage.getItem(`trana_lawyer_courts_${user.id}`) || localStorage.getItem("trana_lawyer_courts")
+      const localCourts = typeof window !== "undefined" && userId
+        ? localStorage.getItem(`trana_lawyer_courts_${userId}`) || localStorage.getItem("trana_lawyer_courts")
         : null;
 
       const resolvedCourts = localCourts || dbLawyer?.courts || freshMeta.courts || userMeta.courts || "Supreme Court of India & Delhi High Court";
 
       return {
-        id: dbLawyer?.id || user.id,
-        user_id: user.id,
-        full_name: dbLawyer?.full_name || profile?.full_name || userMeta.full_name || user.email?.split("@")[0] || "Advocate",
-        email: dbLawyer?.email || user.email,
+        id: dbLawyer?.id || userId,
+        user_id: userId,
+        full_name: dbLawyer?.full_name || profile?.full_name || userMeta.full_name || userEmail?.split("@")[0] || "Advocate",
+        email: dbLawyer?.email || userEmail,
         phone: dbLawyer?.phone || userMeta.phone || "+91 (Chamber Verified)",
-        bar_reg_no: dbLawyer?.bar_reg_no || userMeta.bar_reg_no || (typeof window !== "undefined" ? localStorage.getItem(`trana_lawyer_bar_${user.id}`) : null) || "",
+        bar_reg_no: dbLawyer?.bar_reg_no || userMeta.bar_reg_no || (typeof window !== "undefined" && userId ? localStorage.getItem(`trana_lawyer_bar_${userId}`) : null) || "",
         state_bar_council: dbLawyer?.state_bar_council || userMeta.state_bar_council || "Bar Council of Delhi",
         year_of_enrollment: dbLawyer?.year_of_enrollment || userMeta.year_of_enrollment || 2021,
         aibe_cop_number: dbLawyer?.aibe_cop_number || userMeta.aibe_cop_number || "",
@@ -192,7 +199,9 @@ export function useLawyerAuth() {
 }
 
 function LawyerLayout() {
-  const { user } = Route.useRouteContext();
+  const routeCtx = Route.useRouteContext({ strict: false });
+  const { user: authUser } = useTranaCredential();
+  const user = routeCtx?.user || authUser;
   const { credential } = useTranaCredential();
   const { data: lawyer, isLoading, refetch } = useLawyerAuth();
   const qc = useQueryClient();
