@@ -230,7 +230,32 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 
 ---
 
-## [2026-11-12] - Complaint Analyser Prompt Reply Overhaul & Citizen Query Modal Resilience
+## [2026-11-12] - Comprehensive Privacy Policy & Terms of Use Publication
+
+### 1. Dedicated Legal Transparency Portal (`src/routes/privacy-policy.tsx`)
+- **Problem**: The privacy policy route previously contained a minimal "Coming Soon" placeholder, leaving platform compliance, DPDP Act 2023 disclosures, and BCI non-solicitation disclaimers unaddressed on a dedicated URL.
+- **Implementation**:
+  - Replaced the placeholder with a dual-tabbed legal disclosure portal covering:
+    1. **Privacy Policy**:
+       - **Strict DPDP Act 2023 & IT Rules 2011 Compliance**: Discloses limited collection of identity, case documents, and technical telemetry.
+       - **Strictly No AI Training Policy (Section 3)**: Highlights with an emerald safeguard callout that user personal data, uploaded FIRs, police complaints, and private communications are **never** used to train, fine-tune, or improve underlying AI models, and are processed strictly transiently.
+       - **Confidentiality & Data Sharing**: Details user-initiated advocate transmissions, service provider confidentiality agreements, and strict court order disclosure thresholds.
+       - **Legal Privilege Disclaimer**: Reaffirms that preliminary platform messaging relays do not create statutory attorney-client privilege under Section 126 of the BSA until formal engagement.
+       - **Indian Citizen Data Rights**: Right to access, correction, erasure, and consent withdrawal.
+       - **Statutory Grievance Redressal Desk**: Formal listing of Grievance Officer Swastik Mishra, official email (`grievance@trana.in`), and registered New Delhi office.
+    2. **Terms and Conditions of Use**:
+       - **Indian Contract Act, 1872 Eligibility**: Representation of majority and contractual capacity.
+       - **BCI Rule 36 Compliance (Non-Solicitation)**: Explicit confirmation that TRANA is a technology platform and not a law firm, functioning as an independent directory without solicitation or advertising.
+       - **No Legal Advice & No Advocate-Client Relationship**: Clarifies that AI outputs are informational first-aid tools and not formal counsel.
+       - **Prohibited Conduct & Account Security**: Rigorous anti-abuse rules against reverse-engineering, scraping, or uploading malicious code.
+       - **AI Disclaimer & Liability Limitations**: Transparent acknowledgement of model hallucination risks and exclusion of consequential damages.
+       - **Intellectual Property & Devanagari Script Mark**: Explicit protection of the TRANA brand, architecture, prompt structures, and proprietary Devanagari script mark (**त्राण / त्राणा**).
+       - **Governing Law & Arbitration**: Substantive laws of India, sole arbitrator under Arbitration and Conciliation Act 1996, with seat and venue exclusively in New Delhi, India.
+  - **Interactive Features**: Tab switcher (`?tab=privacy` vs `?tab=terms`), "Share / Copy Link" clipboard helper, and "Print / Save PDF" browser trigger.
+
+### 2. Global Footer Navigation Integration (`src/routes/index.tsx`)
+- Updated the landing page footer links to include both **Privacy Policy** and **Terms & Conditions** with direct query parameter links (`/privacy-policy?tab=privacy` and `/privacy-policy?tab=terms`).
+
 
 ### 1. Complaint Analyser Prompt Reply Modernization (`src/routes/_authenticated/dashboard.analyse.tsx`)
 - **Problem**: The LLM prompt generates a rich 8-part criminal procedural breakdown (`situation_meaning`), but previously the frontend dumped this entire response into a single, generic markdown text card, causing text bloat and duplicate statutory sections.

@@ -311,7 +311,7 @@ function Index() {
               <p className="mt-1 md:mt-2 font-display italic text-muted-foreground">त्राणा — Protection.</p>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground md:text-sm">
-              {["For Citizens", "For Legal Professionals", "For Students", "About", "Privacy Policy", "Contact", "Bar Council Disclaimer", "Team Login"].map((l) => {
+              {["For Citizens", "For Legal Professionals", "For Students", "About", "Privacy Policy", "Terms & Conditions", "Contact", "Bar Council Disclaimer", "Team Login"].map((l) => {
                 if (l === "For Citizens") {
                   return <Link key={l} to="/dashboard" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "For Legal Professionals") {
@@ -321,7 +321,9 @@ function Index() {
                 } else if (l === "About") {
                   return <Link key={l} to="/about" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Privacy Policy") {
-                  return <Link key={l} to="/privacy-policy" className="hover:text-foreground">{l}</Link>;
+                  return <Link key={l} to="/privacy-policy" search={{ tab: "privacy" }} className="hover:text-foreground">{l}</Link>;
+                } else if (l === "Terms & Conditions") {
+                  return <Link key={l} to="/privacy-policy" search={{ tab: "terms" }} className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Contact") {
                   return <Link key={l} to="/dashboard/help" className="hover:text-foreground">{l}</Link>;
                 } else if (l === "Bar Council Disclaimer") {
