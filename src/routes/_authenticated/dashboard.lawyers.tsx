@@ -442,6 +442,25 @@ function Lawyers() {
         </div>
       </div>
 
+      {/* Consent to Share Details Notice */}
+      <div className="mt-5 rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-semibold text-white">Consent &amp; Privacy Shield Protected</span>
+            <p className="text-neutral-400 text-[11px] leading-relaxed">
+              When requesting a consultation, your intake brief is shared strictly at your voluntary initiative per BCI Rule 36. Contact numbers and emails are masked (XXXXX) for confidentiality.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/dashboard"
+          className="text-[11px] font-mono text-emerald-400 hover:underline shrink-0 self-start sm:self-auto"
+        >
+          Manage Sharing Consent &rarr;
+        </Link>
+      </div>
+
       <div className="mt-8">
         <input
           value={q}

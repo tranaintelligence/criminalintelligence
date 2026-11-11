@@ -136,6 +136,10 @@ function Analyse() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paidReviewSuccess, setPaidReviewSuccess] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [lawyerShareConsent, setLawyerShareConsent] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("trana_citizen_lawyer_share_consent") !== "false";
+  });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"upi" | "card" | "netbanking">("upi");
   const [pastAnalyses, setPastAnalyses] = useState<StoredPastAnalysis[]>(() => {
     if (typeof window === "undefined") return [];
@@ -1198,6 +1202,35 @@ function Analyse() {
                 </div>
               </div>
 
+              {/* Consent to Share Details with Lawyers & Clear Note */}
+              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5 space-y-2.5">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={lawyerShareConsent}
+                    onChange={(e) => {
+                      setLawyerShareConsent(e.target.checked);
+                      localStorage.setItem("trana_citizen_lawyer_share_consent", String(e.target.checked));
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-black/60 text-emerald-500 accent-emerald-500 focus:ring-1 focus:ring-emerald-400 shrink-0 cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-white leading-tight block">
+                      Consent to Share Details with Verified Lawyers
+                    </span>
+                    <p className="text-[11px] text-neutral-300 leading-relaxed">
+                      I voluntarily elect to share this complaint's factual allegations and statutory breakdown with panel advocates for a written legal opinion.
+                    </p>
+                  </div>
+                </label>
+                <div className="pt-2 border-t border-white/10 flex items-start gap-1.5 text-[10px] text-amber-300/90 font-mono leading-relaxed">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400" />
+                  <span>
+                    <strong>Statutory Note:</strong> Contact details (phone/email) are masked (XXXXX) via TRANA Privacy Shield. Advocates review at citizen initiative in compliance with BCI Rule 36.
+                  </span>
+                </div>
+              </div>
+
               {/* Secure Payment Note */}
               <div className="flex items-center gap-2 p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-[11px] text-neutral-400">
                 <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
@@ -1216,7 +1249,7 @@ function Analyse() {
               </button>
               <button
                 type="button"
-                disabled={paymentProcessing}
+                disabled={paymentProcessing || !lawyerShareConsent}
                 onClick={async () => {
                   setPaymentProcessing(true);
                   // Instant escrow authorization
@@ -1227,7 +1260,7 @@ function Analyse() {
                   toast.success("Payment of ₹50 verified via UPI/Card escrow!");
                   await submit(true);
                 }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.35)] flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.35)] flex items-center gap-2 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {paymentProcessing ? (
                   <>

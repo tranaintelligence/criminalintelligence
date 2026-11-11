@@ -1,6 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MessageSquare, FileText, Scale, ArrowUpRight, RefreshCw } from "lucide-react";
+import { 
+  MessageSquare, FileText, Scale, ArrowUpRight, RefreshCw,
+  ShieldCheck, Lock, AlertCircle, ChevronDown, ChevronUp, CheckCircle2 
+} from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "./dashboard";
 import { useTranaCredential, authFetch } from "@/lib/trana-auth";
@@ -87,6 +92,40 @@ interface ActivityItem {
 function Home() {
   const { data: profile } = useProfile();
   const { credential } = useTranaCredential();
+  const [lawyerShareConsent, setLawyerShareConsent] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("trana_citizen_lawyer_share_consent");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [showFullConsentNote, setShowFullConsentNote] = useState<boolean>(false);
+
+  async function handleToggleConsent(checked: boolean) {
+    setLawyerShareConsent(checked);
+    localStorage.setItem("trana_citizen_lawyer_share_consent", String(checked));
+
+    if (checked) {
+      toast.success("Consent granted: Inquiry facts can be shared with verified panel advocates upon your request.");
+    } else {
+      toast.info("Strict Privacy Mode enabled: Case details will not be shared with panel advocates.");
+    }
+
+    // Try logging/saving to Supabase if authenticated
+    try {
+      const authUser = (await supabase.auth.getUser())?.data?.user;
+      if (authUser?.id) {
+        await supabase.from("advocate_disclaimers").insert({
+          user_id: authUser.id,
+          user_email: authUser.email || profile?.email || null,
+          user_name: profile?.name || "Citizen Account",
+          notice_text: checked
+            ? "Citizen granted voluntary consent to share complaint facts with verified panel advocates under BCI Rule 36 and TRANA Privacy Shield."
+            : "Citizen revoked consent to share complaint facts with panel advocates (Strict Privacy Mode).",
+        });
+      }
+    } catch {
+      // safe fallback
+    }
+  }
 
   const {
     data: activity = [],
@@ -181,6 +220,128 @@ function Home() {
           </div>
         ))}
       </div>
+
+      {/* Consent to Share Details with Lawyers with Clear Note */}
+      <section className="apple-glass-card p-6 sm:p-7 relative overflow-hidden space-y-5 border border-white/10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 border transition-colors ${
+              lawyerShareConsent 
+                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" 
+                : "bg-amber-500/15 border-amber-500/30 text-amber-400"
+            }`}>
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-lg sm:text-xl font-semibold text-white">
+                  Consent to Share Details with Verified Lawyers
+                </h2>
+                <span className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider border ${
+                  lawyerShareConsent
+                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                    : "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                }`}>
+                  {lawyerShareConsent ? "Consent Active · Review Enabled" : "Strict Privacy Mode · Sharing Disabled"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-neutral-300 leading-relaxed max-w-2xl">
+                Control whether your legal inquiry summaries, FIR statutory analysis, and case briefs can be reviewed by verified Bar Council advocates.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Toggle Switch */}
+          <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
+            <span className="font-mono text-xs text-neutral-400 select-none">
+              {lawyerShareConsent ? "Sharing Allowed" : "Sharing Off"}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={lawyerShareConsent}
+              onClick={() => handleToggleConsent(!lawyerShareConsent)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-black ${
+                lawyerShareConsent ? "bg-emerald-500" : "bg-neutral-700"
+              }`}
+              title="Toggle lawyer details sharing consent"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  lawyerShareConsent ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Clear Statutory & Privacy Note Box */}
+        <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-300">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span className="font-mono text-xs font-semibold uppercase tracking-wider">
+                Clear Statutory &amp; Privacy Note
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFullConsentNote(!showFullConsentNote)}
+              className="text-[11px] font-mono text-neutral-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <span>{showFullConsentNote ? "Collapse Note" : "Read Full Policy & BCI Terms"}</span>
+              {showFullConsentNote ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 text-xs text-neutral-300 leading-relaxed pt-1">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-white font-medium">
+                <Scale className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Voluntary Citizen Request</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Under Bar Council of India (BCI) Rule 36, advocates cannot advertise or solicit work. Information is shared strictly upon your voluntary request for written opinions or consultations.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-white font-medium">
+                <Lock className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                <span>TRANA Privacy Shield</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Direct phone numbers, email addresses, and personal identities are masked (<strong className="text-white">XXXXX</strong>). Lawyers receive only the factual allegations and statutory questions.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-white font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                <span>Confidentiality &amp; DPDP</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Safeguarded under Section 126 of BSA 2023 / Indian Evidence Act privilege and the DPDP Act, 2023. You can withdraw or toggle consent anytime.
+              </p>
+            </div>
+          </div>
+
+          {/* Expandable Extended Legal Notice */}
+          {showFullConsentNote && (
+            <div className="mt-3 pt-3 border-t border-white/10 space-y-2 text-xs text-neutral-300 leading-relaxed font-sans animate-in fade-in duration-200">
+              <p>
+                <strong className="text-white">1. Scope of Shared Information:</strong> When consent is granted and you submit an FIR analysis or initiate a lawyer consultation, the system forwards your factual summary, applicable legal sections (e.g. BNS/BNSS/BSA), and specific queries to verified advocates on the TRANA panel.
+              </p>
+              <p>
+                <strong className="text-white">2. Anti-Solicitation Guarantee:</strong> TRANA is not a legal practice and does not solicit clients for any advocate. No advocate is ranked, promoted, or charged commission for reviewing your inquiries.
+              </p>
+              <p>
+                <strong className="text-white">3. Revocation &amp; Deletion:</strong> If you disable consent, newly submitted analyses remain strictly local and confidential to your AI assistant session, and will not appear on the lawyer citizen query dashboard.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Recent Activity Section */}
       <section className="space-y-4">

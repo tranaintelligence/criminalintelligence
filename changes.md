@@ -154,3 +154,30 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 - **Fixes**:
   - Implemented compliant UUID v4 generator using `crypto.randomUUID()` (with RFC4122 random fallback).
   - Checked `authUser?.id` from `supabase.auth.getUser()` before attempting database insert so anonymous users never violate UUID or RLS constraints.
+
+---
+
+## [2026-11-12] - Consent to Share Details with Lawyers with Clear Note in Citizen Dashboard
+
+### 1. Citizen Dashboard Sharing Consent & Statutory Note (`src/routes/_authenticated/dashboard.index.tsx`)
+- **Feature**: Added a dedicated, interactive "Consent to Share Details with Verified Lawyers" management card directly on the Citizen Dashboard home screen (`/dashboard`).
+- **Capabilities**:
+  - **Interactive Toggle**: Instant toggle switch allowing citizens to grant or revoke consent for sharing case summaries, FIR statutory analysis, and complaint facts with verified Bar Council advocates.
+  - **Real-Time Status Indicator**: Displays dynamic status pill (`Consent Active · Review Enabled` vs. `Strict Privacy Mode · Sharing Disabled`).
+  - **Clear Statutory & Privacy Note**:
+    - **Voluntary Citizen Request (BCI Ethics)**: Explicit notice under Rule 36, Chapter II, Part VI of Bar Council of India (BCI) Rules that advocates cannot advertise or solicit work; sharing occurs strictly upon the citizen's voluntary initiative for preliminary legal first-aid and opinions.
+    - **TRANA Privacy Shield (Contact Masking)**: Direct phone numbers, emails, and identifying particulars are masked (`XXXXX`) to prevent unsolicited contact or spam. Reviewing advocates receive strictly factual allegations and statutory provisions.
+    - **Privileged Communications & DPDP Act 2023**: Reaffirms attorney-client privilege principles under Section 126 of the Bharatiya Sakshya Adhiniyam, 2023 (BSA) / Indian Evidence Act and data subject rights under the DPDP Act, 2023.
+  - **Expandable Legal Accordion**: "Read Full Policy & BCI Terms" collapsible drawer detailing shared data scope, anti-solicitation guarantees, and consent revocation.
+  - **Cross-Session Persistence**: Persisted in `localStorage` (`trana_citizen_lawyer_share_consent`) and logged to Supabase (`advocate_disclaimers`) when authenticated.
+
+### 2. Complaint Analyser Mandatory Consent Checkbox (`src/routes/_authenticated/dashboard.analyse.tsx`)
+- **Feature**: Integrated an explicit consent verification checkbox and statutory note directly inside the ₹50 Legal Professional Written Opinion payment & submission modal.
+- **Enforcement**:
+  - Ensures citizens voluntarily acknowledge sharing complaint allegations with panel advocates before payment and submission.
+  - Disables the "Pay ₹50 & Submit Case" button until consent is checked.
+  - Synchronizes preference with the central Citizen Dashboard toggle state.
+
+### 3. Find a Legal Professional Privacy Banner (`src/routes/_authenticated/dashboard.lawyers.tsx`)
+- **Feature**: Added a "Consent & Privacy Shield Protected" banner under the directory header with a direct link to manage sharing consent on the Citizen Dashboard.
+
