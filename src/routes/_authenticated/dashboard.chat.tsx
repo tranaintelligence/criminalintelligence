@@ -18,6 +18,7 @@ import {
 import { MessageBubble } from '@/components/Chat/MessageBubble';
 import { SystemStatus } from '@/components/Sidebar/SystemStatus';
 import { ConnectProfessionalOfferModal } from '@/components/ConnectProfessionalOfferModal';
+import { supabase } from '@/integrations/supabase/client';
 import type { ApplicableLaw, ChatMessage, ChatSession, StructuredAnalysis } from '@/lib/trana-types';
 import { authFetch, authHeaders, notifyApiOnline, useTranaCredential, API_ONLINE_EVENT } from '@/lib/trana-auth';
 import { API_URL } from '@/lib/trana-backend';
@@ -736,6 +737,48 @@ export function ChatViewContent() {
           created_at: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
+
+        // Sync legal queries anonymously for the Lawyer Citizen Queries dashboard
+        try {
+          const queryId = `chat-${activeChatId || Date.now()}`;
+          const poolQuery = {
+            id: queryId,
+            created_at: new Date().toISOString(),
+            issue_summary: newMessage.content.slice(0, 180) || "Citizen Legal Inquiry",
+            category: data.analysis?.applicable_laws?.[0]?.act || data.analysis?.applicable_laws?.[0]?.code || "Criminal Legal First-Aid",
+            status: "open",
+            chat_id: activeChatId || null,
+            applicable_laws: data.analysis?.applicable_laws || [],
+            bail_status: data.analysis?.bail_status || null,
+            situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis || null,
+            citizen_name: "Anonymous Citizen",
+            plan: "ai_free",
+            fee: 0,
+            priority: "normal",
+          };
+          const existingPool = JSON.parse(localStorage.getItem("trana_citizen_queries_pool") || "[]");
+          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.filter((x: any) => x.id !== queryId).slice(0, 49)]));
+
+          void supabase.from("analyses").insert({
+            id: queryId,
+            situation: newMessage.content,
+            result: {
+              situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
+              applicable_laws: data.analysis?.applicable_laws || [],
+              bail_status: data.analysis?.bail_status,
+              rights: data.analysis?.rights,
+              source: "legal_first_aid_chat",
+              anonymous: true,
+              plan: "ai_free",
+              fee: 0,
+            },
+            is_criminal: true,
+            user_id: credential ? "citizen-user" : "anonymous-citizen",
+          }).catch((err) => console.warn("Supabase analyses insert from chat note:", err));
+        } catch (syncErr) {
+          console.warn("Could not sync chat query to pool:", syncErr);
+        }
+
         if (data.analysis?.suggest_lawyer || isLawyerIntent(assistantMessage.content) || isAskingLawyer) {
           setUserRequestedLawyerRecently(true);
           setDismissedOffer(false);
@@ -1145,24 +1188,24 @@ export function ChatViewContent() {
             )}
             {isLoading && <ThinkingAnimation />}
 
-            {/* Offer to Connect with an Advocate */}
+            {/* Offer to Connect with a Legal Professional */}
             {!isLoading && messages.some((m) => m.role === 'assistant' && m.content !== WELCOME_MESSAGE) && !dismissedOffer && (
               userRequestedLawyerRecently ||
               isLawyerIntent(messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || '') ||
               isLawyerIntent(messages.filter((m) => m.role === 'assistant').slice(-1)[0]?.content || '') ||
               !hasOfferedConnection
             ) && (
-              <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[#141416] to-[#0c0c0e] p-3.5 sm:p-4 text-xs shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="rounded-xl border border-emerald-500/35 bg-gradient-to-r from-emerald-500/15 via-[#0e1712] to-emerald-950/30 p-3.5 sm:p-4 text-xs shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Scale className="h-4 w-4 text-amber-400 shrink-0" />
-                      <span className="font-semibold text-white tracking-tight text-xs sm:text-sm">
-                        Would you like to connect with a verified advocate?
+                      <Scale className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span className="font-semibold text-emerald-300 tracking-tight text-xs sm:text-sm">
+                        Would you like to connect with a verified legal professional?
                       </span>
                     </div>
                     <p className="text-neutral-300 leading-relaxed text-[11px] sm:text-xs">
-                      Advocate consultations are chargeable professional services. TRANA provides a neutral, unranked list so you can choose independently. If you cannot afford legal fees, free legal aid is available via NALSA / DLSA.
+                      Legal professional consultations are chargeable professional services. TRANA provides a neutral, unranked list so you can choose independently. If you cannot afford legal fees, free legal aid is available via NALSA / DLSA.
                     </p>
                   </div>
                   <button
@@ -1188,9 +1231,9 @@ export function ChatViewContent() {
                       setModalInitialView('notice');
                       setIsConnectModalOpen(true);
                     }}
-                    className="w-full sm:w-auto text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black transition-colors cursor-pointer text-center shadow-md active:scale-95"
+                    className="w-full sm:w-auto text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-colors cursor-pointer text-center active:scale-95"
                   >
-                    View Advocates (Chargeable)
+                    View Legal Professionals (Chargeable)
                   </button>
                   <button
                     type="button"

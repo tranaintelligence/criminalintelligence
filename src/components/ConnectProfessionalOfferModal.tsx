@@ -168,7 +168,7 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#222] px-5 py-4 bg-[#121215]">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-300">
               <Scale className="h-4 w-4" />
             </div>
             <div>
@@ -194,19 +194,19 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
           {/* VIEW 1: MANDATORY CHARGEABLE NOTICE */}
           {view === "notice" && (
             <div className="space-y-6">
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5">
                 <div className="flex items-start gap-3.5">
-                  <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                  <Scale className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-sm font-semibold text-amber-200">
-                      Important Information Regarding Advocate Consultations
+                    <h3 className="text-sm font-semibold text-emerald-200">
+                      Important Information Regarding Legal Professional Consultations
                     </h3>
                     <p className="mt-2 text-xs text-neutral-300 leading-relaxed">
-                      Consulting with a private advocate is a <strong>chargeable professional service</strong>.
+                      Consulting with a private legal professional is a <strong>chargeable professional service</strong>.
                     </p>
                     <p className="mt-2 text-xs text-neutral-400 font-mono leading-relaxed">
-                      &bull; TRANA does not charge any commission or referral cut on advocate fees.<br />
-                      &bull; TRANA does not recommend or promote any specific advocate. You must choose entirely independently.<br />
+                      &bull; TRANA does not charge any commission or referral cut on professional fees.<br />
+                      &bull; TRANA does not recommend or promote any specific legal professional. You must choose entirely independently.<br />
                       &bull; If you or your family cannot afford private legal fees, you are legally entitled to <strong>100% Free Legal Aid</strong> through the District Legal Services Authority (DLSA).
                     </p>
                   </div>
@@ -218,20 +218,20 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
                 <button
                   type="button"
                   onClick={() => setView("directory")}
-                  className="group flex flex-col justify-between text-left p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-amber-400/40 transition-all cursor-pointer"
+                  className="group flex flex-col justify-between text-left p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-emerald-400/40 transition-all cursor-pointer"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-amber-300/80 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-300/90 bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-500/25">
                         Chargeable
                       </span>
-                      <ArrowRight className="h-4 w-4 text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-1 transition-all" />
+                      <ArrowRight className="h-4 w-4 text-neutral-500 group-hover:text-emerald-300 group-hover:translate-x-1 transition-all" />
                     </div>
-                    <h4 className="text-sm font-semibold text-white group-hover:text-amber-200">
-                      Browse Private Advocates Directory
+                    <h4 className="text-sm font-semibold text-white group-hover:text-emerald-200">
+                      Browse Private Legal Professionals Directory
                     </h4>
                     <p className="mt-1.5 text-xs text-neutral-400 leading-relaxed">
-                      Review a neutral, unranked list grouped by practice area and city/state to choose your own advocate.
+                      Review a neutral, unranked list grouped by practice area and city/state to choose your own legal professional.
                     </p>
                   </div>
                 </button>
@@ -267,13 +267,13 @@ export const ConnectProfessionalOfferModal: React.FC<ConnectProfessionalOfferMod
               {/* Neutrality Disclaimer Banner */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-[#16161a] text-xs text-neutral-300">
                 <p className="leading-snug">
-                  <span className="font-semibold text-white">Neutral Directory:</span> TRANA does not recommend any specific advocate. 
-                  Advocates are arranged neutrally by Practice Area and Jurisdiction.
+                  <span className="font-semibold text-white">Neutral Directory:</span> TRANA does not recommend any specific legal professional. 
+                  Legal professionals are arranged neutrally by Practice Area and Jurisdiction.
                 </p>
                 <button
                   type="button"
                   onClick={() => setView("notice")}
-                  className="text-[11px] font-mono text-amber-300 hover:underline shrink-0 ml-3"
+                  className="text-[11px] font-mono text-emerald-300 hover:underline shrink-0 ml-3"
                 >
                   &larr; Back
                 </button>

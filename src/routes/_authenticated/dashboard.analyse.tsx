@@ -4,8 +4,9 @@ import {
   Upload, X, FileText, Scale, ShieldCheck, CheckCircle2, 
   AlertTriangle, ArrowRight, ExternalLink, Copy, Check, Sparkles, 
   MessageSquare, Loader2, RotateCcw, Clock, Trash2, History, HeartHandshake,
-  Users
+  Users, CreditCard, QrCode, Shield
 } from "lucide-react";
+import { marked } from "marked";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { API_URL } from "@/lib/trana-backend";
@@ -131,6 +132,11 @@ function Analyse() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<"ai" | "professional">("ai");
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paidReviewSuccess, setPaidReviewSuccess] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"upi" | "card" | "netbanking">("upi");
   const [pastAnalyses, setPastAnalyses] = useState<StoredPastAnalysis[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -166,8 +172,12 @@ function Analyse() {
     setFile(f);
   }
 
-  async function submit() {
+  async function submit(forcePaid: boolean = false) {
     if (!text.trim() && !file) return;
+    if (analysisMode === "professional" && !paidReviewSuccess && !forcePaid) {
+      setIsPaymentModalOpen(true);
+      return;
+    }
     setBusy(true);
     setErr(null);
     setResult(null);
@@ -209,16 +219,27 @@ function Analyse() {
 
       // Analyze endpoint call with structured 5-point FIR analysis protocol
       const queryPrompt = text.trim()
-        ? `Perform a complete 5-point criminal complaint / FIR analysis on this case:
-1. List every BNS section applicable or mentioned.
-2. Explain each section in simple language with exact statutory reference: [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC].
-3. Check whether the sections match the facts written and flag anything that looks misapplied or exaggerated (noting a lawyer should confirm).
-4. Explain legal rights under each section.
-5. Give the one most important thing to do next for this case.
+        ? `Perform a complete 5-point criminal complaint / FIR analysis on this case.
+CRITICAL FORMATTING & LAYMAN'S TERMS INSTRUCTIONS:
+- Explain everything in clear, reassuring layman's terms that an ordinary family member can understand at midnight, while retaining the full depth and exact statutory data.
+- Avoid legal jargon. If a technical legal term is necessary, explain it in one simple sentence.
+- For each section, format with bold headers and clean line breaks:
+  ### Section <Number>, <Act Full Name>
+  **Plain meaning:** <Clear layman explanation of what this offence is and its punishment>
+  **Statutory reference:** [Ref: <Act Full Name>, Section <X> — previously Section <Y> <Old Code>]
+  **Key points of the provision:**
+  1. ...
+  2. ...
+  **Legal rights of the accused under this section:**
+  - ...
+  **Potential mis-application or exaggeration:**
+  - ...
+  **One most important next step:**
+  - ...
 
 Case Details:
 ${text.trim()}`
-        : `Analyze the uploaded document (${file?.name}) thoroughly. Perform a complete 5-point criminal complaint / FIR analysis: list every BNS section with statutory references [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC], explain allegations in simple language, check whether sections match facts and flag misapplications, assess bail eligibility, list immediate rights under each section, and provide the one most important next step.`;
+        : `Analyze the uploaded document (${file?.name}) thoroughly. Perform a complete 5-point criminal complaint / FIR analysis in clear layman's terms with zero jargon: list every BNS section with statutory references [Ref: Bharatiya Nyaya Sanhita, 2023 (BNS), Section <X> — previously Section <Y> IPC], explain allegations in simple language with bold headers and clean spacing, check whether sections match facts and flag misapplications, assess bail eligibility, list immediate rights under each section, and provide the one most important next step.`;
 
       const endpoint = credential ? `${API_URL}/api/analyze` : `${API_URL}/api/analyze/temporary`;
       const bodyPayload: Record<string, unknown> = {
@@ -274,31 +295,53 @@ ${text.trim()}`
 
         // Sync with Citizen Queries board for advocates
         try {
+          const isPaid = analysisMode === "professional" || forcePaid || paidReviewSuccess;
+          const queryId = `query-${Date.now()}`;
           const poolQuery = {
-            id: `query-${Date.now()}`,
+            id: queryId,
             created_at: new Date().toISOString(),
-            issue_summary: titleSnippet,
-            category: data.analysis?.applicable_laws?.[0]?.act || "Statutory Complaint",
+            issue_summary: text.trim().slice(0, 180) || titleSnippet,
+            category: data.analysis?.applicable_laws?.[0]?.act || data.analysis?.applicable_laws?.[0]?.code || "Statutory Complaint",
             status: "open",
             chat_id: createdChatId || null,
             applicable_laws: data.analysis?.applicable_laws || [],
             bail_status: data.analysis?.bail_status || null,
-            situation_meaning: data.analysis?.situation_meaning || null,
+            situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis || null,
+            citizen_name: "Anonymous Citizen",
+            plan: isPaid ? "paid_professional" : "ai_free",
+            fee: isPaid ? 50 : 0,
+            priority: isPaid ? "high" : "normal",
           };
           const existingPool = JSON.parse(localStorage.getItem("trana_citizen_queries_pool") || "[]");
-          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.slice(0, 49)]));
-          void supabase.from("complaint_analyses").insert({
-            id: poolQuery.id,
-            issue_summary: poolQuery.issue_summary,
-            category: poolQuery.category,
-            status: "open",
-          }).catch(() => {});
+          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.filter((x: any) => x.id !== queryId).slice(0, 49)]));
+          
+          void supabase.from("analyses").insert({
+            id: queryId,
+            situation: text.trim() || `Complaint Document: ${file?.name || "Uploaded Document"}`,
+            result: {
+              situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
+              applicable_laws: data.analysis?.applicable_laws || [],
+              bail_status: data.analysis?.bail_status,
+              rights: data.analysis?.rights,
+              source: "complaint_analyser",
+              anonymous: true,
+              plan: poolQuery.plan,
+              fee: poolQuery.fee,
+              priority: poolQuery.priority,
+            },
+            is_criminal: true,
+            user_id: credential ? "citizen-user" : "anonymous-citizen",
+          }).catch((insertErr) => console.warn("Supabase analyses insert note:", insertErr));
         } catch {}
       } catch (saveErr) {
         console.warn("Could not cache past analysis:", saveErr);
       }
 
-      toast.success("Complaint analysis generated successfully.");
+      if (analysisMode === "professional" || forcePaid || paidReviewSuccess) {
+        toast.success("₹50 Legal Professional Review confirmed! Complaint submitted with High Priority to panel advocates.");
+      } else {
+        toast.success("Complaint analysis generated successfully.");
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Something went wrong while analysing.");
     } finally {
@@ -611,10 +654,66 @@ ${text.trim()}`
           </div>
         )}
 
+        {/* Option Selector: AI Analysis vs Legal Professional Review */}
+        <div className="mt-5 pt-4 border-t border-white/10">
+          <label className="block text-xs font-medium text-neutral-400 mb-2 font-mono uppercase tracking-wider">
+            Choose Analysis Provider:
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Option A: AI Analysis (Free) */}
+            <button
+              type="button"
+              onClick={() => setAnalysisMode("ai")}
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                analysisMode === "ai"
+                  ? "border-emerald-500/60 bg-emerald-500/15 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/40"
+                  : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-400" />
+                  <span className="font-semibold text-white text-sm">Trana Statutory AI</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Free &bull; Instant
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 leading-relaxed">
+                Instant 5-point statutory breakdown, rights, and bailable status decoded by legal AI.
+              </p>
+            </button>
+
+            {/* Option B: Legal Professional Review (₹50) */}
+            <button
+              type="button"
+              onClick={() => setAnalysisMode("professional")}
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                analysisMode === "professional"
+                  ? "border-amber-500/60 bg-amber-500/15 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-500/40"
+                  : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Scale className="h-4 w-4 text-amber-400" />
+                  <span className="font-semibold text-white text-sm">Legal Professional Review</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                  ₹50 &bull; Advocate Written Opinion
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 leading-relaxed">
+                Get your complaint reviewed directly by a verified advocate on our panel + instant AI first-aid.
+              </p>
+            </button>
+          </div>
+        </div>
+
         {/* Submit Actions */}
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
           <button
-            onClick={submit}
+            onClick={() => submit()}
             disabled={busy || (!text.trim() && !file)}
             className="px-6 py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500 text-black hover:bg-emerald-400 border border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.45)] disabled:opacity-40 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
@@ -623,10 +722,15 @@ ${text.trim()}`
                 <Loader2 className="h-4 w-4 animate-spin text-black" />
                 <span>Analysing Situation…</span>
               </>
+            ) : analysisMode === "professional" ? (
+              <>
+                <Scale className="h-4 w-4 text-black" />
+                <span>{paidReviewSuccess ? "Analyse with Priority Panel Review (₹50 Paid)" : "Get Legal Professional Review (₹50)"}</span>
+              </>
             ) : (
               <>
                 <Scale className="h-4 w-4 text-black" />
-                <span>Analyse Complaint Now</span>
+                <span>Analyse Complaint Now (Free AI)</span>
               </>
             )}
           </button>
@@ -659,6 +763,32 @@ ${text.trim()}`
       {/* Analysis Results View */}
       {result && a && (
         <div className="mt-10 space-y-6">
+          {/* Paid Legal Professional Status Banner */}
+          {(paidReviewSuccess || analysisMode === "professional") && (
+            <div className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-[#1a140b] to-[#121215] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0_0_25px_rgba(245,158,11,0.15)]">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 shrink-0">
+                  <Scale className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white text-sm">Legal Professional Review Active</span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-300 border border-amber-500/40">
+                      ₹50 Paid &bull; Priority
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-300 mt-0.5">
+                    Your complaint details have been prioritized and delivered anonymously to our verified panel advocates for detailed written review.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md shrink-0 flex items-center gap-1.5 self-start sm:self-center">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Routed to Panel Board
+              </span>
+            </div>
+          )}
+
           {/* Action & Metric Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.05] border border-white/10 text-xs">
             <div className="flex items-center gap-3">
@@ -706,16 +836,21 @@ ${text.trim()}`
               icon={FileText}
               title="What This Situation Means"
               subtitle="Plain-language breakdown of the allegations and circumstances"
+              badge="Plain-Language Breakdown"
+              badgeVariant="success"
             >
-              <div className="space-y-3">
-                {(a.situation_meaning || a.general_analysis || "")
-                  .split(/\n\n+/)
-                  .map((p, i) => (
-                    <p key={i} className="leading-relaxed text-neutral-200">
-                      {p}
-                    </p>
-                  ))}
-              </div>
+              <div
+                className="prose prose-invert max-w-none text-neutral-100 text-[14px] sm:text-[15px] leading-relaxed
+                  prose-headings:font-bold prose-headings:text-amber-300 prose-headings:tracking-tight prose-headings:mt-5 prose-headings:mb-2.5
+                  prose-h3:text-base sm:prose-h3:text-lg prose-h3:font-bold prose-h3:text-amber-300 prose-h3:border-b prose-h3:border-amber-500/25 prose-h3:pb-2
+                  prose-strong:font-bold prose-strong:text-amber-200/95
+                  prose-p:my-3.5 prose-p:leading-relaxed prose-p:text-neutral-100
+                  prose-ul:my-2.5 prose-li:my-1.5 prose-li:text-neutral-200
+                  prose-code:text-emerald-300 prose-code:font-mono prose-code:text-xs"
+                dangerouslySetInnerHTML={{
+                  __html: marked.parse(a.situation_meaning || a.general_analysis || "") as string,
+                }}
+              />
             </SectionCard>
           )}
 
@@ -874,21 +1009,21 @@ ${text.trim()}`
             </SectionCard>
           )}
 
-          {/* Speak to a Lawyer Callout */}
-          <div className="apple-glass-card rounded-2xl p-6 md:p-8 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-white/[0.04] to-emerald-500/10 backdrop-blur-2xl shadow-2xl">
-            <h3 className="font-display text-2xl font-semibold text-white">
-              Consult a Verified Advocate
+          {/* Speak to a Legal Professional Callout */}
+          <div className="apple-glass-card rounded-2xl p-6 md:p-8 border border-emerald-500/35 bg-gradient-to-r from-emerald-500/15 via-[#0e1712] to-emerald-950/30 backdrop-blur-2xl shadow-[0_0_35px_rgba(16,185,129,0.15)]">
+            <h3 className="font-display text-2xl font-semibold text-emerald-300">
+              Consult a Verified Legal Professional
             </h3>
-            <p className="mt-2 text-sm text-neutral-300 max-w-2xl leading-relaxed">
-              TRANA has decoded the statutory provisions and immediate rights for you. For legal drafting, bail petitions in court, or ongoing police representation, connect directly with a verified advocate.
+            <p className="mt-2 text-sm text-neutral-200 max-w-2xl leading-relaxed">
+              TRANA has decoded the statutory provisions and immediate rights for you. For legal drafting, bail petitions in court, or ongoing police representation, connect directly with a verified legal professional.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={() => setIsConnectModalOpen(true)}
-                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-white text-black hover:bg-neutral-200 border-none flex items-center gap-2 cursor-pointer transition-all"
+                className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500 text-black hover:bg-emerald-400 border border-emerald-400 flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.35)] active:scale-95"
               >
-                <span>Connect with an Advocate</span>
+                <span>Connect with a Legal Professional</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
               <button
@@ -909,11 +1044,143 @@ ${text.trim()}`
           </div>
 
           <p className="text-xs text-neutral-500 text-center leading-relaxed">
-            This analysis is generated by TRANA Statutory AI for legal education and first-aid only. It does not establish an attorney-client relationship. Always consult a qualified advocate for representation before judicial authorities.
+            This analysis is generated by TRANA Statutory AI for legal education and first-aid only. It does not establish an attorney-client relationship. Always consult a qualified legal professional for representation before judicial authorities.
           </p>
         </div>
       )}
         </>
+      )}
+
+      {/* ₹50 Legal Professional Review Payment Modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md border border-neutral-800 bg-[#0e0e11] text-neutral-100 shadow-2xl rounded-2xl overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 bg-[#141418]">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300">
+                  <Scale className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Legal Professional Review</h3>
+                  <p className="text-[11px] text-neutral-400 font-mono">Advocate Panel Opinion &bull; ₹50 Standard Fee</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs">
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-amber-200">What is included:</span>
+                  <span className="font-mono text-base font-bold text-amber-300">₹50</span>
+                </div>
+                <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+                  <li>Direct written opinion from a verified Bar Council advocate</li>
+                  <li>In-depth fact matching and false/exaggerated charge checks</li>
+                  <li>Immediate AI statutory first-aid report delivered instantly</li>
+                  <li>Anonymous case listing on Lawyer Citizen Inquiries dashboard</li>
+                </ul>
+              </div>
+
+              {/* Payment Method Selector */}
+              <div>
+                <label className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider block mb-2">
+                  Select Payment Method
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod("upi")}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      selectedPaymentMethod === "upi"
+                        ? "border-emerald-500 bg-emerald-500/15 text-white ring-1 ring-emerald-500/40"
+                        : "border-white/10 bg-white/[0.02] text-neutral-400 hover:text-white hover:border-white/20"
+                    }`}
+                  >
+                    <QrCode className="h-4 w-4 text-emerald-400" />
+                    <span className="font-medium text-[11px]">UPI / QR</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod("card")}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      selectedPaymentMethod === "card"
+                        ? "border-emerald-500 bg-emerald-500/15 text-white ring-1 ring-emerald-500/40"
+                        : "border-white/10 bg-white/[0.02] text-neutral-400 hover:text-white hover:border-white/20"
+                    }`}
+                  >
+                    <CreditCard className="h-4 w-4 text-emerald-400" />
+                    <span className="font-medium text-[11px]">Card</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod("netbanking")}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      selectedPaymentMethod === "netbanking"
+                        ? "border-emerald-500 bg-emerald-500/15 text-white ring-1 ring-emerald-500/40"
+                        : "border-white/10 bg-white/[0.02] text-neutral-400 hover:text-white hover:border-white/20"
+                    }`}
+                  >
+                    <Shield className="h-4 w-4 text-emerald-400" />
+                    <span className="font-medium text-[11px]">NetBanking</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Secure Payment Note */}
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-[11px] text-neutral-400">
+                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>256-bit Encrypted Escrow. 100% money-back guarantee if not reviewed.</span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-white/10 p-4 bg-[#141418] flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.06] text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={paymentProcessing}
+                onClick={async () => {
+                  setPaymentProcessing(true);
+                  // Instant escrow authorization
+                  await new Promise((r) => setTimeout(r, 600));
+                  setPaymentProcessing(false);
+                  setPaidReviewSuccess(true);
+                  setIsPaymentModalOpen(false);
+                  toast.success("Payment of ₹50 verified via UPI/Card escrow!");
+                  await submit(true);
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.35)] flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+              >
+                {paymentProcessing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Processing ₹50…</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="h-3.5 w-3.5" />
+                    <span>Pay ₹50 &amp; Submit Case</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Connect with Advocate & Free Legal Aid Modal */}

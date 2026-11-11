@@ -41,6 +41,9 @@ type CitizenQuery = {
   applicable_laws?: { act?: string; code?: string; section?: string; explanation?: string }[];
   bail_status?: string | null;
   situation_meaning?: string | null;
+  plan?: string;
+  fee?: number;
+  priority?: string;
 };
 
 function timeAgo(iso: string): string {
@@ -56,6 +59,7 @@ function timeAgo(iso: string): string {
 function CitizenQueriesPage() {
   const { data: lawyer } = useLawyerAuth();
   const [search, setSearch] = useState("");
+  const [scopeFilter, setScopeFilter] = useState<"all" | "specialisation">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "responded">("all");
   const [selectedQuery, setSelectedQuery] = useState<CitizenQuery | null>(null);
   const [responseText, setResponseText] = useState("");
@@ -83,7 +87,13 @@ function CitizenQueriesPage() {
             pool.forEach((item: any) => {
               if (item?.id && !seenIds.has(item.id)) {
                 seenIds.add(item.id);
-                mergedList.push(item);
+                mergedList.push({
+                  ...item,
+                  citizen_name: "Anonymous Citizen",
+                  plan: item.plan || "ai_free",
+                  fee: item.fee || 0,
+                  priority: item.priority || (item.fee === 50 ? "high" : "normal"),
+                });
               }
             });
           }
@@ -105,10 +115,14 @@ function CitizenQueriesPage() {
                   issue_summary: p.summaryTitle || p.originalQuery || "Citizen Complaint Analysis",
                   category: ana?.applicable_laws?.[0]?.act || "Statutory Matter",
                   status: "open",
+                  citizen_name: "Anonymous Citizen",
                   chat_id: p.result?.chatId || null,
                   applicable_laws: ana?.applicable_laws || [],
                   bail_status: ana?.bail_status || null,
                   situation_meaning: ana?.situation_meaning || null,
+                  plan: "ai_free",
+                  fee: 0,
+                  priority: "normal",
                 });
               }
             });
@@ -118,11 +132,11 @@ function CitizenQueriesPage() {
         console.warn("Could not read local citizen queries pool:", err);
       }
 
-      // 2. Fetch from Supabase complaint_analyses
+      // 2. Fetch from Supabase analyses table (primary real database store)
       try {
         const { data } = await supabase
-          .from("complaint_analyses")
-          .select("id, created_at, issue_summary, category, status, citizen_name, response, responded_at, responded_by")
+          .from("analyses")
+          .select("id, created_at, situation, result, is_criminal")
           .order("created_at", { ascending: false })
           .limit(100);
 
@@ -130,12 +144,31 @@ function CitizenQueriesPage() {
           data.forEach((row: any) => {
             if (row?.id && !seenIds.has(row.id)) {
               seenIds.add(row.id);
-              mergedList.push(row);
+              const res = (typeof row.result === "object" && row.result !== null) ? row.result : {};
+              const plan = res.plan || "ai_free";
+              const fee = res.fee || (plan === "paid_professional" ? 50 : 0);
+              mergedList.push({
+                id: row.id,
+                created_at: row.created_at || new Date().toISOString(),
+                issue_summary: row.situation ? (row.situation.length > 200 ? row.situation.slice(0, 197) + "…" : row.situation) : "Citizen Legal Inquiry",
+                category: res.applicable_laws?.[0]?.act || res.applicable_laws?.[0]?.code || "Criminal Law",
+                status: (res.response || res.status === "responded") ? "responded" : "open",
+                citizen_name: "Anonymous Citizen",
+                response: res.response || null,
+                responded_at: res.responded_at || null,
+                responded_by: res.responded_by || null,
+                applicable_laws: res.applicable_laws || [],
+                bail_status: res.bail_status || null,
+                situation_meaning: res.situation_meaning || null,
+                plan,
+                fee,
+                priority: res.priority || (fee === 50 ? "high" : "normal"),
+              });
             }
           });
         }
       } catch (err) {
-        console.warn("Supabase complaint_analyses fetch note:", err);
+        console.warn("Supabase analyses fetch note:", err);
       }
 
       // 3. Fallback mock queries if empty
@@ -149,14 +182,15 @@ function CitizenQueriesPage() {
     staleTime: 60 * 1000,
   });
 
-  // Filter queries matching lawyer's practice area
+  // Filter queries matching lawyer's practice area or all
   const matchedQueries = useMemo(() => {
+    if (scopeFilter === "all") return rawQueries;
     return rawQueries.filter((q) => {
       const qText = (q.issue_summary + " " + q.category).toLowerCase();
       const matchesSpec = lawyerKeywords.some((kw) => qText.includes(kw.toLowerCase()));
       return matchesSpec || lawyerKeywords.includes("general practice");
     });
-  }, [rawQueries, lawyerKeywords]);
+  }, [rawQueries, lawyerKeywords, scopeFilter]);
 
   const filteredQueries = useMemo(() => {
     return matchedQueries.filter((q) => {
@@ -173,9 +207,30 @@ function CitizenQueriesPage() {
     if (!selectedQuery || !responseText.trim()) return;
     setSending(true);
     try {
-      // 1. Try Supabase update
+      // 1. Try Supabase update in analyses table
       await supabase
-        .from("complaint_analyses")
+        .from("analyses")
+        .update({
+          result: {
+            situation_meaning: selectedQuery.situation_meaning,
+            applicable_laws: selectedQuery.applicable_laws,
+            bail_status: selectedQuery.bail_status,
+            response: responseText.trim(),
+            responded_at: new Date().toISOString(),
+            responded_by: lawyer?.full_name || "Advocate",
+            status: "responded",
+            citizen_name: "Anonymous Citizen",
+            plan: selectedQuery.plan,
+            fee: selectedQuery.fee,
+            priority: selectedQuery.priority,
+          } as any,
+        })
+        .eq("id", selectedQuery.id)
+        .catch(() => {});
+
+      // 2. Also try complaint_analyses table if present
+      await supabase
+        .from("complaint_analyses" as any)
         .update({
           response: responseText.trim(),
           responded_at: new Date().toISOString(),
@@ -185,7 +240,7 @@ function CitizenQueriesPage() {
         .eq("id", selectedQuery.id)
         .catch(() => {});
 
-      // 2. Update local pool
+      // 3. Update local pool
       try {
         const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
         if (poolRaw) {
@@ -238,47 +293,77 @@ function CitizenQueriesPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters & Scope */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search inquiries or statutory sections..."
-            className="w-full border border-white/10 bg-[#121216] pl-10 pr-4 py-2 text-xs rounded-xl text-white placeholder:text-neutral-500 focus:border-amber-400/60 focus:outline-none"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-3.5 w-3.5 text-neutral-500" />
-          {(["all", "open", "responded"] as const).map((s) => (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Scope Selector: All Inquiries vs My Practice Area */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/10 text-xs">
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider rounded-lg border transition-colors cursor-pointer ${
-                statusFilter === s
-                  ? "border-emerald-500 bg-emerald-500 text-black font-semibold"
-                  : "border-white/10 bg-transparent text-neutral-400 hover:border-white/25 hover:text-white"
+              type="button"
+              onClick={() => setScopeFilter("all")}
+              className={`px-3 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${
+                scopeFilter === "all"
+                  ? "bg-white/15 text-white font-semibold shadow-sm"
+                  : "text-neutral-400 hover:text-white"
               }`}
             >
-              {s}
+              All Inquiries ({rawQueries.length})
             </button>
-          ))}
-          <button
-            onClick={() => refetch()}
-            className="border border-white/10 p-2 rounded-lg text-neutral-400 hover:border-white/30 hover:text-white transition-colors cursor-pointer"
-            aria-label="Refresh"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </button>
+            <button
+              type="button"
+              onClick={() => setScopeFilter("specialisation")}
+              className={`px-3 py-1 rounded-lg font-mono text-[11px] transition-all cursor-pointer ${
+                scopeFilter === "specialisation"
+                  ? "bg-white/15 text-white font-semibold shadow-sm"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              My Practice Area ({lawyer?.specialisation || "General"})
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search inquiries or statutes..."
+              className="w-full border border-white/10 bg-[#121216] pl-9 pr-3 py-1.5 text-xs rounded-xl text-white placeholder:text-neutral-500 focus:border-amber-400/60 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+            <Filter className="h-3.5 w-3.5 text-neutral-500" />
+            {(["all", "open", "responded"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider rounded-lg border transition-colors cursor-pointer ${
+                  statusFilter === s
+                    ? "border-emerald-500 bg-emerald-500 text-black font-semibold"
+                    : "border-white/10 bg-transparent text-neutral-400 hover:border-white/25 hover:text-white"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+            <button
+              onClick={() => refetch()}
+              className="border border-white/10 p-1.5 rounded-lg text-neutral-400 hover:border-white/30 hover:text-white transition-colors cursor-pointer"
+              aria-label="Refresh"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
-          { label: "Matching Inquiries", value: matchedQueries.length, icon: MessageSquare },
+          { label: "Active Inquiries", value: matchedQueries.length, icon: MessageSquare },
           { label: "Awaiting Response", value: matchedQueries.filter((q) => q.status === "open").length, icon: AlertCircle },
           { label: "Answered", value: matchedQueries.filter((q) => q.status === "responded").length, icon: CheckCircle2 },
         ].map(({ label, value, icon: Icon }) => (
@@ -303,7 +388,7 @@ function CitizenQueriesPage() {
           <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
             <Scale className="h-8 w-8 text-neutral-600" />
             <p className="font-mono text-xs text-neutral-400 uppercase tracking-wider">
-              No queries match your practice area right now.
+              No queries found in this view.
             </p>
           </div>
         ) : (
@@ -329,6 +414,12 @@ function CitizenQueriesPage() {
                     {query.issue_summary}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
+                    {(query.fee === 50 || query.plan === "paid_professional") && (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-300">
+                        <Scale className="h-3 w-3" />
+                        ₹50 Paid Review
+                      </span>
+                    )}
                     {query.category && (
                       <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-neutral-300">
                         {query.category}
@@ -348,6 +439,9 @@ function CitizenQueriesPage() {
                       }`}
                     >
                       {query.status}
+                    </span>
+                    <span className="font-mono text-[10px] text-neutral-500">
+                      Citizen: Anonymous
                     </span>
                     <span className="font-mono text-[10px] text-neutral-500">
                       <Clock className="inline h-3 w-3 mr-1" />
@@ -385,7 +479,14 @@ function CitizenQueriesPage() {
             <div className="space-y-4 p-5 sm:p-6 overflow-y-auto">
               {/* Query Summary */}
               <div className="border border-white/10 bg-[#0e0e12] p-4 rounded-xl space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-neutral-400">Citizen Inquiry</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-neutral-400">Citizen Inquiry &bull; Anonymous</p>
+                  {(selectedQuery.fee === 50 || selectedQuery.plan === "paid_professional") && (
+                    <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                      ₹50 Priority Paid Review
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-white leading-relaxed">{selectedQuery.issue_summary}</p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   {selectedQuery.category && (
