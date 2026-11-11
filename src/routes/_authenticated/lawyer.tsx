@@ -305,7 +305,7 @@ function LawyerLayout() {
   async function handleRegisterAdvocate(e: React.FormEvent) {
     e.preventDefault();
     if (!bciDisclaimerChecked) {
-      toast.error("Please confirm compliance with BCI's Website & Information Rules before submitting.");
+      toast.error("Please confirm compliance with BCI's Professional Conduct Declaration before submitting.");
       return;
     }
     setIsVerifying(true);
@@ -687,30 +687,37 @@ function LawyerLayout() {
               </div>
 
               {/* BCI Website & Information Rules Disclaimer */}
-              <div className="border border-amber-500/20 bg-amber-500/5 p-4">
-                <label className="flex cursor-pointer items-start gap-3">
-                  <div className="relative mt-0.5 flex-shrink-0">
+              <div className="border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 rounded-lg">
+                <label className="flex cursor-pointer items-start gap-3.5">
+                  <div className="relative mt-1 flex-shrink-0">
                     <input
                       type="checkbox"
                       checked={bciDisclaimerChecked}
                       onChange={(e) => setBciDisclaimerChecked(e.target.checked)}
                       className="peer sr-only"
                     />
-                    <div className={`h-4 w-4 border ${bciDisclaimerChecked ? "border-amber-400 bg-amber-400" : "border-[#444444] bg-transparent"} flex items-center justify-center transition-colors`}>
+                    <div className={`h-4.5 w-4.5 rounded border ${bciDisclaimerChecked ? "border-amber-400 bg-amber-400" : "border-neutral-500 bg-neutral-900"} flex items-center justify-center transition-colors shadow-sm`}>
                       {bciDisclaimerChecked && (
-                        <svg className="h-2.5 w-2.5 text-black" fill="none" viewBox="0 0 12 12">
-                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg className="h-3 w-3 text-black" fill="none" viewBox="0 0 12 12">
+                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </div>
                   </div>
-                  <span className="font-mono text-[10px] leading-relaxed text-amber-400/80">
-                    <strong className="text-amber-400">BCI Compliance Declaration (Mandatory):</strong>{" "}
-                    I confirm that my profile listing on TRANA complies with the Bar Council of India's Standards of Professional Conduct 
-                    and Etiquette, including provisions under Chapter II, Part VI of the BCI Rules (Standards of Professional Conduct), 
-                    and that I am not soliciting work through this listing. This listing is for informational purposes only, in accordance 
-                    with BCI's rules on advocate websites and information systems.
-                  </span>
+                  <div className="space-y-2 text-xs sm:text-[13px] leading-relaxed text-neutral-100">
+                    <strong className="block text-amber-300 font-semibold text-sm tracking-wide">
+                      BCI Professional Conduct Declaration (Mandatory)
+                    </strong>
+                    <p className="text-neutral-200">
+                      I acknowledge that I am bound by the Bar Council of India Rules, including Rule 36 of Chapter II, Part VI, concerning professional conduct and the prohibition on advertising or soliciting professional work.
+                    </p>
+                    <p className="text-neutral-200">
+                      I confirm that the information I provide for my profile is accurate and that I will not use TRANA to advertise, promote or solicit professional engagements in violation of applicable BCI rules.
+                    </p>
+                    <p className="text-neutral-200">
+                      I understand that my profile and its publication remain subject to applicable professional regulations and that this declaration does not constitute BCI approval or certification of the listing.
+                    </p>
+                  </div>
                 </label>
               </div>
 
