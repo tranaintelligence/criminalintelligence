@@ -293,45 +293,51 @@ ${text.trim()}`
         setPastAnalyses(updatedHistory);
         localStorage.setItem("trana_citizen_past_analyses", JSON.stringify(updatedHistory));
 
-        // Sync with Citizen Queries board for advocates
+        // Sync with Citizen Queries board for advocates ONLY when Legal Professional is selected & paid!
         try {
           const isPaid = analysisMode === "professional" || forcePaid || paidReviewSuccess;
-          const queryId = `query-${Date.now()}`;
-          const poolQuery = {
-            id: queryId,
-            created_at: new Date().toISOString(),
-            issue_summary: text.trim().slice(0, 180) || titleSnippet,
-            category: data.analysis?.applicable_laws?.[0]?.act || data.analysis?.applicable_laws?.[0]?.code || "Statutory Complaint",
-            status: "open",
-            chat_id: createdChatId || null,
-            applicable_laws: data.analysis?.applicable_laws || [],
-            bail_status: data.analysis?.bail_status || null,
-            situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis || null,
-            citizen_name: "Anonymous Citizen",
-            plan: isPaid ? "paid_professional" : "ai_free",
-            fee: isPaid ? 50 : 0,
-            priority: isPaid ? "high" : "normal",
-          };
-          const existingPool = JSON.parse(localStorage.getItem("trana_citizen_queries_pool") || "[]");
-          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.filter((x: any) => x.id !== queryId).slice(0, 49)]));
-          
-          void supabase.from("analyses").insert({
-            id: queryId,
-            situation: text.trim() || `Complaint Document: ${file?.name || "Uploaded Document"}`,
-            result: {
-              situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
+          if (isPaid) {
+            const queryId = `query-${Date.now()}`;
+            const poolQuery = {
+              id: queryId,
+              created_at: new Date().toISOString(),
+              issue_summary: text.trim().slice(0, 180) || titleSnippet,
+              category: data.analysis?.applicable_laws?.[0]?.act || data.analysis?.applicable_laws?.[0]?.code || "Statutory Complaint",
+              status: "open",
+              chat_id: createdChatId || null,
               applicable_laws: data.analysis?.applicable_laws || [],
-              bail_status: data.analysis?.bail_status,
-              rights: data.analysis?.rights,
-              source: "complaint_analyser",
-              anonymous: true,
-              plan: poolQuery.plan,
-              fee: poolQuery.fee,
-              priority: poolQuery.priority,
-            },
-            is_criminal: true,
-            user_id: credential ? "citizen-user" : "anonymous-citizen",
-          }).catch((insertErr) => console.warn("Supabase analyses insert note:", insertErr));
+              bail_status: data.analysis?.bail_status || null,
+              situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis || null,
+              citizen_name: "Anonymous Citizen",
+              plan: "paid_professional",
+              fee: 50,
+              priority: "high",
+              responses: [],
+              passed_by: [],
+            };
+            const existingPool = JSON.parse(localStorage.getItem("trana_citizen_queries_pool") || "[]");
+            localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.filter((x: any) => x.id !== queryId).slice(0, 49)]));
+            
+            void supabase.from("analyses").insert({
+              id: queryId,
+              situation: text.trim() || `Complaint Document: ${file?.name || "Uploaded Document"}`,
+              result: {
+                situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
+                applicable_laws: data.analysis?.applicable_laws || [],
+                bail_status: data.analysis?.bail_status,
+                rights: data.analysis?.rights,
+                source: "complaint_analyser",
+                anonymous: true,
+                plan: "paid_professional",
+                fee: 50,
+                priority: "high",
+                responses: [],
+                passed_by: [],
+              },
+              is_criminal: true,
+              user_id: credential ? "citizen-user" : "anonymous-citizen",
+            }).catch((insertErr) => console.warn("Supabase analyses insert note:", insertErr));
+          }
         } catch {}
       } catch (saveErr) {
         console.warn("Could not cache past analysis:", saveErr);
@@ -684,7 +690,7 @@ ${text.trim()}`
               </p>
             </button>
 
-            {/* Option B: Legal Professional Review (₹50) */}
+            {/* Option B: Legal Professional Written Opinion (₹50) */}
             <button
               type="button"
               onClick={() => setAnalysisMode("professional")}
@@ -697,14 +703,14 @@ ${text.trim()}`
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                   <Scale className="h-4 w-4 text-amber-400" />
-                  <span className="font-semibold text-white text-sm">Legal Professional Review</span>
+                  <span className="font-semibold text-white text-sm">Legal Professional Written Opinion</span>
                 </div>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40">
-                  ₹50 &bull; Advocate Written Opinion
+                  ₹50 &bull; Verified Written Opinion
                 </span>
               </div>
               <p className="text-xs text-neutral-300 leading-relaxed">
-                Get your complaint reviewed directly by a verified advocate on our panel + instant AI first-aid.
+                Get your complaint reviewed directly by verified panel legal professionals for a comprehensive written opinion + instant AI first-aid.
               </p>
             </button>
           </div>
@@ -725,7 +731,7 @@ ${text.trim()}`
             ) : analysisMode === "professional" ? (
               <>
                 <Scale className="h-4 w-4 text-black" />
-                <span>{paidReviewSuccess ? "Analyse with Priority Panel Review (₹50 Paid)" : "Get Legal Professional Review (₹50)"}</span>
+                <span>{paidReviewSuccess ? "Analyse with Priority Panel Review (₹50 Paid)" : "Get Legal Professional Written Opinion (₹50)"}</span>
               </>
             ) : (
               <>
@@ -1009,21 +1015,35 @@ ${text.trim()}`
             </SectionCard>
           )}
 
-          {/* Speak to a Legal Professional Callout */}
+          {/* Legal Professional Written Opinion Callout */}
           <div className="apple-glass-card rounded-2xl p-6 md:p-8 border border-emerald-500/35 bg-gradient-to-r from-emerald-500/15 via-[#0e1712] to-emerald-950/30 backdrop-blur-2xl shadow-[0_0_35px_rgba(16,185,129,0.15)]">
-            <h3 className="font-display text-2xl font-semibold text-emerald-300">
-              Consult a Verified Legal Professional
-            </h3>
-            <p className="mt-2 text-sm text-neutral-200 max-w-2xl leading-relaxed">
-              TRANA has decoded the statutory provisions and immediate rights for you. For legal drafting, bail petitions in court, or ongoing police representation, connect directly with a verified legal professional.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-display text-2xl font-semibold text-emerald-300">
+                  Legal Professional Written Opinion (₹50)
+                </h3>
+                <p className="mt-2 text-sm text-neutral-200 max-w-2xl leading-relaxed">
+                  TRANA has decoded the statutory provisions and immediate rights for you. For formal fact-checking, charge verification, and comprehensive legal strategy, get a verified legal professional written opinion for ₹50.
+                </p>
+              </div>
+              <div className="px-3.5 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-emerald-300 font-mono text-sm font-bold shrink-0 self-start sm:self-center">
+                Fee: ₹50
+              </div>
+            </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => setIsConnectModalOpen(true)}
+                onClick={() => {
+                  if (paidReviewSuccess) {
+                    toast.info("Legal Professional Written Opinion (₹50) is already active for this analysis.");
+                  } else {
+                    setIsPaymentModalOpen(true);
+                  }
+                }}
                 className="apple-glass-pill px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500 text-black hover:bg-emerald-400 border border-emerald-400 flex items-center gap-2 cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.35)] active:scale-95"
               >
-                <span>Connect with a Legal Professional</span>
+                <Scale className="h-3.5 w-3.5" />
+                <span>{paidReviewSuccess ? "Legal Professional Written Opinion Active (₹50 Paid)" : "Get Legal Professional Written Opinion (₹50)"}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
               <button
@@ -1062,8 +1082,8 @@ ${text.trim()}`
                   <Scale className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Legal Professional Review</h3>
-                  <p className="text-[11px] text-neutral-400 font-mono">Advocate Panel Opinion &bull; ₹50 Standard Fee</p>
+                  <h3 className="text-sm font-semibold text-white">Legal Professional Written Opinion (₹50)</h3>
+                  <p className="text-[11px] text-neutral-400 font-mono">Verified Legal Professional Opinion &bull; ₹50 Standard Fee</p>
                 </div>
               </div>
               <button
@@ -1083,7 +1103,7 @@ ${text.trim()}`
                   <span className="font-mono text-base font-bold text-amber-300">₹50</span>
                 </div>
                 <ul className="space-y-1 text-neutral-300 list-disc list-inside">
-                  <li>Direct written opinion from a verified Bar Council advocate</li>
+                  <li>Direct written opinion from a verified Bar Council legal professional</li>
                   <li>In-depth fact matching and false/exaggerated charge checks</li>
                   <li>Immediate AI statutory first-aid report delivered instantly</li>
                   <li>Anonymous case listing on Lawyer Citizen Inquiries dashboard</li>

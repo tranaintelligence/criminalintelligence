@@ -13,6 +13,7 @@ import { formatCourtsHeader } from "@/lib/courts-data";
 import { ConsultationChatModal } from "@/components/ConsultationChatModal";
 import { CaseSummaryContent } from "@/components/CaseSummaryViewer";
 import { LegalNewsFeed } from "@/components/LegalNewsFeed";
+import { MassAnnouncementBanner } from "@/components/MassAnnouncementBanner";
 
 export const Route = createFileRoute("/_authenticated/lawyer/")({
   head: () => ({
@@ -252,6 +253,9 @@ function LawyerOverview() {
 
   return (
     <div className="space-y-8 md:space-y-10">
+      {/* Live Procedural Webinars & Mass Announcements (Overview Only) */}
+      <MassAnnouncementBanner currentDashboard="lawyers" className="mb-6" />
+
       {/* Top Banner / Welcome */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#222222] pb-5 md:pb-6">
         <div>

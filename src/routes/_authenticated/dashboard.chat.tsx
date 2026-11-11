@@ -738,47 +738,6 @@ export function ChatViewContent() {
         };
         setMessages((prev) => [...prev, assistantMessage]);
 
-        // Sync legal queries anonymously for the Lawyer Citizen Queries dashboard
-        try {
-          const queryId = `chat-${activeChatId || Date.now()}`;
-          const poolQuery = {
-            id: queryId,
-            created_at: new Date().toISOString(),
-            issue_summary: newMessage.content.slice(0, 180) || "Citizen Legal Inquiry",
-            category: data.analysis?.applicable_laws?.[0]?.act || data.analysis?.applicable_laws?.[0]?.code || "Criminal Legal First-Aid",
-            status: "open",
-            chat_id: activeChatId || null,
-            applicable_laws: data.analysis?.applicable_laws || [],
-            bail_status: data.analysis?.bail_status || null,
-            situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis || null,
-            citizen_name: "Anonymous Citizen",
-            plan: "ai_free",
-            fee: 0,
-            priority: "normal",
-          };
-          const existingPool = JSON.parse(localStorage.getItem("trana_citizen_queries_pool") || "[]");
-          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify([poolQuery, ...existingPool.filter((x: any) => x.id !== queryId).slice(0, 49)]));
-
-          void supabase.from("analyses").insert({
-            id: queryId,
-            situation: newMessage.content,
-            result: {
-              situation_meaning: data.analysis?.situation_meaning || data.analysis?.general_analysis,
-              applicable_laws: data.analysis?.applicable_laws || [],
-              bail_status: data.analysis?.bail_status,
-              rights: data.analysis?.rights,
-              source: "legal_first_aid_chat",
-              anonymous: true,
-              plan: "ai_free",
-              fee: 0,
-            },
-            is_criminal: true,
-            user_id: credential ? "citizen-user" : "anonymous-citizen",
-          }).catch((err) => console.warn("Supabase analyses insert from chat note:", err));
-        } catch (syncErr) {
-          console.warn("Could not sync chat query to pool:", syncErr);
-        }
-
         if (data.analysis?.suggest_lawyer || isLawyerIntent(assistantMessage.content) || isAskingLawyer) {
           setUserRequestedLawyerRecently(true);
           setDismissedOffer(false);

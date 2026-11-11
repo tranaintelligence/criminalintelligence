@@ -27,6 +27,15 @@ export const Route = createFileRoute("/_authenticated/lawyer/queries")({
   component: CitizenQueriesPage,
 });
 
+type QueryResponse = {
+  id: string;
+  advocate_name: string;
+  advocate_bar_no?: string;
+  advocate_specialisation?: string;
+  response: string;
+  responded_at: string;
+};
+
 type CitizenQuery = {
   id: string;
   created_at: string;
@@ -37,6 +46,8 @@ type CitizenQuery = {
   response?: string;
   responded_at?: string;
   responded_by?: string;
+  responses?: QueryResponse[];
+  passed_by?: string[];
   chat_id?: string | null;
   applicable_laws?: { act?: string; code?: string; section?: string; explanation?: string }[];
   bail_status?: string | null;
@@ -78,7 +89,7 @@ function CitizenQueriesPage() {
       const mergedList: CitizenQuery[] = [];
       const seenIds = new Set<string>();
 
-      // 1. Check local Complaint Analyser pool
+      // 1. Check local Complaint Analyser pool (ONLY paid legal professional requests)
       try {
         const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
         if (poolRaw) {
@@ -86,43 +97,23 @@ function CitizenQueriesPage() {
           if (Array.isArray(pool)) {
             pool.forEach((item: any) => {
               if (item?.id && !seenIds.has(item.id)) {
+                const isPaid = item.plan === "paid_professional" || item.fee === 50;
+                if (!isPaid) return; // Only queries where Legal Professional was chosen
+
                 seenIds.add(item.id);
                 mergedList.push({
                   ...item,
                   citizen_name: "Anonymous Citizen",
-                  plan: item.plan || "ai_free",
-                  fee: item.fee || 0,
-                  priority: item.priority || (item.fee === 50 ? "high" : "normal"),
-                });
-              }
-            });
-          }
-        }
-
-        // Also check citizen past analyses from localStorage
-        const pastRaw = localStorage.getItem("trana_citizen_past_analyses");
-        if (pastRaw) {
-          const past = JSON.parse(pastRaw);
-          if (Array.isArray(past)) {
-            past.forEach((p: any) => {
-              const qId = `analysis-${p.id || p.createdAt}`;
-              if (!seenIds.has(qId)) {
-                seenIds.add(qId);
-                const ana = p.result?.analysis;
-                mergedList.push({
-                  id: qId,
-                  created_at: p.createdAt || new Date().toISOString(),
-                  issue_summary: p.summaryTitle || p.originalQuery || "Citizen Complaint Analysis",
-                  category: ana?.applicable_laws?.[0]?.act || "Statutory Matter",
-                  status: "open",
-                  citizen_name: "Anonymous Citizen",
-                  chat_id: p.result?.chatId || null,
-                  applicable_laws: ana?.applicable_laws || [],
-                  bail_status: ana?.bail_status || null,
-                  situation_meaning: ana?.situation_meaning || null,
-                  plan: "ai_free",
-                  fee: 0,
-                  priority: "normal",
+                  plan: "paid_professional",
+                  fee: 50,
+                  priority: "high",
+                  responses: item.responses || (item.response ? [{
+                    id: `resp-${item.id}`,
+                    advocate_name: item.responded_by || "Panel Legal Professional",
+                    response: item.response,
+                    responded_at: item.responded_at || item.created_at,
+                  }] : []),
+                  passed_by: item.passed_by || [],
                 });
               }
             });
@@ -132,7 +123,7 @@ function CitizenQueriesPage() {
         console.warn("Could not read local citizen queries pool:", err);
       }
 
-      // 2. Fetch from Supabase analyses table (primary real database store)
+      // 2. Fetch from Supabase analyses table (ONLY paid legal professional requests)
       try {
         const { data } = await supabase
           .from("analyses")
@@ -143,26 +134,37 @@ function CitizenQueriesPage() {
         if (data && Array.isArray(data)) {
           data.forEach((row: any) => {
             if (row?.id && !seenIds.has(row.id)) {
-              seenIds.add(row.id);
               const res = (typeof row.result === "object" && row.result !== null) ? row.result : {};
               const plan = res.plan || "ai_free";
               const fee = res.fee || (plan === "paid_professional" ? 50 : 0);
+
+              // ONLY show if legal professional review was chosen (paid_professional / fee 50)
+              if (plan !== "paid_professional" && fee !== 50) return;
+
+              seenIds.add(row.id);
               mergedList.push({
                 id: row.id,
                 created_at: row.created_at || new Date().toISOString(),
                 issue_summary: row.situation ? (row.situation.length > 200 ? row.situation.slice(0, 197) + "…" : row.situation) : "Citizen Legal Inquiry",
                 category: res.applicable_laws?.[0]?.act || res.applicable_laws?.[0]?.code || "Criminal Law",
-                status: (res.response || res.status === "responded") ? "responded" : "open",
+                status: (res.response || res.status === "responded" || (res.responses && res.responses.length > 0)) ? "responded" : "open",
                 citizen_name: "Anonymous Citizen",
                 response: res.response || null,
                 responded_at: res.responded_at || null,
                 responded_by: res.responded_by || null,
+                responses: res.responses || (res.response ? [{
+                  id: `resp-${row.id}`,
+                  advocate_name: res.responded_by || "Panel Legal Professional",
+                  response: res.response,
+                  responded_at: res.responded_at || row.created_at,
+                }] : []),
+                passed_by: res.passed_by || [],
                 applicable_laws: res.applicable_laws || [],
                 bail_status: res.bail_status || null,
                 situation_meaning: res.situation_meaning || null,
-                plan,
-                fee,
-                priority: res.priority || (fee === 50 ? "high" : "normal"),
+                plan: "paid_professional",
+                fee: 50,
+                priority: "high",
               });
             }
           });
@@ -173,7 +175,7 @@ function CitizenQueriesPage() {
 
       // 3. Fallback mock queries if empty
       if (mergedList.length === 0) {
-        return generateMockQueries(lawyer?.specialisation || "General Practice", 8);
+        return generateMockQueries(lawyer?.specialisation || "General Practice", 6);
       }
 
       return mergedList;
@@ -203,10 +205,21 @@ function CitizenQueriesPage() {
     });
   }, [matchedQueries, search, statusFilter]);
 
+  // Submit written opinion without locking query for other advocates
   async function handleRespond() {
     if (!selectedQuery || !responseText.trim()) return;
     setSending(true);
     try {
+      const newResponse: QueryResponse = {
+        id: `resp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        advocate_name: lawyer?.full_name || "Advocate Counsel",
+        advocate_bar_no: lawyer?.bar_reg_no || "",
+        advocate_specialisation: lawyer?.specialisation || "Criminal Law",
+        response: responseText.trim(),
+        responded_at: new Date().toISOString(),
+      };
+      const updatedResponses = [...(selectedQuery.responses || []), newResponse];
+
       // 1. Try Supabase update in analyses table
       await supabase
         .from("analyses")
@@ -218,29 +231,19 @@ function CitizenQueriesPage() {
             response: responseText.trim(),
             responded_at: new Date().toISOString(),
             responded_by: lawyer?.full_name || "Advocate",
+            responses: updatedResponses,
+            passed_by: selectedQuery.passed_by || [],
             status: "responded",
             citizen_name: "Anonymous Citizen",
-            plan: selectedQuery.plan,
-            fee: selectedQuery.fee,
-            priority: selectedQuery.priority,
+            plan: "paid_professional",
+            fee: 50,
+            priority: "high",
           } as any,
         })
         .eq("id", selectedQuery.id)
         .catch(() => {});
 
-      // 2. Also try complaint_analyses table if present
-      await supabase
-        .from("complaint_analyses" as any)
-        .update({
-          response: responseText.trim(),
-          responded_at: new Date().toISOString(),
-          responded_by: lawyer?.full_name || "Advocate",
-          status: "responded",
-        })
-        .eq("id", selectedQuery.id)
-        .catch(() => {});
-
-      // 3. Update local pool
+      // 2. Update local pool
       try {
         const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
         if (poolRaw) {
@@ -252,6 +255,7 @@ function CitizenQueriesPage() {
                   response: responseText.trim(),
                   responded_at: new Date().toISOString(),
                   responded_by: lawyer?.full_name || "Advocate",
+                  responses: updatedResponses,
                   status: "responded",
                 }
               : q
@@ -260,7 +264,7 @@ function CitizenQueriesPage() {
         }
       } catch {}
 
-      toast.success("Response submitted and linked to citizen inquiry.");
+      toast.success("Written opinion submitted. Other panel advocates may also review this query.");
       setSelectedQuery(null);
       setResponseText("");
       refetch();
@@ -268,6 +272,59 @@ function CitizenQueriesPage() {
       toast.error("Could not submit response. Please try again.");
     } finally {
       setSending(false);
+    }
+  }
+
+  // Pass on to other advocates (remains active on server for peer advocates)
+  async function handlePassOn(queryId: string) {
+    if (!selectedQuery) return;
+    try {
+      const myId = lawyer?.id || lawyer?.bar_reg_no || "counsel";
+      const updatedPassed = Array.from(new Set([...(selectedQuery.passed_by || []), myId]));
+
+      // Save locally to passed tracker
+      const passedKey = `trana_passed_queries_${myId}`;
+      const existing = JSON.parse(localStorage.getItem(passedKey) || "[]");
+      localStorage.setItem(passedKey, JSON.stringify(Array.from(new Set([...existing, queryId]))));
+
+      // Update in Supabase analyses table
+      await supabase
+        .from("analyses")
+        .update({
+          result: {
+            situation_meaning: selectedQuery.situation_meaning,
+            applicable_laws: selectedQuery.applicable_laws,
+            bail_status: selectedQuery.bail_status,
+            responses: selectedQuery.responses || [],
+            passed_by: updatedPassed,
+            status: selectedQuery.status,
+            citizen_name: "Anonymous Citizen",
+            plan: selectedQuery.plan || "paid_professional",
+            fee: selectedQuery.fee || 50,
+            priority: "high",
+          } as any,
+        })
+        .eq("id", queryId)
+        .catch(() => {});
+
+      // Update local pool
+      try {
+        const poolRaw = localStorage.getItem("trana_citizen_queries_pool");
+        if (poolRaw) {
+          const pool = JSON.parse(poolRaw);
+          const updated = pool.map((q: any) =>
+            q.id === queryId ? { ...q, passed_by: updatedPassed } : q
+          );
+          localStorage.setItem("trana_citizen_queries_pool", JSON.stringify(updated));
+        }
+      } catch {}
+
+      toast.info("Query passed on. It remains active on the server for other panel advocates to reply.");
+      setSelectedQuery(null);
+      setResponseText("");
+      refetch();
+    } catch {
+      toast.error("Could not pass query.");
     }
   }
 
@@ -431,6 +488,17 @@ function CitizenQueriesPage() {
                         Chat Linked
                       </span>
                     )}
+                    {query.responses && query.responses.length > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {query.responses.length} Opinion{query.responses.length > 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {lawyer?.id && query.passed_by?.includes(lawyer.id) && (
+                      <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-300">
+                        Passed
+                      </span>
+                    )}
                     <span
                       className={`rounded-md border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
                         query.status === "open"
@@ -534,44 +602,82 @@ function CitizenQueriesPage() {
                 </div>
               )}
 
+              {/* Previously Submitted Panel Written Opinions */}
+              {selectedQuery.responses && selectedQuery.responses.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Panel Legal Professional Opinions ({selectedQuery.responses.length})
+                    </span>
+                    <span className="text-[10px] font-mono text-neutral-400">Open to multiple counsel</span>
+                  </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {selectedQuery.responses.map((r, i) => (
+                      <div key={i} className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-emerald-300">
+                            {r.advocate_name} {r.advocate_bar_no ? `(${r.advocate_bar_no})` : ""}
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-500">{timeAgo(r.responded_at)}</span>
+                        </div>
+                        <p className="text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap">{r.response}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Disclaimer */}
               <div className="border border-amber-500/20 bg-amber-500/5 p-3 rounded-xl">
                 <p className="font-mono text-[10px] text-amber-300/90 leading-relaxed">
                   <AlertCircle className="inline h-3 w-3 mr-1" />
-                  Your response provides general legal information. Per BCI Rules, do not solicit or guarantee legal outcomes.
+                  Your response provides legal information and analysis. Per BCI Rules, do not solicit or guarantee legal outcomes.
                 </p>
               </div>
 
               {/* Response Draft */}
               <div className="space-y-1.5">
                 <label className="block font-mono text-[10px] uppercase tracking-wider text-neutral-400">
-                  Your Statutory Response
+                  {selectedQuery.responses && selectedQuery.responses.length > 0 ? "Add Another Legal Professional Written Opinion" : "Your Legal Professional Written Opinion"}
                 </label>
                 <textarea
                   value={responseText}
                   onChange={(e) => setResponseText(e.target.value)}
                   rows={5}
-                  placeholder="Provide general information on the applicable legal provisions, rights, and procedure..."
+                  placeholder="Provide your written opinion on the statutory provisions, facts analysis, and legal first-aid advice..."
                   className="w-full resize-none border border-white/10 bg-[#0e0e12] px-4 py-3 text-xs text-white rounded-xl placeholder:text-neutral-500 focus:border-emerald-400/60 focus:outline-none"
                 />
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <button
-                  onClick={handleRespond}
-                  disabled={sending || !responseText.trim()}
-                  className="flex flex-1 items-center justify-center gap-2 bg-emerald-500 text-black px-4 py-3 rounded-xl font-semibold text-xs uppercase tracking-wider transition-colors hover:bg-emerald-400 disabled:opacity-40 cursor-pointer shadow-md"
+                  type="button"
+                  onClick={() => handlePassOn(selectedQuery.id)}
+                  className="border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 px-4 py-2.5 rounded-xl font-mono text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
+                  title="Pass on this query. It remains active on the server for other panel advocates to reply."
                 >
-                  {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  {sending ? "Submitting..." : "Submit Response"}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  <span>Pass On to Other Advocates</span>
                 </button>
-                <button
-                  onClick={() => setSelectedQuery(null)}
-                  className="border border-white/15 px-4 py-3 rounded-xl font-mono text-xs uppercase tracking-wider text-neutral-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedQuery(null)}
+                    className="border border-white/15 px-4 py-2.5 rounded-xl font-mono text-xs uppercase tracking-wider text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={handleRespond}
+                    disabled={sending || !responseText.trim()}
+                    className="flex items-center justify-center gap-2 bg-emerald-500 text-black px-5 py-2.5 rounded-xl font-semibold text-xs uppercase tracking-wider transition-colors hover:bg-emerald-400 disabled:opacity-40 cursor-pointer shadow-md"
+                  >
+                    {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    <span>{selectedQuery.responses && selectedQuery.responses.length > 0 ? "Add Your Written Opinion" : "Submit Written Opinion"}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -585,18 +691,18 @@ function CitizenQueriesPage() {
 function generateMockQueries(specialisation: string, count: number): CitizenQuery[] {
   const templates: Record<string, { issue: string; category: string }[]> = {
     default: [
-      { issue: "I need general legal advice about my situation and what steps I should take.", category: "General Legal Query" },
-      { issue: "What are my rights in this matter and how should I proceed?", category: "Legal Rights" },
-      { issue: "I received a legal notice and I don't know how to respond to it.", category: "Legal Notice" },
+      { issue: "Complaint under Section 318 BNS (Cheating) filed by business partner. Seeking urgent legal professional written opinion.", category: "General Legal Query" },
+      { issue: "Notice issued under BNSS Section 35(3). Seeking advice on whether to appear and anticipatory bail eligibility.", category: "Legal Rights" },
+      { issue: "Illegal seizure of mobile device during criminal inquiry under BSA 2023. Need formal review of electronic evidence rights.", category: "Legal Notice" },
     ],
     criminal: [
-      { issue: "I have been falsely accused in an FIR under BNS Section 303. What are my immediate bail rights?", category: "Criminal — FIR & Bail" },
-      { issue: "My family member was arrested without notice under BNSS Section 35. How do I apply for bail?", category: "Criminal — Bail" },
-      { issue: "I received a police notice under Section 160 CrPC/BNSS. Must I appear?", category: "Criminal — Police Notice" },
+      { issue: "Falsely accused in FIR under BNS Section 135 & Section 352. Seeking legal professional written opinion on bail and charge exaggeration.", category: "Criminal — FIR & Bail" },
+      { issue: "Family member arrested without warrant under BNSS Section 35. Need immediate bail strategy and procedure review.", category: "Criminal — Bail" },
+      { issue: "Police questioning notice under Section 179 BNSS. Seeking written opinion on self-incrimination safeguards.", category: "Criminal — Police Notice" },
     ],
     family: [
-      { issue: "My spouse is seeking divorce under Special Marriage Act. What are the grounds?", category: "Family — Divorce" },
-      { issue: "How much maintenance am I entitled to under Section 144 BNSS / Section 125 CrPC?", category: "Family — Maintenance" },
+      { issue: "Matrimonial dispute involving criminal intimidation under BNS Section 351. Need legal professional written opinion.", category: "Family — Domestic Matter" },
+      { issue: "Maintenance petition under Section 144 BNSS. Seeking written assessment of interim relief provisions.", category: "Family — Maintenance" },
     ],
   };
 
@@ -609,11 +715,16 @@ function generateMockQueries(specialisation: string, count: number): CitizenQuer
   const now = Date.now();
 
   return pool.slice(0, count).map((t, i) => ({
-    id: `mock-${i}`,
+    id: `mock-paid-${i}`,
     created_at: new Date(now - i * 3_600_000).toISOString(),
     issue_summary: t.issue,
     category: t.category,
     status: "open" as const,
     chat_id: null,
+    plan: "paid_professional",
+    fee: 50,
+    priority: "high",
+    responses: [],
+    passed_by: [],
   }));
 }

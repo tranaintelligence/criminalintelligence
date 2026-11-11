@@ -59,10 +59,47 @@ function DashboardLayout() {
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [unreadConsultCount, setUnreadConsultCount] = useState<number>(0);
 
   useEffect(() => {
     document.title = "Citizens Dashboard — TRANA";
   }, [location.pathname]);
+
+  // Track unread messages count for My Consultations tab badge
+  useEffect(() => {
+    function computeCitizenUnread() {
+      try {
+        const rawIndex = localStorage.getItem("trana_all_consultation_chats_index");
+        if (!rawIndex) return;
+        const index = JSON.parse(rawIndex);
+        let total = 0;
+
+        Object.values(index).forEach((c: any) => {
+          if (!c || !c.consultationId) return;
+          const lastRead = Number(localStorage.getItem(`trana_citizen_last_read_${c.consultationId}`)) || 0;
+          const updatedTime = c.lastUpdated ? new Date(c.lastUpdated).getTime() : 0;
+          const lastMsg = c.lastMessage || "";
+          
+          if (updatedTime > lastRead && lastMsg && !lastMsg.includes("Zero Evasion Guard") && !lastMsg.includes("Confidential consultation channel")) {
+            total++;
+          }
+        });
+        setUnreadConsultCount(total);
+      } catch {}
+    }
+
+    computeCitizenUnread();
+    window.addEventListener("trana_consult_chat_update", computeCitizenUnread);
+    window.addEventListener("trana_unread_count_update", computeCitizenUnread);
+    window.addEventListener("storage", computeCitizenUnread);
+    const interval = setInterval(computeCitizenUnread, 3500);
+    return () => {
+      window.removeEventListener("trana_consult_chat_update", computeCitizenUnread);
+      window.removeEventListener("trana_unread_count_update", computeCitizenUnread);
+      window.removeEventListener("storage", computeCitizenUnread);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Filter items by search query if user types in search
   const filteredNav = searchQuery.trim()
@@ -224,7 +261,13 @@ function DashboardLayout() {
                 }`}
               >
                 <span className="tracking-normal truncate">{n.label}</span>
-                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.9)]" />}
+                {n.to === "/dashboard/consultations" && unreadConsultCount > 0 ? (
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-black shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse shrink-0">
+                    {unreadConsultCount}
+                  </span>
+                ) : (
+                  isActive && <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.9)]" />
+                )}
               </Link>
             );
           })}

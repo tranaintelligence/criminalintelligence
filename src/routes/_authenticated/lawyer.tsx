@@ -19,7 +19,6 @@ import {
 } from "@/lib/courts-data";
 import { registerLawyer, getCurrentLawyer } from "@/lib/trana-admin-api";
 import { useTranaCredential } from "@/lib/trana-auth";
-import { MassAnnouncementBanner } from "@/components/MassAnnouncementBanner";
 
 export const Route = createFileRoute("/_authenticated/lawyer")({
   head: () => ({
@@ -942,7 +941,6 @@ function LawyerLayout() {
         )}
 
         <div className="max-w-7xl mx-auto space-y-6">
-          <MassAnnouncementBanner currentDashboard="lawyers" className="mb-6" />
           <Outlet />
         </div>
       </main>

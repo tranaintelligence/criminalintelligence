@@ -247,6 +247,17 @@ function Consultations() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeChat?.messages]);
 
+  // Mark active chat as read by citizen
+  useEffect(() => {
+    if (activeChat?.id) {
+      localStorage.setItem(`trana_citizen_last_read_${activeChat.id}`, String(Date.now()));
+      const bareId = activeChat.id.replace(/^REF-/, "").replace(/^CONN-/, "");
+      localStorage.setItem(`trana_citizen_last_read_${bareId}`, String(Date.now()));
+      window.dispatchEvent(new Event("trana_unread_count_update"));
+      window.dispatchEvent(new Event("trana_consult_chat_update"));
+    }
+  }, [activeChat?.id, activeChat?.messages?.length]);
+
   // Switch chat
   function handleSelectChat(id: string) {
     setSelectedChatId(id);
@@ -505,6 +516,14 @@ function Consultations() {
               {filteredList.map((c) => {
                 const isSelected = c.id === activeChat?.id;
                 const initial = c.lawyerName.replace(/^adv\.?\s*/i, "").charAt(0) || "A";
+                const lastRead = Number(localStorage.getItem(`trana_citizen_last_read_${c.id}`)) || 0;
+                const updatedTime = c.lastUpdated ? new Date(c.lastUpdated).getTime() : 0;
+                const isUnread = Boolean(
+                  updatedTime > lastRead && 
+                  c.lastMessage && 
+                  !c.lastMessage.includes("Zero Evasion Guard") && 
+                  !c.lastMessage.includes("Confidential consultation channel")
+                );
 
                 return (
                   <button
@@ -518,16 +537,28 @@ function Consultations() {
                     }`}
                   >
                     {/* Avatar */}
-                    <div className="h-11 w-11 rounded-full bg-[#242424] border border-white/10 flex items-center justify-center font-bold text-white uppercase shrink-0 text-sm">
-                      {initial}
+                    <div className="relative shrink-0">
+                      <div className="h-11 w-11 rounded-full bg-[#242424] border border-white/10 flex items-center justify-center font-bold text-white uppercase text-sm">
+                        {initial}
+                      </div>
+                      {isUnread && (
+                        <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-[#121216] shadow-[0_0_8px_rgba(52,211,153,0.9)] animate-pulse" />
+                      )}
                     </div>
 
                     {/* Chat Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="font-semibold text-xs text-white truncate">
-                          {c.lawyerName}
-                        </span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-semibold text-xs text-white truncate">
+                            {c.lawyerName}
+                          </span>
+                          {isUnread && (
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-emerald-500 text-black shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse shrink-0">
+                              New Message
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[0.65rem] font-mono text-[#888888] shrink-0">
                           {c.lastUpdated}
                         </span>

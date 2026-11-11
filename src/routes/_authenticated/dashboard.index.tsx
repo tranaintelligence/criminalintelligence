@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "./dashboard";
 import { useTranaCredential, authFetch } from "@/lib/trana-auth";
 import { API_URL } from "@/lib/trana-backend";
+import { MassAnnouncementBanner } from "@/components/MassAnnouncementBanner";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
   head: () => ({
@@ -149,6 +150,9 @@ function Home() {
 
   return (
     <div className="space-y-12">
+      {/* Live Procedural Webinars & Mass Announcements (Overview Only) */}
+      <MassAnnouncementBanner currentDashboard="citizens" className="mb-6" />
+
       <div>
         <h1 className="font-display text-4xl leading-tight md:text-5xl text-white">
           {greeting()}, {profile?.name || "Citizen"}.<br />How can TRANA help you today?

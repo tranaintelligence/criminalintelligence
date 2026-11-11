@@ -7,6 +7,7 @@ import {
 import { useUserRole } from "@/lib/user-role";
 import { getLocalConnections } from "@/lib/network-connections";
 import { LegalNewsFeed } from "@/components/LegalNewsFeed";
+import { MassAnnouncementBanner } from "@/components/MassAnnouncementBanner";
 
 export const Route = createFileRoute("/_authenticated/student/")({
   head: () => ({
@@ -87,6 +88,9 @@ function StudentOverviewPage() {
 
   return (
     <div className="space-y-8 md:space-y-10">
+      {/* Live Procedural Webinars & Mass Announcements (Overview Only) */}
+      <MassAnnouncementBanner currentDashboard="students" className="mb-6" />
+
       {/* Top Banner */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/[0.08] pb-6">
         <div>
