@@ -142,6 +142,7 @@ export function LegalNewsFeed({ limit = 6, compact = false, className = "" }: Le
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
+              title={`Read full article on ${item.source}`}
               className="group flex items-start gap-3.5 px-5 py-3.5 transition-all hover:bg-white/[0.04] border-l-2 border-l-transparent hover:border-l-amber-400"
             >
               <div className="mt-1 flex-shrink-0">

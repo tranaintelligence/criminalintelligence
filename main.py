@@ -30,8 +30,10 @@ import base64
 import hashlib
 import io
 import os
+import re
 import secrets
 import shutil
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timedelta
@@ -3975,6 +3977,99 @@ def delete_lawyer_admin(
     db.delete(lawyer)
     db.commit()
     return {"ok": True, "message": f"Advocate {lawyer.full_name} ({lawyer.bar_reg_no}) deleted."}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Live Indian Legal News Feed (LiveLaw, Bar & Bench, Supreme Court)
+# ═══════════════════════════════════════════════════════════════════════════
+
+_news_cache: dict = {"items": [], "fetched_at": None}
+_NEWS_CACHE_TTL = timedelta(minutes=15)
+
+@app.get("/api/news", tags=["Legal News"])
+async def get_indian_legal_news(limit: int = 8):
+    """Fetch live Indian legal news articles from LiveLaw, Bar & Bench, and High Courts/Supreme Court with direct article links."""
+    global _news_cache
+    now = datetime.utcnow()
+    if _news_cache["fetched_at"] and (now - _news_cache["fetched_at"]) < _NEWS_CACHE_TTL and _news_cache["items"]:
+        return {"items": _news_cache["items"][:limit]}
+
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+
+    query = "site:livelaw.in OR site:barandbench.com when:3d"
+    url = f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}&hl=en-IN&gl=IN&ceid=IN:en"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+
+    items = []
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            root = ET.fromstring(resp.read())
+            for item in root.findall(".//item")[:limit * 3]:
+                title = item.findtext("title") or ""
+                link = item.findtext("link") or ""
+                pub_date = item.findtext("pubDate") or ""
+                source_el = item.find("source")
+                source_name = source_el.text if source_el is not None and source_el.text else "Legal News"
+
+                if not title or not link or "google news" in title.lower():
+                    continue
+
+                clean_title = re.sub(
+                    r"\s*-\s*(Live\s*Law|Bar\s*(and|&)\s*Bench|SCC\s*Online|LawBeat|The\s*Hindu|The\s*Indian\s*Express|NDTV|Hindustan\s*Times)\s*$",
+                    "",
+                    title,
+                    flags=re.IGNORECASE,
+                ).strip()
+
+                title_lower = title.lower()
+                source_lower = source_name.lower()
+                if "live law" in source_lower or "livelaw" in title_lower:
+                    detected_source = "LiveLaw"
+                elif "bar and bench" in source_lower or "bar & bench" in source_lower or "bar and bench" in title_lower:
+                    detected_source = "Bar & Bench"
+                elif "scc" in source_lower:
+                    detected_source = "SCC Online"
+                elif "lawbeat" in source_lower:
+                    detected_source = "LawBeat"
+                else:
+                    detected_source = source_name
+
+                if any(k in title_lower for k in ["supreme court", "sc: ", "sc "]):
+                    cat = "Supreme Court"
+                elif any(k in title_lower for k in ["high court", "hc: ", "hc "]):
+                    cat = "High Court"
+                elif any(k in title_lower for k in ["bail", "arrest", "fir", "bns", "criminal"]):
+                    cat = "Criminal Law"
+                elif any(k in title_lower for k in ["divorce", "matrimon", "maintenance", "family"]):
+                    cat = "Family Law"
+                elif any(k in title_lower for k in ["cyber", "privacy", "digital", "tech"]):
+                    cat = "Cyber Law"
+                elif any(k in title_lower for k in ["bar council", "advocate", "lawyer"]):
+                    cat = "Bar Council"
+                else:
+                    cat = "Legal Update"
+
+                try:
+                    iso_date = parsedate_to_datetime(pub_date).isoformat()
+                except Exception:
+                    iso_date = now.isoformat()
+
+                items.append({
+                    "id": f"live-{secrets.token_hex(4)}",
+                    "title": clean_title,
+                    "url": link,
+                    "source": detected_source,
+                    "publishedAt": iso_date,
+                    "category": cat,
+                })
+
+        if items:
+            _news_cache = {"items": items, "fetched_at": now}
+    except Exception as e:
+        logger.warning("Error fetching live legal news: %s", e)
+
+    return {"items": (items or _news_cache["items"])[:limit]}
 
 
 # Error Handlers
