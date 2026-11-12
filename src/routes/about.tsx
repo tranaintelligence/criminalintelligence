@@ -65,6 +65,7 @@ const FOUNDERS: Founder[] = [
     location: "New Delhi",
     initials: "SM",
     badge: "Architect & CEO",
+    image: "/founders/swastik-mishra.jpg",
     summary:
       "Swastik is the original architect of TRANA. Recognizing that the law needed a technological bridge to truly serve the people, he conceptualized the platform and built its core vision. As CEO, Swastik leads the overarching strategy, product architecture, and technological direction of the company.",
     beyondBoardroom: {
@@ -345,9 +346,9 @@ function AboutPage() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 border-b border-border pb-6">
                   <div className="flex flex-col sm:flex-row items-start gap-5">
                     {/* Dedicated Picture Space */}
-                    <div className="relative group w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border-2 border-dashed border-border bg-secondary/50 flex flex-col items-center justify-center text-center p-2 shrink-0 overflow-hidden shadow-inner">
+                    <div className={`relative group w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border ${f.image ? "border-border shadow-md" : "border-2 border-dashed border-border p-2 shadow-inner"} bg-secondary/50 flex flex-col items-center justify-center text-center shrink-0 overflow-hidden`}>
                       {f.image ? (
-                        <img src={f.image} alt={f.name} className="w-full h-full object-cover rounded-xl" />
+                        <img src={f.image} alt={f.name} className="w-full h-full object-cover object-top" />
                       ) : (
                         <div className="flex flex-col items-center justify-center text-muted-foreground space-y-1.5">
                           <div className="h-12 w-12 rounded-full bg-background border border-border flex items-center justify-center text-foreground font-display text-xl font-bold shadow-sm">
@@ -434,9 +435,9 @@ function AboutPage() {
               >
                 <div className="flex items-center justify-between gap-3">
                   {/* Thumbnail Picture Space */}
-                  <div className="h-14 w-14 rounded-xl border border-dashed border-border bg-secondary flex flex-col items-center justify-center overflow-hidden shrink-0">
+                  <div className={`h-14 w-14 rounded-xl border ${f.image ? "border-border shadow-sm" : "border-dashed border-border"} bg-secondary flex flex-col items-center justify-center overflow-hidden shrink-0`}>
                     {f.image ? (
-                      <img src={f.image} alt={f.name} className="w-full h-full object-cover" />
+                      <img src={f.image} alt={f.name} className="w-full h-full object-cover object-top" />
                     ) : (
                       <div className="flex flex-col items-center justify-center text-muted-foreground">
                         <span className="font-display font-bold text-foreground text-sm">{f.initials}</span>

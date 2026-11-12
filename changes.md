@@ -378,7 +378,17 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - **THE FIVE YEAR VISION**: Establishing TRANA as the definitive first response application for every single Indian citizen, fostering an empowered, happy, and secure Republic.
 - **Theme & Spacing Consistency**:
   - Matched the website design tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`, `bg-secondary`, `btn-solid`), removing neon ambient blur gradients for a clean, professional aesthetic.
-## [2026-11-12] - BCI Professional Conduct Declaration Styling & High-Contrast Typography
+## [2026-11-12] - Founder Swastik Mishra Portrait Image Integration
+
+### 1. "About Us" Founder Portrait (`src/routes/about.tsx` & `public/founders/swastik-mishra.jpg`)
+- **Assets Added**:
+  - Saved portrait photograph to `public/founders/swastik-mishra.jpg` and `public/swastik-mishra.jpg`.
+- **Changes**:
+  - Linked `image: "/founders/swastik-mishra.jpg"` to Swastik Mishra in `FOUNDERS` array within `src/routes/about.tsx`.
+  - Added clean solid border and portrait framing (`object-cover object-top`) to both the spotlight founder card and the 3-founder summary grid so the founder's portrait displays seamlessly while leaving placeholders for remaining founders untouched.
+- **Considerations**:
+  - Strictly preserves all other copy, styling, and sections in the application as requested ("do not chage anything else").
+
 
 ### 1. Advocate Verification Portal BCI Declaration Card (`src/routes/_authenticated/lawyer.tsx`)
 - **Changes**:
