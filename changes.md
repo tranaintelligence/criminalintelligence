@@ -335,6 +335,28 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Updated Hero `h1` component to display `TRANA (त्राणा) — Privacy Policy` in Times New Roman when the Privacy Policy tab is selected.
   - Updated footer contact email to `tranaintelligence@gmail.com`.
 
+---
+
+## [2026-11-12] - Color Theme Harmonization with Original Website & Heading Text Refinement
+
+### 1. Unified Theme Colors & Removed Neon Accents (`src/routes/privacy-policy.tsx`)
+- **Theme Alignment**:
+  - Replaced custom glowing colors and neon backgrounds (`bg-[#0A0A0C]`, `bg-[#121216]`, amber/emerald radial blurs) with the core theme design tokens from `src/routes/index.tsx` and `src/styles.css`:
+    - Base surface: `bg-background text-foreground border-l border-r border-border`
+    - Navbar: `border-b border-border bg-background/90 backdrop-blur` with signature `btn-solid !px-3 !py-1.5 !text-xs` button
+    - Tabs & Pills: `border border-border bg-secondary/40`, active tabs set to crisp monochrome `bg-foreground text-background font-medium shadow-sm`
+    - Content Cards: `rounded-xl border border-border bg-card p-6 sm:p-8 space-y-4 shadow-sm`
+    - Text & Markers: `text-foreground/90` body, `text-foreground` titles, and subtle `text-muted-foreground` for bullets and secondary metadata.
+- **Heading Refinement**:
+  - Cleaned all page and card headings:
+    - Deleted `(त्राणा)` from headings while strictly preserving `त्राणा` at the extreme top navbar.
+    - Deleted `of Use` / `OF USE` from headings (`TRANA — Terms and Conditions` and tab button `Terms & Conditions`).
+    - Main Hero heading now renders:
+      - `TRANA — Terms and Conditions` when Terms is active.
+      - `TRANA — Privacy Policy` when Privacy Policy is active.
+  - All content, legal text, and Times New Roman typography preserved completely untouched.
+
+
 
 
 
