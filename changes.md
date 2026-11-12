@@ -406,3 +406,20 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Preserves exact visual parity with the original interface while ensuring compliance text is legible and prominent for enrolling advocates.
 
 
+
+
+---
+
+## [2026-11-12] - Neutrality Copy Refinement, Founder Profile Streamlining & UI Polish
+
+### 1. "About Us" Content & Spacing Refinements (`src/routes/about.tsx`)
+- **Copy Updates**:
+  - **Neutrality Commitment**: Removed the line `"We are not a law firm."` under *Our Commitment to Neutrality* while preserving the complete statutory neutrality statement regarding independent technology provision and BCI ethics.
+  - **Founder Profile**: Removed `"a former gamer and streamer"` from Swastik Mishra's *Beyond the Boardroom* description and cleanly removed the corresponding tag and unused `Gamepad2` icon import.
+- **UI Readability & Layout Polish**:
+  - Enhanced contrast and visual clarity for the Founder switcher tab badges.
+  - Enlarged and optimized Swastik's portrait container (`sm:w-36 sm:h-36`) with top-aligned framing (`object-top object-cover`) and crisp border treatment.
+  - Upgraded thumbnail picture containers in the 3-founder summary grid to `h-16 w-16` with solid border framing for registered images.
+  - Improved line heights, paragraph font sizes (`text-sm sm:text-base leading-relaxed`), and spacing rhythm across cards.
+- **Considerations**:
+  - Strictly preserves all other copy, vision, philosophy, and features without unintended changes.

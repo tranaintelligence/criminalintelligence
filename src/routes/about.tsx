@@ -13,7 +13,6 @@ import {
   Award,
   Activity,
   Camera,
-  Gamepad2,
   Dumbbell,
   Music,
   Globe,
@@ -70,10 +69,9 @@ const FOUNDERS: Founder[] = [
       "Swastik is the original architect of TRANA. Recognizing that the law needed a technological bridge to truly serve the people, he conceptualized the platform and built its core vision. As CEO, Swastik leads the overarching strategy, product architecture, and technological direction of the company.",
     beyondBoardroom: {
       description:
-        "Hailing from Delhi, Swastik grew up watching his father practice as an advocate, which instilled a deep passion for the law and a lifelong drive to help people. Outside the legal tech world, he is a multifaceted achiever. A former gamer and streamer, an avid cricketer, and a Taekwondo black belt, he brings a highly disciplined and competitive energy to TRANA. A fitness enthusiast with a love for cars, music, and travel, Swastik approaches both life and business with relentless momentum.",
+        "Hailing from Delhi, Swastik grew up watching his father practice as an advocate, which instilled a deep passion for the law and a lifelong drive to help people. Outside the legal tech world, he is a multifaceted achiever. An avid cricketer and a Taekwondo black belt, he brings a highly disciplined and competitive energy to TRANA. A fitness enthusiast with a love for cars, music, and travel, Swastik approaches both life and business with relentless momentum.",
       tags: [
         { label: "Taekwondo Black Belt", icon: Award },
-        { label: "Former Gamer & Streamer", icon: Gamepad2 },
         { label: "Avid Cricketer", icon: Activity },
         { label: "Automotive & Music", icon: Car },
         { label: "Fitness & Travel", icon: Dumbbell },
@@ -282,7 +280,7 @@ function AboutPage() {
         </div>
 
         {/* Commitment to Neutrality */}
-        <div className="rounded-xl border border-border bg-card p-6 sm:p-8 space-y-3 shadow-sm">
+        <div className="rounded-xl border border-border bg-card p-6 sm:p-8 space-y-3.5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-secondary border border-border flex items-center justify-center text-foreground shrink-0">
               <Scale className="h-5 w-5" />
@@ -291,8 +289,8 @@ function AboutPage() {
               Our Commitment to Neutrality
             </h3>
           </div>
-          <p className="text-sm text-foreground/90 leading-relaxed">
-            TRANA is strictly an independent technology provider. We are not a law firm. We do not provide legal advice, and we do not solicit clients on behalf of any advocate. Our platform is designed to empower citizens with knowledge and facilitate voluntary connections, all while strictly respecting the professional boundaries and ethics established by the Bar Council of India (BCI).
+          <p className="text-sm sm:text-base text-foreground/90 leading-relaxed">
+            TRANA is strictly an independent technology provider. We do not provide legal advice, and we do not solicit clients on behalf of any advocate. Our platform is designed to empower citizens with knowledge and facilitate voluntary connections, all while strictly respecting the professional boundaries and ethics established by the Bar Council of India (BCI).
           </p>
         </div>
 
@@ -316,23 +314,29 @@ function AboutPage() {
 
           {/* Founder Quick Switcher Tabs */}
           <div className="flex justify-center">
-            <div className="inline-flex flex-wrap justify-center gap-1 rounded-lg border border-border bg-secondary/40 p-1 backdrop-blur">
+            <div className="inline-flex flex-wrap justify-center gap-1.5 rounded-xl border border-border bg-secondary/40 p-1.5 backdrop-blur">
               {FOUNDERS.map((f, idx) => (
                 <button
                   key={f.name}
                   type="button"
                   onClick={() => setActiveFounderTab(idx)}
-                  className={`flex items-center gap-2 rounded px-4 py-2 text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                     activeFounderTab === idx
                       ? "bg-foreground text-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                   }`}
                 >
-                  <span className="h-5 w-5 rounded-full bg-border/80 flex items-center justify-center font-mono text-[10px] text-foreground">
+                  <span className={`h-5 w-5 rounded-full flex items-center justify-center font-mono text-[10px] ${
+                    activeFounderTab === idx
+                      ? "bg-background/25 text-background font-bold"
+                      : "bg-border/80 text-foreground"
+                  }`}>
                     {f.initials}
                   </span>
                   <span>{f.name.split(" ")[0]}</span>
-                  <span className="text-[10px] opacity-70 hidden sm:inline">({f.badge})</span>
+                  <span className={`text-[10px] hidden sm:inline ${activeFounderTab === idx ? "opacity-90" : "opacity-60"}`}>
+                    ({f.badge})
+                  </span>
                 </button>
               ))}
             </div>
@@ -346,7 +350,7 @@ function AboutPage() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 border-b border-border pb-6">
                   <div className="flex flex-col sm:flex-row items-start gap-5">
                     {/* Dedicated Picture Space */}
-                    <div className={`relative group w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border ${f.image ? "border-border shadow-md" : "border-2 border-dashed border-border p-2 shadow-inner"} bg-secondary/50 flex flex-col items-center justify-center text-center shrink-0 overflow-hidden`}>
+                    <div className={`relative group w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border ${f.image ? "border-border shadow-md" : "border-2 border-dashed border-border p-2 shadow-inner"} bg-secondary/50 flex flex-col items-center justify-center text-center shrink-0 overflow-hidden`}>
                       {f.image ? (
                         <img src={f.image} alt={f.name} className="w-full h-full object-cover object-top" />
                       ) : (
@@ -362,7 +366,7 @@ function AboutPage() {
                       )}
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                         <span>{f.location}, India</span>
                         <span>•</span>
@@ -387,28 +391,28 @@ function AboutPage() {
                   <h4 className="text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">
                     Strategic Mandate &amp; Platform Leadership
                   </h4>
-                  <p className="text-sm sm:text-[15px] text-foreground/90 leading-relaxed font-sans">
+                  <p className="text-sm sm:text-base text-foreground/90 leading-relaxed font-sans">
                     {f.summary}
                   </p>
                 </div>
 
                 {/* Beyond the Boardroom */}
-                <div className="rounded-xl border border-border bg-secondary/30 p-5 sm:p-6 space-y-3">
+                <div className="rounded-xl border border-border bg-secondary/30 p-5 sm:p-6 space-y-3.5">
                   <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-mono text-foreground font-semibold">
                     <Activity className="h-4 w-4" />
                     <span>Beyond the Boardroom</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-xs sm:text-sm text-foreground/85 leading-relaxed">
                     {f.beyondBoardroom.description}
                   </p>
 
-                  <div className="flex flex-wrap gap-2 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-1.5">
                     {f.beyondBoardroom.tags.map((tag) => {
                       const Icon = tag.icon;
                       return (
                         <span
                           key={tag.label}
-                          className="inline-flex items-center gap-1.5 rounded border border-border bg-secondary/60 px-2.5 py-1 text-xs text-muted-foreground font-mono"
+                          className="inline-flex items-center gap-1.5 rounded border border-border bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground font-mono"
                         >
                           <Icon className="h-3.5 w-3.5 text-foreground" />
                           <span>{tag.label}</span>
@@ -435,7 +439,7 @@ function AboutPage() {
               >
                 <div className="flex items-center justify-between gap-3">
                   {/* Thumbnail Picture Space */}
-                  <div className={`h-14 w-14 rounded-xl border ${f.image ? "border-border shadow-sm" : "border-dashed border-border"} bg-secondary flex flex-col items-center justify-center overflow-hidden shrink-0`}>
+                  <div className={`h-16 w-16 rounded-xl border ${f.image ? "border-border shadow-sm" : "border-dashed border-border"} bg-secondary flex flex-col items-center justify-center overflow-hidden shrink-0`}>
                     {f.image ? (
                       <img src={f.image} alt={f.name} className="w-full h-full object-cover object-top" />
                     ) : (
@@ -453,7 +457,7 @@ function AboutPage() {
                   <h4 className="font-display text-lg font-semibold text-foreground">{f.name}</h4>
                   <p className="text-xs text-muted-foreground mt-0.5">{f.role}</p>
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                <p className="text-xs sm:text-[13px] text-muted-foreground line-clamp-3 leading-relaxed">
                   {f.summary}
                 </p>
                 <div className="text-[11px] text-foreground font-mono flex items-center gap-1 pt-1 underline underline-offset-4">
