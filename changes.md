@@ -356,7 +356,43 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
       - `TRANA — Privacy Policy` when Privacy Policy is active.
   - All content, legal text, and Times New Roman typography preserved completely untouched.
 
+---
 
+## [2026-11-12] - About TRANA Comprehensive Text Update & Founder Photo Spaces
 
+### 1. "About Us" Content & Architecture Realignment (`src/routes/about.tsx`)
+- **Core Narrative & Sections Updated**:
+  - **Our Mission**: Democratizing legal intelligence for every Indian citizen.
+  - **The Problem We Solve**: Breaking through dense, archaic legal language and decoding FIRs and legal notices during urgent crisis moments.
+  - **Our Solution**: Digital legal first responder providing rapid first aid legal info alongside a modern, digitalized ecosystem for legal professionals.
+  - **The Meaning of TRANA**: Grounded in the Devanagari script (**त्राण / त्राणा**) signifying protection, shelter, preservation, and relief, with strict confidentiality and zero AI model training guarantees.
+  - **Our Commitment to Neutrality**: Independent technology interface adhering to Bar Council of India (BCI) Rule 36 non-solicitation ethics.
+  - **MEET THE FOUNDERS**:
+    - **Swastik Mishra** - Founder & Chief Executive Officer (CEO): Architect, strategy, product, and technology; Delhi roots, advocate family upbringing, competitive gaming/streaming, cricket, and Taekwondo black belt.
+    - **Soumil Krishn Sharma** - Cofounder (Finance & Operations): Financial structure, operational discipline, and statutory compliance; Faridabad roots, motorsport photography, competitive badminton, beatboxer, and Japanese culture aficionado.
+    - **Aditya Amist** - Cofounder (Marketing & Public Relations): Platform voice, civic outreach, and brand trust; Noida based, keen business acumen, Indian history & sociopolitical landscape focus, automotive and music lover.
+  - **Dedicated Founder Photo Spaces**:
+    - Added dedicated photo/portrait container (`image?: string` support with dashed border, avatar fallback, and camera iconography) in both the in-depth founder spotlight card and the 3-founder summary grid.
+  - **The Collaborative Engine**: Shared purpose across product development, legal compliance, and strategy.
+  - **OUR CORE PHILOSOPHY**: *"Knowledge must be shared for the betterment of society, and understanding your legal rights should never be a luxury."*
+  - **THE FIVE YEAR VISION**: Establishing TRANA as the definitive first response application for every single Indian citizen, fostering an empowered, happy, and secure Republic.
+- **Theme & Spacing Consistency**:
+  - Matched the website design tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`, `bg-secondary`, `btn-solid`), removing neon ambient blur gradients for a clean, professional aesthetic.
+## [2026-11-12] - BCI Professional Conduct Declaration Styling & High-Contrast Typography
+
+### 1. Advocate Verification Portal BCI Declaration Card (`src/routes/_authenticated/lawyer.tsx`)
+- **Changes**:
+  - Restored the authentic visual styling from the original Bar Council declaration card:
+    - Amber-accented container: `border border-amber-500/40 bg-amber-500/[0.04] p-4 sm:p-5` with clean rectangular edges.
+    - Checkbox outline: sharp amber border `border-amber-400/80 bg-transparent` when unchecked and `border-amber-400 bg-amber-400 text-black` when checked.
+    - Typography: Monospace font family (`font-mono`) matching the exact aesthetic of the original legal-tech compliance card.
+    - Visibility Enhancement: Elevated contrast and sizing from the previous tiny `text-[10px]` with dim `80%` opacity to crisp, easily readable `text-xs sm:text-[13px] leading-relaxed`, with a bold amber title `text-amber-300 font-bold text-sm tracking-wide` and bright amber-gold body `text-amber-100` / `text-amber-200/95`.
+  - Upheld the comprehensive statutory declaration text:
+    - *BCI Professional Conduct Declaration (Mandatory)*
+    - *I acknowledge that I am bound by the Bar Council of India Rules, including Rule 36 of Chapter II, Part VI, concerning professional conduct and the prohibition on advertising or soliciting professional work.*
+    - *I confirm that the information I provide for my profile is accurate and that I will not use TRANA to advertise, promote or solicit professional engagements in violation of applicable BCI rules.*
+    - *I understand that my profile and its publication remain subject to applicable professional regulations and that this declaration does not constitute BCI approval or certification of the listing.*
+- **Considerations**:
+  - Preserves exact visual parity with the original interface while ensuring compliance text is legible and prominent for enrolling advocates.
 
 

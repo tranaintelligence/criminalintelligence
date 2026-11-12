@@ -757,16 +757,16 @@ function LawyerLayout() {
               </div>
 
               {/* BCI Website & Information Rules Disclaimer */}
-              <div className="border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 rounded-lg">
+              <div className="border border-amber-500/40 bg-amber-500/[0.04] p-4 sm:p-5">
                 <label className="flex cursor-pointer items-start gap-3.5">
-                  <div className="relative mt-1 flex-shrink-0">
+                  <div className="relative mt-0.5 flex-shrink-0">
                     <input
                       type="checkbox"
                       checked={bciDisclaimerChecked}
                       onChange={(e) => setBciDisclaimerChecked(e.target.checked)}
                       className="peer sr-only"
                     />
-                    <div className={`h-4.5 w-4.5 rounded border ${bciDisclaimerChecked ? "border-amber-400 bg-amber-400" : "border-neutral-500 bg-neutral-900"} flex items-center justify-center transition-colors shadow-sm`}>
+                    <div className={`h-4.5 w-4.5 border ${bciDisclaimerChecked ? "border-amber-400 bg-amber-400" : "border-amber-400/80 bg-transparent"} flex items-center justify-center transition-colors shadow-sm`}>
                       {bciDisclaimerChecked && (
                         <svg className="h-3 w-3 text-black" fill="none" viewBox="0 0 12 12">
                           <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -774,17 +774,17 @@ function LawyerLayout() {
                       )}
                     </div>
                   </div>
-                  <div className="space-y-2 text-xs sm:text-[13px] leading-relaxed text-neutral-100">
-                    <strong className="block text-amber-300 font-semibold text-sm tracking-wide">
+                  <div className="space-y-2.5 font-mono text-xs sm:text-[13px] leading-relaxed text-amber-100">
+                    <strong className="block text-amber-300 font-bold text-sm tracking-wide">
                       BCI Professional Conduct Declaration (Mandatory)
                     </strong>
-                    <p className="text-neutral-200">
+                    <p className="text-amber-200/95">
                       I acknowledge that I am bound by the Bar Council of India Rules, including Rule 36 of Chapter II, Part VI, concerning professional conduct and the prohibition on advertising or soliciting professional work.
                     </p>
-                    <p className="text-neutral-200">
+                    <p className="text-amber-200/95">
                       I confirm that the information I provide for my profile is accurate and that I will not use TRANA to advertise, promote or solicit professional engagements in violation of applicable BCI rules.
                     </p>
-                    <p className="text-neutral-200">
+                    <p className="text-amber-200/95">
                       I understand that my profile and its publication remain subject to applicable professional regulations and that this declaration does not constitute BCI approval or certification of the listing.
                     </p>
                   </div>
