@@ -318,5 +318,23 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 - **Considerations**:
   - Adheres strictly to the brand's canonical Devanagari representation (**त्राणा**) while maintaining clear typographic distinction using Times New Roman for formal legal terms.
 
+### 2. Privacy Policy Update & Grievance Desk Address (`src/routes/privacy-policy.tsx`)
+- **Changes**:
+  - Replaced `PrivacyPolicyContent()` with the complete 8-section legal charter formatted identically to the Terms & Conditions:
+    - Styled in **Times New Roman** (`fontFamily: '"Times New Roman", Times, serif'`) with consistent typography and spacing (`text-[16px] sm:text-[17px]`).
+    - Updated card heading to `TRANA (त्राणा) — PRIVACY POLICY` with Devanagari script identity and date `12 November 2026`.
+    - Preamble: DPDP Act 2023 & IT Rules 2011 statutory grounding.
+    - Section 1: Information We Collect (Identity & Contact, Case Information & Document Uploads, Technical and Usage Data).
+    - Section 2: How We Use Your Information (Strictly Pro Citizen).
+    - Section 3: STRICTLY NO AI TRAINING POLICY (Highlighted callout emphasizing zero AI model training on citizen complaints or private communications).
+    - Section 4: Confidentiality and Data Sharing (User Initiated Advocate Connection, Service Providers, Legal Mandates).
+    - Section 5: Data Security (Industry-standard security and notice on preliminary platform relays regarding lawyer-client privilege).
+    - Section 6: Data Retention.
+    - Section 7: Your Rights (Access, Correction, Erasure, Consent Withdrawal).
+    - Section 8: Grievance Redressal Officer (Swastik Mishra, `tranaintelligence@gmail.com`, D-537 Additional Building Block, Supreme Court of India).
+  - Updated Hero `h1` component to display `TRANA (त्राणा) — Privacy Policy` in Times New Roman when the Privacy Policy tab is selected.
+  - Updated footer contact email to `tranaintelligence@gmail.com`.
+
+
 
 

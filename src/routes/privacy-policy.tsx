@@ -138,17 +138,17 @@ function PrivacyPolicyPage() {
           </div>
 
           <h1 
-            style={activeTab === "terms" ? { fontFamily: '"Times New Roman", Times, serif' } : undefined}
-            className="font-display text-3xl sm:text-5xl font-semibold tracking-tight text-white"
+            style={{ fontFamily: '"Times New Roman", Times, serif' }}
+            className="text-3xl sm:text-5xl font-bold tracking-tight text-white"
           >
             {activeTab === "terms" ? (
               <span>TRANA (त्राणा) &mdash; Terms and Conditions of Use</span>
             ) : (
-              "Statutory Legal Disclosures & Privacy Charters"
+              <span>TRANA (त्राणा) &mdash; Privacy Policy</span>
             )}
           </h1>
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-neutral-400 leading-relaxed font-sans">
-            Transparency, zero AI model training on citizen complaints, and strict adherence to Bar Council of India professional standards.
+            Transparency, zero AI model training on citizen complaints, and strict adherence to DPDP Act 2023 &amp; Bar Council of India professional standards.
           </p>
 
           <div className="flex items-center justify-center gap-3 text-xs text-neutral-500 font-mono pt-1">
@@ -204,8 +204,8 @@ function PrivacyPolicyPage() {
           </div>
           <p className="text-xs text-neutral-400 max-w-xl mx-auto leading-relaxed">
             TRANA is a technology interface operating under Indian law. For inquiries regarding our privacy standards or statutory data rights, reach our Grievance Desk at{" "}
-            <a href="mailto:grievance@trana.in" className="text-amber-300 underline underline-offset-2">
-              grievance@trana.in
+            <a href="mailto:tranaintelligence@gmail.com" className="text-amber-300 underline underline-offset-2">
+              tranaintelligence@gmail.com
             </a>.
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-4 text-xs text-neutral-500 font-mono">
@@ -230,299 +230,224 @@ function PrivacyPolicyPage() {
    ========================================================================= */
 function PrivacyPolicyContent() {
   return (
-    <div className="space-y-8 text-neutral-300 leading-relaxed font-sans text-sm sm:text-[15px]">
+    <div 
+      style={{ fontFamily: '"Times New Roman", Times, serif' }} 
+      className="space-y-8 text-neutral-200 leading-relaxed text-[16px] sm:text-[17px]"
+    >
       {/* Preamble Card */}
-      <div className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-xl">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300">
-              <Lock className="h-4 w-4" />
+      <div className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-5 gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300 shrink-0">
+              <Lock className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-display text-xl sm:text-2xl font-semibold text-white">
-                TRANA Privacy Policy
+              <h2 
+                style={{ fontFamily: '"Times New Roman", Times, serif' }}
+                className="text-2xl sm:text-3xl font-bold text-white tracking-wide"
+              >
+                TRANA (त्राणा) &mdash; PRIVACY POLICY
               </h2>
-              <span className="text-xs text-neutral-400 font-mono">
-                Effective: November 12, 2026 · Digital Personal Data Protection Compliance
+              <span className="text-sm text-neutral-400 block mt-1">
+                Last Updated: 12 November 2026
               </span>
             </div>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs text-emerald-400 font-mono">
-            <Check className="h-3 w-3" /> DPDP Act 2023 Aligned
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-1 text-xs text-emerald-400 self-start sm:self-auto font-mono">
+            <Check className="h-3.5 w-3.5" /> DPDP Act 2023 Aligned
           </span>
         </div>
 
-        <p className="text-neutral-300 leading-relaxed">
-          This Privacy Policy explains how <strong>TRANA</strong> (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) collects, uses, protects, and handles your data when you use our website (
-          <code className="text-amber-300 font-mono bg-white/5 px-1.5 py-0.5 rounded">criminalintelligence.vercel.app</code> and associated domains) and our AI-driven legal intelligence tools. We are committed to safeguarding your privacy in strict compliance with India&apos;s applicable data protection laws, including the <strong>Digital Personal Data Protection (DPDP) Act, 2023</strong>, and the <strong>Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011</strong>.
+        <p className="text-neutral-200 leading-relaxed">
+          This Privacy Policy explains how <strong>TRANA</strong> (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) collects, uses, protects, and handles your data when you use our website (<code className="text-amber-300 font-mono text-sm bg-white/5 px-1.5 py-0.5 rounded">criminalintelligence.vercel.app</code> and associated domains) and our AI driven legal intelligence tools. We are committed to safeguarding your privacy in strict compliance with India&apos;s applicable data protection laws, including the <strong>Digital Personal Data Protection (DPDP) Act, 2023</strong>, and the <strong>Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011</strong>.
         </p>
       </div>
 
-      {/* Section 1: Information We Collect */}
+      {/* 1. Information We Collect */}
       <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
-        <div className="flex items-center gap-3 text-white">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-mono text-xs font-bold text-amber-300">
-            01
-          </span>
-          <h3 className="font-display text-lg sm:text-xl font-semibold">1. Information We Collect</h3>
-        </div>
-        <p className="text-neutral-400">
-          To provide our services effectively, we collect limited and strictly necessary information:
+        <h3 className="text-xl sm:text-2xl font-bold text-white">
+          1. Information We Collect
+        </h3>
+        <p className="text-neutral-200 leading-relaxed">
+          To provide our services effectively, we collect limited and necessary information:
         </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-2">
-            <div className="flex items-center gap-2 text-white font-medium text-sm">
-              <UserCheck className="h-4 w-4 text-amber-400" />
-              <span>Identity & Contact</span>
-            </div>
-            <p className="text-xs text-neutral-400 leading-relaxed">
-              Name, email address, phone number, and location (only when you create an account or initiate contact with an advocate).
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-2">
-            <div className="flex items-center gap-2 text-white font-medium text-sm">
-              <FileText className="h-4 w-4 text-emerald-400" />
-              <span>Case Info & Documents</span>
-            </div>
-            <p className="text-xs text-neutral-400 leading-relaxed">
-              FIRs, police complaints, notices, or query text that you voluntarily upload or type into our AI tools to receive informational summaries and procedural guidance.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-2">
-            <div className="flex items-center gap-2 text-white font-medium text-sm">
-              <Cpu className="h-4 w-4 text-purple-400" />
-              <span>Technical & Usage Data</span>
-            </div>
-            <p className="text-xs text-neutral-400 leading-relaxed">
-              IP addresses, browser types, device information, and interaction metrics to monitor platform performance, ensure security, and improve the user interface.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 2: How We Use Your Information (Strictly Pro-Citizen) */}
-      <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
-        <div className="flex items-center gap-3 text-white">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-mono text-xs font-bold text-amber-300">
-            02
-          </span>
-          <h3 className="font-display text-lg sm:text-xl font-semibold">
-            2. How We Use Your Information (Strictly Pro-Citizen)
-          </h3>
-        </div>
-        <p className="text-neutral-300">
-          Your data is processed solely to provide you with immediate legal clarity, procedural guidance, and to facilitate your connection with a legal professional:
-        </p>
-
-        <ul className="space-y-3 pt-1">
+        <ul className="space-y-3 pl-2 sm:pl-4 text-neutral-200">
           <li className="flex items-start gap-3">
-            <ChevronRight className="h-4 w-4 text-amber-400 shrink-0 mt-1" />
-            <div>
-              <strong className="text-white">To Deliver Services:</strong> To generate plain-language summaries and statutory analyses of the documents and queries you upload.
-            </div>
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>Identity and Contact Information:</strong> Name, email address, phone number, and location (only when you create an account or initiate contact with an advocate).
+            </span>
           </li>
           <li className="flex items-start gap-3">
-            <ChevronRight className="h-4 w-4 text-amber-400 shrink-0 mt-1" />
-            <div>
-              <strong className="text-white">To Facilitate Connections:</strong> To transmit your query and contact details to an independent advocate, <em>only when you explicitly request and consent</em> for us to do so.
-            </div>
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>Case Information &amp; Document Uploads:</strong> FIRs, police complaints, or query text that you voluntarily upload or type into our AI tools to receive informational summaries and procedural guidance.
+            </span>
           </li>
           <li className="flex items-start gap-3">
-            <ChevronRight className="h-4 w-4 text-amber-400 shrink-0 mt-1" />
-            <div>
-              <strong className="text-white">Platform Operations:</strong> To maintain server stability, prevent fraud, and ensure the secure, authenticated operation of our platform.
-            </div>
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>Technical and Usage Data:</strong> IP addresses, browser types, device information, and interaction metrics to monitor platform performance, ensure security, and improve the user interface.
+            </span>
           </li>
         </ul>
       </section>
 
-      {/* Section 3: STRICTLY NO AI TRAINING POLICY (Highlighted Callout) */}
-      <section className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-emerald-950/30 to-[#0e1612] p-6 sm:p-8 space-y-4 shadow-2xl relative overflow-hidden">
-        <div className="flex items-center gap-3 text-white">
-          <div className="h-9 w-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300">
+      {/* 2. How We Use Your Information (Strictly Pro Citizen) */}
+      <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
+        <h3 className="text-xl sm:text-2xl font-bold text-white">
+          2. How We Use Your Information (Strictly Pro Citizen)
+        </h3>
+        <p className="text-neutral-200 leading-relaxed">
+          Your data is processed solely to provide you with immediate legal clarity, procedural guidance, and to facilitate your connection with a legal professional.
+        </p>
+        <ul className="space-y-3 pl-2 sm:pl-4 text-neutral-200">
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>To Deliver Services:</strong> To generate plain language summaries of the documents you upload.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>To Facilitate Connections:</strong> To transmit your query and contact details to an independent advocate, only when you explicitly request us to do so.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>Platform Operations:</strong> To maintain server stability, prevent fraud, and ensure the secure operation of our website.
+            </span>
+          </li>
+        </ul>
+      </section>
+
+      {/* 3. STRICTLY NO AI TRAINING POLICY */}
+      <section className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-emerald-950/25 to-[#121216] p-6 sm:p-8 space-y-4 shadow-2xl relative overflow-hidden">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 shrink-0">
             <EyeOff className="h-5 w-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-semibold">
-              Fundamental Safeguard
-            </span>
-            <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
-              3. STRICTLY NO AI TRAINING POLICY
-            </h3>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-emerald-500/30 bg-black/40 p-5 space-y-3 text-neutral-200">
-          <p className="leading-relaxed text-sm sm:text-base font-medium">
-            We recognize the highly sensitive nature of legal documents. <strong>TRANA does not and will not use your personal data, uploaded FIRs, complaints, or private communications to train, fine-tune, or improve our underlying Artificial Intelligence models.</strong>
-          </p>
-          <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-            Your data is processed transiently by our algorithms to generate your specific summary and is never absorbed into our AI&apos;s learning datasets or shared with third-party foundation model trainers.
-          </p>
-        </div>
-      </section>
-
-      {/* Section 4: Confidentiality and Data Sharing */}
-      <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
-        <div className="flex items-center gap-3 text-white">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-mono text-xs font-bold text-amber-300">
-            04
-          </span>
-          <h3 className="font-display text-lg sm:text-xl font-semibold">
-            4. Confidentiality and Data Sharing
+          <h3 className="text-xl sm:text-2xl font-bold text-white">
+            3. STRICTLY NO AI TRAINING POLICY
           </h3>
         </div>
-        <p className="text-neutral-300">
+        <p className="text-neutral-200 leading-relaxed">
+          We recognize the highly sensitive nature of legal documents. <strong>TRANA does not and will not use your personal data, uploaded FIRs, complaints, or private communications to train, fine tune, or improve our underlying Artificial Intelligence models.</strong> Your data is processed transiently by our algorithms to generate your specific summary and is never absorbed into our AI learning datasets.
+        </p>
+      </section>
+
+      {/* 4. Confidentiality and Data Sharing */}
+      <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
+        <h3 className="text-xl sm:text-2xl font-bold text-white">
+          4. Confidentiality and Data Sharing
+        </h3>
+        <p className="text-neutral-200 leading-relaxed">
           Your data is highly confidential. We do not sell, rent, monetize, or publicly display your personal information or legal documents. We only share data under the following strict conditions:
         </p>
-
-        <div className="space-y-3 pt-1">
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-            <h4 className="text-white font-medium text-sm flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-amber-400" />
-              <span>User-Initiated Advocate Connection</span>
-            </h4>
-            <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-              Your case details and contact information are transmitted solely to the specific independent advocate you explicitly choose to connect with. This transmission happens entirely on your own volition to facilitate your legal consultation.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-            <h4 className="text-white font-medium text-sm flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-purple-400" />
-              <span>Service Providers</span>
-            </h4>
-            <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-              We may use secure, trusted third-party cloud hosting and infrastructure providers to operate the platform. These providers are strictly bound by confidentiality agreements and are prohibited from accessing or using your data for any other purpose.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-            <h4 className="text-white font-medium text-sm flex items-center gap-2">
-              <Gavel className="h-4 w-4 text-red-400" />
-              <span>Legal Mandates</span>
-            </h4>
-            <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-              We will only disclose your information to law enforcement or government authorities if strictly mandated by a valid, lawful court order or statutory requirement.
-            </p>
-          </div>
-        </div>
+        <ul className="space-y-3 pl-2 sm:pl-4 text-neutral-200">
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>User Initiated Advocate Connection:</strong> Your case details and contact information are transmitted solely to the specific independent advocate you explicitly choose to connect with. This transmission happens entirely on your own volition to facilitate your legal consultation.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>Service Providers:</strong> We may use secure, trusted third party cloud hosting and infrastructure providers to operate the platform. These providers are strictly bound by confidentiality agreements and are prohibited from accessing or using your data for any other purpose.
+            </span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>Legal Mandates:</strong> We will only disclose your information to law enforcement or government authorities if strictly mandated by a valid, lawful court order or statutory requirement.
+            </span>
+          </li>
+        </ul>
       </section>
 
-      {/* Section 5 & 6: Data Security & Retention */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 space-y-3 shadow-lg">
-          <div className="flex items-center gap-3 text-white">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-mono text-xs font-bold text-amber-300">
-              05
-            </span>
-            <h3 className="font-display text-lg font-semibold">5. Data Security</h3>
-          </div>
-          <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-            We implement robust, industry-standard administrative, technical, and physical security measures to protect your data against unauthorized access, loss, or alteration.
-          </p>
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 text-xs text-amber-300/90 leading-relaxed">
-            <strong className="block text-amber-300 font-semibold mb-1">Important Notice on Legal Privilege:</strong>
-            Preliminary messaging relays on TRANA should not be used for the exchange of unredacted, business-critical, or politically sensitive information prior to establishing a formalized advocate-client engagement. Standard platform communications are not protected by lawyer-client privilege until you formally hire the advocate.
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 space-y-3 shadow-lg">
-          <div className="flex items-center gap-3 text-white">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-mono text-xs font-bold text-amber-300">
-              06
-            </span>
-            <h3 className="font-display text-lg font-semibold">6. Data Retention</h3>
-          </div>
-          <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-            We retain your personal information only for as long as is necessary to fulfill the purposes outlined in this Privacy Policy, to facilitate your connection with an advocate, or as required by applicable Indian laws.
-          </p>
-          <p className="text-xs text-neutral-400 leading-relaxed">
-            Once the purpose is fulfilled, or upon your valid request, your data is securely deleted or anonymized in accordance with statutory DPDP standards.
-          </p>
-        </section>
-      </div>
-
-      {/* Section 7: Your Rights */}
+      {/* 5. Data Security */}
       <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
-        <div className="flex items-center gap-3 text-white">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 font-mono text-xs font-bold text-amber-300">
-            07
-          </span>
-          <h3 className="font-display text-lg sm:text-xl font-semibold">
-            7. Your Rights Under Indian Data Law
+        <h3 className="text-xl sm:text-2xl font-bold text-white">
+          5. Data Security
+        </h3>
+        <p className="text-neutral-200 leading-relaxed">
+          We implement robust, industry standard administrative, technical, and physical security measures to protect your data against unauthorized access, loss, or alteration. However, please note that preliminary messaging relays on TRANA should not be used for the exchange of unredacted, business critical, or politically sensitive information prior to establishing a formalized advocate client engagement. Standard platform communications are not protected by lawyer client privilege until you formally hire the advocate.
+        </p>
+      </section>
+
+      {/* 6. Data Retention */}
+      <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
+        <h3 className="text-xl sm:text-2xl font-bold text-white">
+          6. Data Retention
+        </h3>
+        <p className="text-neutral-200 leading-relaxed">
+          We retain your personal information only for as long as is necessary to fulfill the purposes outlined in this Privacy Policy, to facilitate your connection with an advocate, or as required by applicable Indian laws. Once the purpose is fulfilled, or upon your valid request, your data is securely deleted or anonymized.
+        </p>
+      </section>
+
+      {/* 7. Your Rights */}
+      <section className="rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 space-y-4 shadow-lg">
+        <h3 className="text-xl sm:text-2xl font-bold text-white">
+          7. Your Rights
+        </h3>
+        <p className="text-neutral-200 leading-relaxed">
+          Under applicable Indian data protection laws, you have the right to:
+        </p>
+        <ul className="space-y-3 pl-2 sm:pl-4 text-neutral-200">
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>Access the personal data we hold about you.</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>Correct any inaccurate or incomplete data.</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>Request the deletion or erasure of your personal data.</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>Withdraw your consent for data processing at any time (which may limit your ability to use certain platform features).</span>
+          </li>
+        </ul>
+      </section>
+
+      {/* 8. Grievance Redressal */}
+      <section className="rounded-2xl border border-amber-500/30 bg-[#131317] p-6 sm:p-8 space-y-5 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300 shrink-0">
+            <Scale className="h-5 w-5" />
+          </div>
+          <h3 className="text-xl sm:text-2xl font-bold text-white">
+            8. Grievance Redressal
           </h3>
         </div>
-        <p className="text-neutral-400 text-xs sm:text-sm">
-          Under applicable Indian data protection laws (including the DPDP Act, 2023), you have the right to:
+        <p className="text-neutral-200 leading-relaxed">
+          In accordance with the Information Technology Act, 2000, and rules made thereunder, the name and contact details of the Grievance Officer are provided below. If you have any concerns regarding your privacy or data usage, please contact:
         </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div className="flex items-start gap-2.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs sm:text-sm">
-            <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-            <span><strong>Right to Access:</strong> Access the personal data we hold about you.</span>
-          </div>
-          <div className="flex items-start gap-2.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs sm:text-sm">
-            <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-            <span><strong>Right to Correction:</strong> Correct any inaccurate or incomplete data.</span>
-          </div>
-          <div className="flex items-start gap-2.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs sm:text-sm">
-            <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-            <span><strong>Right to Erasure:</strong> Request the deletion or erasure of your personal data.</span>
-          </div>
-          <div className="flex items-start gap-2.5 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs sm:text-sm">
-            <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-            <span><strong>Right to Withdraw Consent:</strong> Withdraw your processing consent at any time.</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 8: Grievance Redressal Card */}
-      <section className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#181512] to-[#121216] p-6 sm:p-8 space-y-4 shadow-xl">
-        <div className="flex items-center gap-3 text-white">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 font-mono text-xs font-bold text-amber-300">
-            08
-          </span>
-          <div>
-            <h3 className="font-display text-lg sm:text-xl font-semibold text-white">
-              8. Grievance Redressal Officer
-            </h3>
-            <span className="text-xs text-neutral-400">
-              Information Technology Act, 2000 & DPDP Act, 2023 Mandate
+        <ul className="space-y-3 pl-2 sm:pl-4 text-neutral-200">
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span><strong>Name:</strong> Swastik Mishra</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span>
+              <strong>Email:</strong>{" "}
+              <a href="mailto:tranaintelligence@gmail.com" className="text-amber-300 underline underline-offset-2 hover:text-amber-200">
+                tranaintelligence@gmail.com
+              </a>
             </span>
-          </div>
-        </div>
-
-        <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-          In accordance with the Information Technology Act, 2000, and rules made thereunder, the name and contact details of the Grievance Officer are provided below. If you have any concerns regarding your privacy or data usage, please reach out directly:
-        </p>
-
-        <div className="rounded-xl border border-white/10 bg-black/40 p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm">
-          <div>
-            <span className="text-neutral-400 text-xs block uppercase font-mono">Grievance Officer</span>
-            <strong className="text-white text-base font-display">Swastik Mishra</strong>
-            <p className="text-xs text-amber-300/80 mt-0.5">TRANA Legal Desk</p>
-          </div>
-          <div>
-            <span className="text-neutral-400 text-xs block uppercase font-mono">Official Email</span>
-            <a href="mailto:grievance@trana.in" className="text-amber-300 hover:underline font-mono text-xs flex items-center gap-1.5 mt-1">
-              <Mail className="h-3.5 w-3.5" /> grievance@trana.in
-            </a>
-            <a href="mailto:support@trana.in" className="text-neutral-400 hover:underline font-mono text-xs block mt-0.5">
-              cc: support@trana.in
-            </a>
-          </div>
-          <div>
-            <span className="text-neutral-400 text-xs block uppercase font-mono">Registered Office</span>
-            <div className="flex items-start gap-1 text-xs text-neutral-300 mt-1">
-              <MapPin className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-              <span>TRANA Technologies, Barakhamba Road, Connaught Place, New Delhi, India — 110001</span>
-            </div>
-          </div>
-        </div>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-amber-400 text-lg leading-none mt-1">•</span>
+            <span><strong>Address:</strong> D-537 Additional Building Block, Supreme Court of India</span>
+          </li>
+        </ul>
       </section>
     </div>
   );
