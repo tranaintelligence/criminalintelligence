@@ -423,3 +423,19 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Improved line heights, paragraph font sizes (`text-sm sm:text-base leading-relaxed`), and spacing rhythm across cards.
 - **Considerations**:
   - Strictly preserves all other copy, vision, philosophy, and features without unintended changes.
+
+
+---
+
+## [2026-11-12] - About Page Reading Space Optimization & Layout Refinements
+
+### 1. Spacing & Typography Calibration (`src/routes/about.tsx`)
+- **Reading Measure & Flow**:
+  - Calibrated text containers and measure widths (`max-w-4xl` and `max-w-3xl`) to establish natural line lengths that eliminate visual fatigue.
+  - Increased line-height rhythm (`leading-[1.15]` for titles, `leading-relaxed` for paragraphs) and unified body font scaling (`text-sm sm:text-base text-foreground/90`).
+- **Card Margins & Padding**:
+  - Elevated card paddings to `p-7 sm:p-10 lg:p-12` across major narrative modules (*The Devanagari Meaning*, *The Collaborative Engine*, *Our Core Philosophy*, and *The Five Year Vision*).
+  - Aligned Problem & Solution column heights with `flex flex-col justify-start` and dedicated `space-y-3.5` between problem/solution narrative steps.
+  - Generously spaced out the section gaps (`space-y-14 sm:space-y-20`) for clear cognitive separation between brand mission, legal neutrality, founders, and 5-year outlook.
+- **Zero Content Alteration**:
+  - Preserved every word, punctuation mark, and link exactly as authored.

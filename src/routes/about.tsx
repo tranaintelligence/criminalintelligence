@@ -178,31 +178,31 @@ function AboutPage() {
       </header>
 
       {/* Main Content */}
-      <main className="relative mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:py-16 space-y-12 sm:space-y-16">
+      <main className="relative mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:py-20 space-y-14 sm:space-y-20">
         {/* Title & Mission Statement */}
-        <div className="text-center space-y-5">
+        <div className="text-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-1.5 text-xs text-muted-foreground font-mono shadow-sm">
             <Sparkles className="h-3.5 w-3.5 text-foreground" />
             <span>Our Mission · Democratizing Legal Intelligence</span>
           </div>
 
-          <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground leading-[1.1]">
+          <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground leading-[1.15]">
             Democratizing Legal Intelligence <br className="hidden sm:inline" />
             for Every Indian Citizen.
           </h1>
 
-          <p className="mx-auto max-w-3xl text-sm sm:text-base lg:text-lg text-foreground/90 leading-relaxed font-sans">
+          <p className="mx-auto max-w-3xl text-base sm:text-lg text-foreground/90 leading-relaxed font-sans">
             TRANA is built on a single, vital premise: <strong className="text-foreground">legal intelligence should be accessible, comprehensible, and immediately actionable for every citizen.</strong> We are a legal technology and artificial intelligence platform dedicated to transforming how individuals interact with the criminal justice system in India. Our mission is to bridge the massive gap between complex legal procedures and the everyday people who need immediate clarity during stressful situations.
           </p>
         </div>
 
         {/* The Devanagari Meaning Card */}
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-sm relative overflow-hidden">
+        <div className="rounded-2xl border border-border bg-card p-7 sm:p-10 lg:p-12 shadow-sm relative overflow-hidden">
           <div className="absolute -right-6 -bottom-8 select-none pointer-events-none opacity-5 font-serif text-[180px] text-foreground font-bold leading-none">
             त्राणा
           </div>
 
-          <div className="relative z-10 space-y-4">
+          <div className="relative z-10 space-y-5">
             <div className="flex items-center gap-3">
               <span className="font-serif text-2xl sm:text-3xl font-bold text-foreground px-3.5 py-1 rounded-lg bg-secondary border border-border">
                 त्राण / त्राणा
@@ -221,17 +221,17 @@ function AboutPage() {
               The name TRANA is rooted in the Devanagari script (<strong>त्राण / त्राणा</strong>), signifying <em>protection, shelter, preservation, and relief</em>. It reflects our core belief that timely access to accurate legal information is the first line of defense in safeguarding individual rights. We ensure that every interaction remains strictly confidential. Your private legal documents are never made public and are never used to train our AI models.
             </p>
 
-            <div className="pt-2 flex flex-wrap gap-3">
-              <div className="rounded-lg border border-border bg-secondary/50 px-3.5 py-2 text-xs font-mono text-muted-foreground flex items-center gap-2">
-                <Shield className="h-3.5 w-3.5 text-foreground" />
+            <div className="pt-2 flex flex-wrap gap-2.5 sm:gap-3">
+              <div className="rounded-lg border border-border/80 bg-secondary/60 px-4 py-2 text-xs font-mono text-muted-foreground flex items-center gap-2">
+                <Shield className="h-4 w-4 text-foreground shrink-0" />
                 <span>Strictly Confidential Interactions</span>
               </div>
-              <div className="rounded-lg border border-border bg-secondary/50 px-3.5 py-2 text-xs font-mono text-muted-foreground flex items-center gap-2">
-                <Lock className="h-3.5 w-3.5 text-foreground" />
+              <div className="rounded-lg border border-border/80 bg-secondary/60 px-4 py-2 text-xs font-mono text-muted-foreground flex items-center gap-2">
+                <Lock className="h-4 w-4 text-foreground shrink-0" />
                 <span>Zero AI Model Training on Citizen Files</span>
               </div>
-              <div className="rounded-lg border border-border bg-secondary/50 px-3.5 py-2 text-xs font-mono text-muted-foreground flex items-center gap-2">
-                <Scale className="h-3.5 w-3.5 text-foreground" />
+              <div className="rounded-lg border border-border/80 bg-secondary/60 px-4 py-2 text-xs font-mono text-muted-foreground flex items-center gap-2">
+                <Scale className="h-4 w-4 text-foreground shrink-0" />
                 <span>BCI Rule 36 Ethical Neutrality</span>
               </div>
             </div>
@@ -239,9 +239,9 @@ function AboutPage() {
         </div>
 
         {/* Problem & Solution Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
           {/* Problem */}
-          <div className="rounded-xl border border-border bg-card p-6 sm:p-8 space-y-4 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-7 sm:p-9 space-y-4 shadow-sm flex flex-col justify-start">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-secondary border border-border flex items-center justify-center text-foreground shrink-0">
                 <Flag className="h-5 w-5" />
@@ -251,16 +251,18 @@ function AboutPage() {
                 <h3 className="font-display text-xl font-semibold text-foreground">The Problem We Solve</h3>
               </div>
             </div>
-            <p className="text-sm text-foreground/90 leading-relaxed">
-              Navigating criminal law can be overwhelming, intimidating, and confusing. Legal documents are often drafted in dense, archaic language that is difficult for a layperson to understand.
-            </p>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              When citizens receive a First Information Report (FIR) or a legal complaint, their immediate need is to understand what the document means, what their rights are, and what steps they must take next.
-            </p>
+            <div className="space-y-3.5 text-sm sm:text-base leading-relaxed">
+              <p className="text-foreground/90">
+                Navigating criminal law can be overwhelming, intimidating, and confusing. Legal documents are often drafted in dense, archaic language that is difficult for a layperson to understand.
+              </p>
+              <p className="text-muted-foreground">
+                When citizens receive a First Information Report (FIR) or a legal complaint, their immediate need is to understand what the document means, what their rights are, and what steps they must take next.
+              </p>
+            </div>
           </div>
 
           {/* Solution */}
-          <div className="rounded-xl border border-border bg-card p-6 sm:p-8 space-y-4 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-7 sm:p-9 space-y-4 shadow-sm flex flex-col justify-start">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-secondary border border-border flex items-center justify-center text-foreground shrink-0">
                 <Compass className="h-5 w-5" />
@@ -270,17 +272,19 @@ function AboutPage() {
                 <h3 className="font-display text-xl font-semibold text-foreground">Our Solution: AI Driven Legal First Aid &amp; A Digital Ecosystem</h3>
               </div>
             </div>
-            <p className="text-sm text-foreground/90 leading-relaxed">
-              TRANA acts as your digital legal first responder. Through our AI driven criminal legal intelligence platform, we provide rapid first aid legal information, helping individuals decode FIRs, police complaints, and legal notices in plain language.
-            </p>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Beyond just helping citizens, TRANA serves as a modern, digitalized legal ecosystem. We provide a single, secure digital infrastructure where legal professionals can operate, collaborate, and connect with the people who need them most. It is a unified workspace designed to bring traditional legal practice into the 21st century.
-            </p>
+            <div className="space-y-3.5 text-sm sm:text-base leading-relaxed">
+              <p className="text-foreground/90">
+                TRANA acts as your digital legal first responder. Through our AI driven criminal legal intelligence platform, we provide rapid first aid legal information, helping individuals decode FIRs, police complaints, and legal notices in plain language.
+              </p>
+              <p className="text-muted-foreground">
+                Beyond just helping citizens, TRANA serves as a modern, digitalized legal ecosystem. We provide a single, secure digital infrastructure where legal professionals can operate, collaborate, and connect with the people who need them most. It is a unified workspace designed to bring traditional legal practice into the 21st century.
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Commitment to Neutrality */}
-        <div className="rounded-xl border border-border bg-card p-6 sm:p-8 space-y-3.5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-7 sm:p-9 space-y-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-secondary border border-border flex items-center justify-center text-foreground shrink-0">
               <Scale className="h-5 w-5" />
@@ -289,27 +293,29 @@ function AboutPage() {
               Our Commitment to Neutrality
             </h3>
           </div>
-          <p className="text-sm sm:text-base text-foreground/90 leading-relaxed">
+          <p className="text-sm sm:text-base text-foreground/90 leading-relaxed max-w-4xl">
             TRANA is strictly an independent technology provider. We do not provide legal advice, and we do not solicit clients on behalf of any advocate. Our platform is designed to empower citizens with knowledge and facilitate voluntary connections, all while strictly respecting the professional boundaries and ethics established by the Bar Council of India (BCI).
           </p>
         </div>
 
         {/* MEET THE FOUNDERS SECTION */}
-        <section className="space-y-8 pt-4">
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3.5 py-1 text-xs text-muted-foreground font-mono">
+        <section className="space-y-10 pt-2">
+          <div className="text-center space-y-4 max-w-4xl mx-auto">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-1.5 text-xs text-muted-foreground font-mono">
               <GraduationCap className="h-3.5 w-3.5 text-foreground" />
               <span>Second-Year BA LLB (Hons) Innovators</span>
             </div>
-            <h2 className="font-display text-3xl sm:text-4xl font-semibold text-foreground">
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground tracking-tight">
               MEET THE FOUNDERS: Building the Future of Indian Law
             </h2>
-            <p className="mx-auto max-w-3xl text-sm text-muted-foreground leading-relaxed">
-              TRANA was not born in a corporate boardroom; it was born from a profound realization in the classrooms of a law school.
-            </p>
-            <p className="mx-auto max-w-3xl text-sm text-foreground/90 leading-relaxed">
-              The platform is the brainchild of three driven second year BA LLB (Hons) students. While studying the intricacies of the Indian justice system, they recognized a glaring, unacceptable gap: the laws designed to protect the citizens are often too complex, opaque, and intimidating for the common masses to actually use. They decided not to wait until graduation to make a difference.
-            </p>
+            <div className="space-y-3 pt-1">
+              <p className="mx-auto max-w-3xl text-sm sm:text-base text-muted-foreground leading-relaxed">
+                TRANA was not born in a corporate boardroom; it was born from a profound realization in the classrooms of a law school.
+              </p>
+              <p className="mx-auto max-w-3xl text-sm sm:text-base text-foreground/90 leading-relaxed">
+                The platform is the brainchild of three driven second year BA LLB (Hons) students. While studying the intricacies of the Indian justice system, they recognized a glaring, unacceptable gap: the laws designed to protect the citizens are often too complex, opaque, and intimidating for the common masses to actually use. They decided not to wait until graduation to make a difference.
+              </p>
+            </div>
           </div>
 
           {/* Founder Quick Switcher Tabs */}
@@ -470,7 +476,7 @@ function AboutPage() {
         </section>
 
         {/* The Collaborative Engine */}
-        <section className="rounded-xl border border-border bg-card p-6 sm:p-10 space-y-4 shadow-sm">
+        <section className="rounded-2xl border border-border bg-card p-7 sm:p-10 lg:p-12 space-y-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-secondary border border-border flex items-center justify-center text-foreground shrink-0">
               <Users className="h-5 w-5" />
@@ -485,13 +491,13 @@ function AboutPage() {
             </div>
           </div>
 
-          <p className="text-sm sm:text-[15px] text-foreground/90 leading-relaxed max-w-3xl">
+          <p className="text-sm sm:text-base text-foreground/90 leading-relaxed max-w-4xl">
             While they have their specialized domains and distinct personal passions, the true strength of TRANA’s leadership is its collaborative engine. <strong>Swastik, Soumil, and Aditya are united by a singular, overarching goal: to improve society by making legal rights accessible to all.</strong> In the relentless spirit of a startup, they work side by side across product development, legal compliance, and strategy to bring this platform to life.
           </p>
         </section>
 
         {/* OUR CORE PHILOSOPHY */}
-        <section className="rounded-xl border border-border bg-card p-6 sm:p-10 space-y-5 shadow-sm relative overflow-hidden">
+        <section className="rounded-2xl border border-border bg-card p-7 sm:p-10 lg:p-12 space-y-6 shadow-sm relative overflow-hidden">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-secondary border border-border flex items-center justify-center text-foreground shrink-0">
               <Heart className="h-5 w-5" />
@@ -506,17 +512,17 @@ function AboutPage() {
             </div>
           </div>
 
-          <blockquote className="rounded-xl border border-border bg-secondary/40 p-6 text-base sm:text-lg text-foreground font-display italic leading-relaxed">
+          <blockquote className="rounded-xl border border-border bg-secondary/40 p-6 sm:p-8 text-base sm:text-lg lg:text-xl text-foreground font-serif italic leading-relaxed shadow-sm">
             &ldquo;Knowledge must be shared for the betterment of society, and understanding your legal rights should never be a luxury.&rdquo;
           </blockquote>
 
-          <p className="text-sm text-foreground/90 leading-relaxed max-w-3xl">
+          <p className="text-sm sm:text-base text-foreground/90 leading-relaxed max-w-4xl">
             For too long, the legal system has been a labyrinth, sometimes weaponized by corrupt officials, and often a source of fear for the innocent. The law belongs to the people. TRANA was built to democratize that knowledge, ensuring that basic legal rights are accessible, understandable, and immediately actionable for everyone, regardless of their background or wealth.
           </p>
         </section>
 
         {/* THE FIVE YEAR VISION */}
-        <section className="rounded-xl border border-border bg-card p-6 sm:p-10 space-y-5 shadow-sm">
+        <section className="rounded-2xl border border-border bg-card p-7 sm:p-10 lg:p-12 space-y-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-secondary border border-border flex items-center justify-center text-foreground shrink-0">
               <Target className="h-5 w-5" />
@@ -531,20 +537,22 @@ function AboutPage() {
             </div>
           </div>
 
-          <p className="text-sm sm:text-base text-foreground/90 leading-relaxed max-w-3xl">
-            Fast forward five years, the founders are working toward a singular goal: <strong>TRANA must be the definitive first response for every single Indian citizen.</strong>
-          </p>
-          <p className="text-sm text-muted-foreground leading-relaxed max-w-3xl">
-            Whether a person is facing unjust harassment, dealing with a sudden police complaint, navigating an encounter with a corrupt official, or simply requiring urgent legal clarity, TRANA will be the application they instinctively trust. The ultimate vision is to create an empowered, happy, and secure India, a nation where every citizen has the knowledge and the tools to navigate the legal system with absolute confidence and peace of mind.
-          </p>
+          <div className="space-y-4 max-w-4xl text-sm sm:text-base leading-relaxed">
+            <p className="text-foreground/90">
+              Fast forward five years, the founders are working toward a singular goal: <strong>TRANA must be the definitive first response for every single Indian citizen.</strong>
+            </p>
+            <p className="text-muted-foreground">
+              Whether a person is facing unjust harassment, dealing with a sudden police complaint, navigating an encounter with a corrupt official, or simply requiring urgent legal clarity, TRANA will be the application they instinctively trust. The ultimate vision is to create an empowered, happy, and secure India, a nation where every citizen has the knowledge and the tools to navigate the legal system with absolute confidence and peace of mind.
+            </p>
+          </div>
         </section>
 
         {/* Bottom CTA / Platform Hub Links */}
-        <div className="rounded-xl border border-border bg-secondary/30 p-8 text-center space-y-4">
-          <h3 className="font-display text-2xl font-semibold text-foreground">
+        <div className="rounded-2xl border border-border bg-secondary/30 p-8 sm:p-12 text-center space-y-5">
+          <h3 className="font-display text-2xl sm:text-3xl font-semibold text-foreground">
             Experience the TRANA Ecosystem
           </h3>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Whether you are a citizen needing immediate legal first aid, an advocate managing chambers, or a law student researching precedents, TRANA is built for you.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -576,7 +584,7 @@ function AboutPage() {
         </div>
 
         {/* Global Footer */}
-        <footer className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground font-mono">
+        <footer className="pt-10 pb-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground font-mono">
           <div className="flex items-center gap-2">
             <span className="font-display font-bold text-foreground tracking-widest">TRANA</span>
             <span>•</span>
