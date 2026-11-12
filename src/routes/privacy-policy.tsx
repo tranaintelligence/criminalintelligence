@@ -253,7 +253,7 @@ function PrivacyPolicyContent() {
         </div>
 
         <p className="text-foreground/90 leading-relaxed">
-          This Privacy Policy explains how <strong>TRANA</strong> (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) collects, uses, protects, and handles your data when you use our website (<code className="text-foreground font-mono text-sm bg-secondary px-1.5 py-0.5 rounded border border-border">criminalintelligence.vercel.app</code> and associated domains) and our AI driven legal intelligence tools. We are committed to safeguarding your privacy in strict compliance with India&apos;s applicable data protection laws, including the <strong>Digital Personal Data Protection (DPDP) Act, 2023</strong>, and the <strong>Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011</strong>.
+          TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology. This Privacy Policy explains how <strong>TRANA</strong> (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) collects, uses, protects, and handles your data when you use our website (<code className="text-foreground font-mono text-sm bg-secondary px-1.5 py-0.5 rounded border border-border">criminalintelligence.vercel.app</code> and associated domains) and our AI driven legal intelligence tools. We are committed to safeguarding your privacy in strict compliance with India&apos;s applicable data protection laws, including the <strong>Digital Personal Data Protection (DPDP) Act, 2023</strong>, and the <strong>Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011</strong>.
         </p>
       </div>
 
@@ -501,7 +501,7 @@ function TermsContent() {
           2. Nature of the Platform &amp; BCI Compliance (Non Solicitation)
         </h3>
         <p className="text-foreground/90 leading-relaxed">
-          TRANA is an independent legal information and technology platform. We are NOT a law firm, and we do not practice law. By accessing this website, you explicitly acknowledge, confirm, and agree that:
+          TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology. We are NOT a law firm, and we do not practice law. By accessing this website, you explicitly acknowledge, confirm, and agree that:
         </p>
         <ul className="space-y-3 pl-2 sm:pl-4 text-foreground/90">
           <li className="flex items-start gap-3">

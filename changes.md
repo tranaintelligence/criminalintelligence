@@ -457,3 +457,32 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 - **Considerations**:
   - Accurately conveys TRANA's identity as an AI-powered criminal intelligence platform focused on accessible legal information, procedural guidance, and research.
   - Zero other copy, layout, or structural elements modified ("do not change anything else").
+
+
+---
+
+## [2026-11-12] - Restrict Platform Description to Legal Disclosures & Restore Landing Page
+
+### 1. Revert Landing Page Hero (`src/routes/index.tsx`)
+- **Restoration**:
+  - Restored original hero subtitle:
+    `TRANA makes legal information easier to understand and connects you with the right legal professional when it matters most.`
+  - Restored original `name: "description"` and `property: "og:description"` head metadata tags.
+- **Reasoning**:
+  - User requested that the criminal intelligence definition line appear strictly in Terms & Conditions, Privacy Policy, and About Us, and NOT on the general landing page.
+
+### 2. Add Platform Definition to Terms & Conditions, Privacy Policy & About Us
+- **Terms & Conditions (`src/routes/privacy-policy.tsx`)**:
+  - In Section 2 (*Nature of the Platform & BCI Compliance (Non Solicitation)*):
+    Updated opening description to:
+    `TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology. We are NOT a law firm, and we do not practice law.`
+- **Privacy Policy (`src/routes/privacy-policy.tsx`)**:
+  - In Privacy Policy preamble:
+    Prepended:
+    `TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology. This Privacy Policy explains how TRANA ("we," "us," or "our") collects, uses, protects, and handles your data...`
+- **About Us (`src/routes/about.tsx`)**:
+  - In Our Mission statement:
+    Integrated:
+    `TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology.`
+- **Considerations**:
+  - Fulfills the user's explicit preference that this specific description belongs strictly inside the statutory, privacy, and company background contexts, and nowhere else across the platform.

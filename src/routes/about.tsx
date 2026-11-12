@@ -192,7 +192,7 @@ function AboutPage() {
           </h1>
 
           <p className="mx-auto max-w-3xl text-base sm:text-lg text-foreground/90 leading-relaxed font-sans">
-            TRANA is built on a single, vital premise: <strong className="text-foreground">legal intelligence should be accessible, comprehensible, and immediately actionable for every citizen.</strong> We are a legal technology and artificial intelligence platform dedicated to transforming how individuals interact with the criminal justice system in India. Our mission is to bridge the massive gap between complex legal procedures and the everyday people who need immediate clarity during stressful situations.
+            TRANA is built on a single, vital premise: <strong className="text-foreground">legal intelligence should be accessible, comprehensible, and immediately actionable for every citizen.</strong> TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology. Our mission is to bridge the massive gap between complex legal procedures and the everyday people who need immediate clarity during stressful situations.
           </p>
         </div>
 
