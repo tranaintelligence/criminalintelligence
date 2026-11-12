@@ -305,4 +305,18 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - `handlePassOn` now safely updates `localStorage` passed trackers, updates local queries pool, optimistically mutates React Query cache, and only executes background Supabase updates if the ID is a valid UUID, wrapped safely in isolated error handling.
   - Added protection so that unverified advocates pending Founder review are kept on the holding screen and cannot inadvertently attempt mutations on protected citizen inquiries.
 
+---
+
+## [2026-11-12] - Terms and Conditions Heading Styling & Devanagari Identity Update
+
+### 1. Terms and Conditions Heading & Typography (`src/routes/privacy-policy.tsx`)
+- **Changes**:
+  - In `TermsContent()`, updated the main card heading to `TRANA (त्राणा) — TERMS AND CONDITIONS OF USE` and styled it in **Times New Roman** (`fontFamily: '"Times New Roman", Times, serif'`).
+  - In the Hero `h1` component, added conditional heading display when `activeTab === "terms"` to render `TRANA (त्राणा) — Terms and Conditions of Use` in **Times New Roman**.
+  - Updated the navbar brand subtext from `त्राण` to `त्राणा`.
+  - In Section 7 (Intellectual Property Rights), updated the proprietary mark description to highlight the Devanagari script mark `(त्राणा)`.
+- **Considerations**:
+  - Adheres strictly to the brand's canonical Devanagari representation (**त्राणा**) while maintaining clear typographic distinction using Times New Roman for formal legal terms.
+
+
 

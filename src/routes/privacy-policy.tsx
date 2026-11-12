@@ -36,7 +36,7 @@ export const Route = createFileRoute("/privacy-policy")({
   },
   head: () => ({
     meta: [
-      { title: "Privacy Policy & Terms of Use — TRANA (त्राण)" },
+      { title: "Privacy Policy & Terms of Use — TRANA (त्राणा)" },
       {
         name: "description",
         content:
@@ -96,7 +96,7 @@ function PrivacyPolicyPage() {
             <div className="h-4 w-px bg-white/15" />
             <Link to="/" className="flex items-center gap-2">
               <span className="font-display text-lg font-bold tracking-[0.2em] text-white">TRANA</span>
-              <span className="font-serif italic text-amber-300/80 text-xs tracking-wider">त्राण</span>
+              <span className="font-serif italic text-amber-300/80 text-xs tracking-wider">त्राणा</span>
             </Link>
           </div>
 
@@ -137,8 +137,15 @@ function PrivacyPolicyPage() {
             <span>Digital Personal Data Protection (DPDP) Act, 2023 · BCI Rule 36 Compliant</span>
           </div>
 
-          <h1 className="font-display text-3xl sm:text-5xl font-semibold tracking-tight text-white">
-            Statutory Legal Disclosures & Privacy Charters
+          <h1 
+            style={activeTab === "terms" ? { fontFamily: '"Times New Roman", Times, serif' } : undefined}
+            className="font-display text-3xl sm:text-5xl font-semibold tracking-tight text-white"
+          >
+            {activeTab === "terms" ? (
+              <span>TRANA (त्राणा) &mdash; Terms and Conditions of Use</span>
+            ) : (
+              "Statutory Legal Disclosures & Privacy Charters"
+            )}
           </h1>
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-neutral-400 leading-relaxed font-sans">
             Transparency, zero AI model training on citizen complaints, and strict adherence to Bar Council of India professional standards.
@@ -538,8 +545,11 @@ function TermsContent() {
               <Scale className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">
-                TERMS AND CONDITIONS OF USE
+              <h2 
+                style={{ fontFamily: '"Times New Roman", Times, serif' }}
+                className="text-2xl sm:text-3xl font-bold text-white tracking-wide"
+              >
+                TRANA (त्राणा) &mdash; TERMS AND CONDITIONS OF USE
               </h2>
               <span className="text-sm text-neutral-400 block mt-1">
                 Last Updated: 12 November 2026
@@ -687,7 +697,7 @@ function TermsContent() {
         <ul className="space-y-3 pl-2 sm:pl-4 text-neutral-200">
           <li className="flex items-start gap-3">
             <span className="text-amber-400 text-lg leading-none mt-1">•</span>
-            <span>The TRANA brand, logos, and the use of the Devanagari script identity (<strong>त्राण / त्राणा</strong>) are proprietary trademarks.</span>
+            <span>The TRANA brand, logos, and the use of the Devanagari script identity (<strong>त्राणा</strong>) are proprietary trademarks.</span>
           </li>
           <li className="flex items-start gap-3">
             <span className="text-amber-400 text-lg leading-none mt-1">•</span>
