@@ -6,9 +6,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "TRANA Legal Guidance, Within Reach" },
-      { name: "description", content: "TRANA makes Indian legal information easier to understand and connects you with the right legal professional." },
+      { name: "description", content: "TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology." },
       { property: "og:title", content: "TRANA Legal Guidance, Within Reach" },
-      { property: "og:description", content: "Legal first aid for India. Understand your situation and reach a qualified legal professional." },
+      { property: "og:description", content: "TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology." },
     ],
   }),
   component: Index,
@@ -114,7 +114,7 @@ function Index() {
           Legal Guidance,<br /><em className="font-normal">Within Reach.</em>
         </h1>
         <p className="reveal mt-6 md:mt-10 max-w-xl text-[14px] md:text-[15px] font-light text-muted-foreground">
-          TRANA makes legal information easier to understand and connects you with the right legal professional when it matters most.
+          TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology
         </p>
         <div className="reveal mt-6 md:mt-10 flex flex-col gap-3 md:flex-row md:gap-4">
           <Link to="/dashboard" className="btn-solid text-center">Get Legal Guidance</Link>

@@ -439,3 +439,21 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Generously spaced out the section gaps (`space-y-14 sm:space-y-20`) for clear cognitive separation between brand mission, legal neutrality, founders, and 5-year outlook.
 - **Zero Content Alteration**:
   - Preserved every word, punctuation mark, and link exactly as authored.
+
+
+---
+
+## [2026-11-12] - Core Platform Description Refinement on Landing Page
+
+### 1. Tagline & Meta Description Alignment (`src/routes/index.tsx`)
+- **Copy Replacement**:
+  - Replaced:
+    `TRANA makes legal information easier to understand and connects you with the right legal professional when it matters most.`
+  - With:
+    `TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology`
+- **Locations Updated**:
+  - Main Hero Section (`src/routes/index.tsx` line 117): Direct prominent subtitle under the primary hero heading *Legal Guidance, Within Reach.*
+  - Route Head Metadata (`src/routes/index.tsx` lines 9 & 11): Synchronized `name: "description"` and `property: "og:description"` tags with the new statement for search engine snippets and social sharing.
+- **Considerations**:
+  - Accurately conveys TRANA's identity as an AI-powered criminal intelligence platform focused on accessible legal information, procedural guidance, and research.
+  - Zero other copy, layout, or structural elements modified ("do not change anything else").
