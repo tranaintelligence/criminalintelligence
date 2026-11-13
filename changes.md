@@ -515,5 +515,17 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Suppressed redundant generic lawyer notes when the model's response already includes NALSA / DLSA reach guidance.
 - **Comprehensive Relevance Directive (`llm/prompts.py`)**:
   - Reinforced both `SYSTEM_PROMPT` and `DIRECT_ANALYSIS_PROMPT` to mandate comprehensive coverage whenever any legal aspect (meaning, penal section & punishment, bail eligibility & anticipatory bail, immediate steps / next 24 hours, statutory rights, competent court/authority) is relevant to the user's inquiry, ensuring no crucial safeguards or actionable rights are omitted.
+- **Legal First Aid Standard Sequence & Narrative Meaning (`llm/prompts.py`, `llm/chain.py`, `src/routes/_authenticated/dashboard.chat.tsx`, `models/schemas.py`, `src/lib/trana-types.ts`)**:
+  - Enforced the exact user-specified sequence for problems/scenarios:
+    1. `Meaning (easy terms)`: Formatted as a coherent narrative paragraph rather than bullet points, avoiding complicated jargon.
+    2. `Bail Status`: Explicitly determining bailable or non-bailable classification under BNSS, station vs court bail, and anticipatory bail.
+    3. `Immediate steps`: Step-by-step guidance right now and next 24 hours (utilizing 24-hour Playbooks A, B, or C when needed).
+    4. `Rights`: Statutory and constitutional rights applicable in the situation.
+    5. `Court or authority`: The competent Magistrate/court or police authority.
+    6. `Legal reasoning at the end`: Proper statutory reasoning analyzing legal ingredients, facts for/against, and noting that court makes final determination.
+    7. `Cite sources`: Bracketed citations `(BNS Section X; earlier IPC Section Y)` with indiacode.nic.in reference.
+    8. `Reaching a lawyer`: Single offer when relevant, providing NALSA 15100, DLSA, Tele-Law 14454, Bar Council guidance, and TRANA Find a Professional.
+  - For normal/general informational questions, explicitly instructed to skip the crisis sequence and provide simple, direct answers without unnecessary playbooks or bail sections.
+  - Added `legal_reasoning` field to `StructuredAnalysis` schemas across Python backend and TypeScript frontend.
 - **Zero Website UI Changes**:
   - Preserved all website routes, layout, styling, and text exactly as authored.

@@ -54,6 +54,7 @@ export interface StructuredAnalysis {
   next_24_hours?: string[];
   rights?: string[];
   handling_authority?: string;
+  legal_reasoning?: string;
   applicable_laws?: ApplicableLaw[];
 }
 

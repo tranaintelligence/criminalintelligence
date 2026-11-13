@@ -326,6 +326,7 @@ class StructuredAnalysis(BaseModel):
     next_24_hours: list[str] = Field(default_factory=list, description="3. What to do in the next 24 hours (Step-by-Step)")
     rights: list[str] = Field(default_factory=list, description="4. Your Rights")
     handling_authority: str = Field(default="", description="5. Which Authority handles this?")
+    legal_reasoning: str = Field(default="", description="6. Legal reasoning at the end")
     applicable_laws: list[ApplicableLaw] = Field(default_factory=list, description="List of applicable laws")
     relevant_source_indices: list[int] = Field(default_factory=list, description="Deprecated legacy chunk indices.")
 

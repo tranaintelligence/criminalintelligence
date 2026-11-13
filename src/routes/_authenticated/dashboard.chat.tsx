@@ -154,47 +154,86 @@ const formatAnalysis = (
     sections.push(result.conversational_reply.trim());
   }
 
-  // 2. Direct Question / Explanations vs Incident Analysis
+  // 2. Problem/Scenario Breakdown Sequence vs Direct Informational Question
   const hasSituationMeaning = Boolean(result.situation_meaning?.trim());
   const hasGeneralAnalysis = Boolean(result.general_analysis?.trim());
+  const hasLegalReasoning = Boolean(result.legal_reasoning?.trim());
 
-  if (hasGeneralAnalysis) {
-    sections.push(result.general_analysis.trim());
-  } else if (hasSituationMeaning) {
+  if (hasSituationMeaning) {
+    // 1. Meaning (easy terms - flowing paragraph)
     const meaning = result.situation_meaning.trim();
-    sections.push(meaning.startsWith('#') ? meaning : `### What This Situation Means\n\n${meaning}`);
-  }
+    sections.push(meaning.startsWith('#') ? meaning : `### Meaning\n\n${meaning}`);
 
-  // 3. Bail Status (Selective — only if an arrest or potential arrest is involved)
-  if (result.bail_status?.trim()) {
-    const bail = result.bail_status.trim();
-    const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
-    if (isApplicable && (!hasGeneralAnalysis || !result.general_analysis?.includes(bail))) {
-      sections.push(bail.startsWith('#') ? bail : `### Bail Status & Eligibility\n\n${bail}`);
+    // 2. Bail Status (Bailable or Non-Bailable)
+    if (result.bail_status?.trim()) {
+      const bail = result.bail_status.trim();
+      const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
+      if (isApplicable) {
+        sections.push(bail.startsWith('#') ? bail : `### Bail Status (Bailable / Non-Bailable)\n\n${bail}`);
+      }
     }
-  }
 
-  // 4. Next 24 Hours Action Steps (Selective — only for active encounters)
-  if (result.next_24_hours?.length) {
-    const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
-    if (validSteps.length > 0 && (!hasGeneralAnalysis || !result.general_analysis?.includes(validSteps[0].trim()))) {
-      sections.push(`### What To Do Next (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+    // 3. Immediate Steps (Next 24 Hours)
+    if (result.next_24_hours?.length) {
+      const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+      if (validSteps.length > 0) {
+        sections.push(`### Immediate Steps (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+      }
     }
-  }
 
-  // 5. Rights
-  if (result.rights?.length) {
-    const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
-    if (validRights.length > 0 && (!hasGeneralAnalysis || !result.general_analysis?.includes(validRights[0].trim()))) {
-      sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+    // 4. Rights
+    if (result.rights?.length) {
+      const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+      if (validRights.length > 0) {
+        sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+      }
     }
-  }
 
-  // 6. Handling Authority
-  if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
-    const auth = result.handling_authority.trim();
-    if (!hasGeneralAnalysis || !result.general_analysis?.includes(auth)) {
-      sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
+    // 5. Court or Authority
+    if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
+      const auth = result.handling_authority.trim();
+      sections.push(auth.startsWith('#') ? auth : `### Competent Court & Authority\n\n${auth}`);
+    }
+
+    // 6. Legal Reasoning (at the end)
+    if (hasLegalReasoning) {
+      const reasoning = result.legal_reasoning.trim();
+      sections.push(reasoning.startsWith('#') ? reasoning : `### Legal Reasoning\n\n${reasoning}`);
+    } else if (hasGeneralAnalysis && !result.general_analysis?.includes(result.situation_meaning.trim())) {
+      const general = result.general_analysis.trim();
+      sections.push(general.startsWith('#') ? general : `### Legal Reasoning\n\n${general}`);
+    }
+  } else if (hasGeneralAnalysis) {
+    // Normal / general informational questions: Answer directly without unnecessary crisis steps
+    sections.push(result.general_analysis.trim());
+
+    if (result.bail_status?.trim()) {
+      const bail = result.bail_status.trim();
+      const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
+      if (isApplicable && !result.general_analysis?.includes(bail)) {
+        sections.push(bail.startsWith('#') ? bail : `### Bail Status\n\n${bail}`);
+      }
+    }
+
+    if (result.next_24_hours?.length) {
+      const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+      if (validSteps.length > 0 && !result.general_analysis?.includes(validSteps[0].trim())) {
+        sections.push(`### Immediate Steps (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+      }
+    }
+
+    if (result.rights?.length) {
+      const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+      if (validRights.length > 0 && !result.general_analysis?.includes(validRights[0].trim())) {
+        sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+      }
+    }
+
+    if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
+      const auth = result.handling_authority.trim();
+      if (!result.general_analysis?.includes(auth)) {
+        sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
+      }
     }
   }
 

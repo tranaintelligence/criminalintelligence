@@ -259,6 +259,13 @@ def _normalize_analysis_payload(payload: object) -> dict:
             or normalized.get("police_station")
             or ""
         )
+    if not normalized.get("legal_reasoning"):
+        normalized["legal_reasoning"] = (
+            normalized.get("reasoning")
+            or normalized.get("statutory_reasoning")
+            or normalized.get("legal_analysis")
+            or ""
+        )
     if not normalized.get("next_24_hours"):
         normalized["next_24_hours"] = (
             normalized.get("immediate_steps")
