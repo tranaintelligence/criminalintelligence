@@ -4,16 +4,23 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 
 ---
 
-## [2026-11-14] - Switch Groq Execution & Auto-Migrate to `llama-3.3-70b-versatile`
+## [2026-11-14] - Fix Groq JSON Validation 400 Bug & Erroneous 429 Rate-Limit Masquerading
 
-### 1. Transparent Fallback & Auto-Migration from `openai/gpt-oss-120b` to `llama-3.3-70b-versatile`
-- **Context**: While `openai/gpt-oss-120b` is hosted on Groq, Groq's developer tier enforces an 8,000 Tokens-Per-Minute (TPM) limit on it. Because TRANA's system prompt and statutory context reserve ~7,900 tokens per request, single calls trip the 100% quota cap immediately.
+### 1. Root Cause Identified & Resolved
+- **Why Groq returned Rate Limit: 0 with 0 tokens**:
+  - Groq's API strictly requires the word `"json"` (case-insensitive) to be present anywhere inside the `messages` payload whenever `response_format: {"type": "json_object"}` is passed.
+  - When non-complaint direct queries (e.g. `"What is bail under BNSS?"`) were sent, TRANA's `SYSTEM_PROMPT` and `DIRECT_ANALYSIS_PROMPT` lacked the word `"json"`.
+  - Groq immediately rejected the request at the HTTP gateway with `HTTP 400: "'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'."`.
+  - Because it was rejected before tokenization, Groq registered `API Calls: 2`, `Rate Limit: 0`, `Input Tokens: 0`, `Output Tokens: 0`.
+- **Why TRANA claimed it was "rate-limited"**:
+  - `_run_quick_provider_pipeline` in `llm/chain.py` unconditionally called `mark_quick_temporarily_unavailable()` and raised `QuickModelUnavailableError` whenever all pool routes failed, even on HTTP 400/404 errors.
+  - `main.py` mapped `QuickModelUnavailableError` to `HTTP 429 (QUICK_MODEL_UNAVAILABLE)`, and the frontend displayed `⚠️ Quick Thinking rate-limited`.
 - **Fixes Applied**:
   - `llm/chain.py`:
-    - Updated `_invoke_openai_compatible` to automatically alias any configured Groq key with `openai/gpt-oss-120b` to `llama-3.3-70b-versatile` (which enjoys 100,000 TPM on Groq).
-    - Updated `_quick_routes` to promote `llama` model family to priority 0 alongside `gpt-oss`, prioritizing fast Llama 3.3 70B inference.
-  - `main.py`:
-    - Added an automatic DB migration query inside `_migrate_db_schema()`: `UPDATE provider_api_keys SET model = 'llama-3.3-70b-versatile' WHERE provider = 'groq' AND model = 'openai/gpt-oss-120b';` so existing database keys automatically update to `llama-3.3-70b-versatile` on startup.
+    - In `_invoke_openai_compatible`, explicitly verified that the word `"json"` is present in `raw_messages`. If missing, automatically injects `"CRITICAL: Respond exclusively as a valid JSON object matching the required schema."` into the system prompt.
+    - Updated `_run_quick_provider_pipeline` so that `mark_quick_temporarily_unavailable()` and `QuickModelUnavailableError` are only raised when a genuine `quota_error_seen` occurs. Non-quota failures raise standard `RuntimeError`.
+  - `key_manager.py` & `src/routes/founders.admin.tsx`: Retained `openai/gpt-oss-120b` as the default model for Groq.
+  - Verified end-to-end execution: `run_analysis_pipeline` successfully generates structured legal analysis using `quick:groq:openai/gpt-oss-120b`.
 
 ---
 

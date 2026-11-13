@@ -355,30 +355,37 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
     base_url = _provider_url(record)
     if not base_url:
         raise RuntimeError(f"No compatible base URL configured for provider {record.provider}.")
-    model_name = record.model
-    if record.provider == "groq" and model_name == "openai/gpt-oss-120b":
-        model_name = "llama-3.3-70b-versatile"
+    raw_messages = [
+        {
+            "role": (
+                "system"
+                if isinstance(message, SystemMessage)
+                else "assistant"
+                if isinstance(message, AIMessage)
+                else "user"
+            ),
+            "content": _message_text(message),
+        }
+        for message in messages
+    ]
+    if record.provider == "groq":
+        # Groq strictly requires the word 'json' (case-insensitive) in messages when json_object mode is requested.
+        has_json_word = any("json" in m["content"].lower() for m in raw_messages)
+        if not has_json_word:
+            if raw_messages and raw_messages[0]["role"] == "system":
+                raw_messages[0]["content"] += "\n\nCRITICAL: Respond exclusively as a valid JSON object matching the required schema."
+            else:
+                raw_messages.insert(0, {"role": "system", "content": "Respond exclusively as a valid JSON object matching the required schema."})
+
     payload = {
-        "model": model_name,
-        "messages": [
-            {
-                "role": (
-                    "system"
-                    if isinstance(message, SystemMessage)
-                    else "assistant"
-                    if isinstance(message, AIMessage)
-                    else "user"
-                ),
-                "content": _message_text(message),
-            }
-            for message in messages
-        ],
+        "model": record.model,
+        "messages": raw_messages,
         "temperature": settings.llm_temperature,
         "max_tokens": 4096,
     }
     if record.provider == "groq":
         payload["response_format"] = {"type": "json_object"}
-        if _model_family(model_name) == "gpt-oss":
+        if _model_family(record.model) == "gpt-oss":
             payload["include_reasoning"] = False
             payload["reasoning_effort"] = "low"
     headers = {"Authorization": f"Bearer {record.secret}", "Content-Type": "application/json"}
@@ -449,6 +456,7 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
     attempted = set()
     empty_analysis_error = None
     quota_error_seen = False
+    last_error = None
     diagnostic_log = []
     for record in routes:
         route_identity = (record.id, record.model)
@@ -523,6 +531,7 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
             )
             return _sanitize_analysis(analysis), f"quick:{record.provider}:{record.model}"
         except Exception as exc:
+            last_error = exc
             quota_error = is_quota_error(exc) or isinstance(exc, asyncio.TimeoutError)
             quota_error_seen = quota_error_seen or quota_error
             record_provider_key_attempt(record.id, record.provider, record.model, record.mode, "quota" if quota_error else "failure", exc)
@@ -567,8 +576,10 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
                 + "\n```"
             )
         ), "quick:vision-empty-response"
-    mark_quick_temporarily_unavailable()
-    raise QuickModelUnavailableError("Quick Thinking is temporarily unavailable because all configured Quick Thinking providers are rate-limited or unavailable.")
+    if quota_error_seen:
+        mark_quick_temporarily_unavailable()
+        raise QuickModelUnavailableError("Quick Thinking is temporarily unavailable because all configured Quick Thinking providers are rate-limited.")
+    raise RuntimeError(f"All configured Quick Thinking providers failed: {last_error or 'unknown error'}")
 
 
 def _clean_model_text(
@@ -1070,6 +1081,7 @@ async def run_analysis_pipeline(
                 "The analysis exceeded the 20-second response deadline. Please try again."
             ) from exc
         except Exception as exc:
+            last_error = exc
             quota_error = is_quota_error(exc)
             record_provider_attempt(
                 key_id,
