@@ -575,3 +575,28 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 - Added `ShieldCheck` to `lucide-react` imports in `src/routes/_authenticated/lawyer.documents.tsx`.
 - Verified with an AST-based JSX validator that zero undeclared JSX components remain across all route files.
 - Full production build verified clean with `bun run build`.
+
+---
+
+## [2026-11-14] - Rate Limit Resilience, Founder Verification Holding Gate & Citizen Query Modal Fixes
+
+### 1. LLM Rate Limit Cooldown & 429 Backoff (`key_manager.py` & `llm/chain.py`)
+- **Problem**: When Groq hit a burst rate limit (RPM/TPM 429), `key_manager.py` marked Quick Thinking unavailable for `QUICK_UNAVAILABLE_COOLDOWN_SECONDS = 300` (5 minutes!). Because only 1 Groq key was present in the pool, this locked out legal analysis completely for 5 minutes instead of recovering within Groq's 60-second quota window.
+- **Fixes**:
+  - `key_manager.py`: Reduced `QUICK_UNAVAILABLE_COOLDOWN_SECONDS` from `300` seconds to `20` seconds. The engine now automatically recovers within seconds once burst traffic clears.
+  - `llm/chain.py`: Added an automatic 1.5-second transient rate-limit backoff retry in `_invoke_openai_compatible`. If HTTP 429 is encountered and timeout permits (>3s), it waits 1.5 seconds and retries once automatically before bubbling an error.
+
+### 2. Strict Founder Verification Gating for Lawyers (`services/lawyer_verification_service.py` & `src/routes/_authenticated/lawyer.tsx`)
+- **Problem**:
+  1. Lawyers who signed up previously gained access to the workspace before founder verification. The automated verification engine in `services/lawyer_verification_service.py` had a rule (`rule_eval["score"] >= 0.8`) that auto-verified and approved applicants purely based on Sanad regex formatting.
+  2. Because they were auto-approved, they landed in the "Active" tab instead of the "Pending Verification" tab, making them appear missing from the Founder review queue.
+- **Fixes**:
+  - `services/lawyer_verification_service.py`: Removed auto-verification for Sanad format matching. All registrations are strictly set to `verified: False`, `status: "PENDING_VERIFICATION"`, and queued for manual Founder review on the Founders Desk.
+  - `src/routes/_authenticated/lawyer.tsx`: Enforced strict gating: unverified advocates are kept on the dedicated "Advocate Verification Under Review" holding screen, blocking them from viewing private citizen queries, cases, or the workspace until an authorized Founder clicks "Approve".
+
+### 3. Citizen Query Action Button Cleanup & UI Stability (`src/routes/_authenticated/lawyer.queries.tsx`)
+- **Problem**: In `src/routes/_authenticated/lawyer.queries.tsx`, a duplicate gate component had been pasted inside the "Pass On to Other Advocates" button render function, and previous unhandled Supabase update attempts on mock query IDs triggered stacked `"Could not pass query."` toasts.
+- **Fixes**:
+  - Removed the corrupted duplicate JSX block inside the action button render function.
+  - Confirmed `handlePassOn` safely updates the local pool and React Query cache, and only executes background Supabase updates for valid UUIDs with isolated error handling.
+

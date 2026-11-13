@@ -784,28 +784,7 @@ function CitizenQueriesPage() {
                   const isPassed = selectedQuery.passed_by?.some(
                     (p) => p === myId || p === lawyer?.id || (lawyer?.bar_reg_no && p === lawyer.bar_reg_no) || (lawyer?.full_name && p === lawyer.full_name)
                   );
-                  if (lawyer && (!lawyer.approved || lawyer.verification_status === "PENDING_VERIFICATION")) {
-    return (
-      <div className="min-h-screen p-6 flex items-center justify-center">
-        <div className="max-w-md w-full p-8 rounded-2xl apple-glass-card border-amber-500/30 text-center space-y-4">
-          <div className="h-12 w-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
-            <Scale className="h-6 w-6" />
-          </div>
-          <h2 className="font-display text-lg font-semibold text-white">Citizen Inquiries Protected</h2>
-          <p className="text-xs text-neutral-400 leading-relaxed">
-            Live citizen legal queries and FIR evaluations contain sensitive confidential disclosures. Access is restricted until your Bar Council credentials have been verified by TRANA founders.
-          </p>
-          <div className="pt-2">
-            <span className="apple-glass-pill px-3 py-1 text-amber-300 font-mono text-xs">
-              Status: Verification Under Review
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
+                  return (
                     <button
                       type="button"
                       onClick={() => handlePassOn(selectedQuery.id)}

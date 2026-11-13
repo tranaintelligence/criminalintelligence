@@ -359,25 +359,14 @@ async def execute_automated_advocate_verification(
             "timestamp": datetime.utcnow().isoformat(),
         }
 
-    # Step 4: If statutory score is high and Sanad format matches cleanly, grant Auto-Verification
-    if rule_eval["score"] >= 0.8:
-        return {
-            "verified": True,
-            "status": "VERIFIED",
-            "method": "statutory_sanad_resolver",
-            "score": rule_eval["score"],
-            "notes": "Automated verification: State Bar Council enrollment credentials, year, and AIBE COP validated.",
-            "details": rule_eval,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-
-    # Fallback to pending verification for manual review
+    # Step 4: Queued for manual founder verification desk
+    # Format validity confirms correct Bar Council Sanad structure, but final verification is reserved for Founders
     return {
         "verified": False,
         "status": "PENDING_VERIFICATION",
         "method": "queued_for_founder_desk",
         "score": rule_eval["score"],
-        "notes": "Queued for manual Sanad confirmation on State Bar Council portal.",
+        "notes": "State Bar Council Sanad format confirmed. Application queued for Founder review and approval.",
         "details": rule_eval,
         "timestamp": datetime.utcnow().isoformat(),
     }

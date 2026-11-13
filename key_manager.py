@@ -47,7 +47,7 @@ PROVIDER_ENV_DEFAULT_MODELS = {
     "groq": "openai/gpt-oss-120b",
 }
 IST = ZoneInfo("Asia/Kolkata")
-QUICK_UNAVAILABLE_COOLDOWN_SECONDS = 300
+QUICK_UNAVAILABLE_COOLDOWN_SECONDS = 20
 
 _rotation_lock = RLock()
 _current_key_idx = 0

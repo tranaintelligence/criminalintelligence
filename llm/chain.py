@@ -387,6 +387,11 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
     request_timeout = timeout or 20.0
     async with httpx.AsyncClient(timeout=request_timeout) as client:
         response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+        # Automatic transient rate-limit backoff retry (e.g. Groq RPM burst limit)
+        if response.status_code == 429 and request_timeout > 3.0:
+            logger.info("%s returned HTTP 429: retrying after 1.5s backoff", record.provider)
+            await asyncio.sleep(1.5)
+            response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
     if response.status_code >= 400:
         # Check if provider returned failed_generation (e.g. Groq json_validate_failed)
         try:
