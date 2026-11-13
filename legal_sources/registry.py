@@ -3,21 +3,117 @@
 The registry is intentionally small and deterministic. LLM output may identify a
 candidate Act and section, but only records loaded here can become authoritative
 quotes in an API response.
+
+Design notes
+------------
+* Every record is hash-verified on load (``source_hash``) and can be re-verified
+  later with :meth:`LawSourceRegistry.verify_integrity`.
+* Concordance data (IPC/CrPC/IEA -> BNS/BNSS/BSA) is declared once in compact
+  tables; the forward and reverse maps, and the "previously Section X" strings,
+  are generated from them so they can never drift apart.
+* Resolution reports *how* a section was resolved (``direct`` / ``concordance`` /
+  ``label_correction``) so callers can treat auto-corrected model output with
+  appropriate suspicion.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
+import threading
+import unicodedata
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
+logger = logging.getLogger(__name__)
 
 _DEFAULT_CORPUS_PATH = Path(__file__).with_name("corpus.json")
-_SECTION_RE = re.compile(r"(?:section|sec\.?|s\.?|article)\s*", re.IGNORECASE)
+_SUPPLEMENTAL_CORPUS_NAME = "contract_corpus.json"
+_SUPPORTED_SCHEMA = "1.0"
+MAX_QUERY_CHARS = 4000  # hard cap on free-text input to the retrieval functions
+
+_NEW_CODES = ("BNS", "BNSS", "BSA")
+_OLD_CODES = ("IPC", "CRPC", "IEA")
+_NEW_TO_OLD_FAMILY = {"BNS": "IPC", "BNSS": "CRPC", "BSA": "IEA"}
+
+# --------------------------------------------------------------------------- #
+# Normalisation helpers
+# --------------------------------------------------------------------------- #
+
 _SPACE_RE = re.compile(r"\s+")
+_YEAR_SUFFIX_RE = re.compile(r"\s*,?\s*\b(?:1[89]|20)\d{2}$")
+# Anchored: only strips a *leading* "Section"/"s."/"u/s"/"dhara" label.
+_SECTION_PREFIX_RE = re.compile(
+    r"^\s*(?:sections?|sec|s|article|dhara|u/s|धारा)\s*\.?\s*", re.IGNORECASE
+)
+_SECTION_BODY_RE = re.compile(r"(\d+)([A-Za-z]?)((?:\([^()]*\))*)")
+_SUBSECTION_RE = re.compile(r"\(([^()]*)\)")
+_TRAILING_PAREN_RE = re.compile(r"\([^()]*\)$")
+
+_CODE_ALIASES = {
+    "bns": "BNS",
+    "bharatiya nyaya sanhita": "BNS",
+    "bnss": "BNSS",
+    "bharatiya nagarik suraksha sanhita": "BNSS",
+    "bsa": "BSA",
+    "bharatiya sakshya adhiniyam": "BSA",
+    "ipc": "IPC",
+    "indian penal code": "IPC",
+    "crpc": "CRPC",
+    "cr pc": "CRPC",
+    "code of criminal procedure": "CRPC",
+    "iea": "IEA",
+    "evidence act": "IEA",
+    "indian evidence act": "IEA",
+    "ica": "ICA",
+    "contract act": "ICA",
+    "indian contract act": "ICA",
+}
+
+
+def _normalize_code(value: str | None) -> str:
+    """Map an Act name / abbreviation (``Cr.P.C.``, ``Indian Penal Code, 1860``) to a short code."""
+
+    if not value:
+        return ""
+    raw = str(value)
+    text = unicodedata.normalize("NFKC", raw).lower().replace(".", "").replace(",", " ")
+    text = _SPACE_RE.sub(" ", text).strip()
+    text = _YEAR_SUFFIX_RE.sub("", text).strip()
+    if text.startswith("the "):
+        text = text[4:]
+    return _CODE_ALIASES.get(text, _SPACE_RE.sub(" ", raw.strip()).upper())
+
+
+def _normalize_section(value: str | None) -> tuple[str, str | None]:
+    """Return ``(canonical_section, first_level_subsection)``.
+
+    ``"Section 65b"`` -> ``("65B", None)``; ``"s. 3(5)(a)"`` -> ``("3(5)(a)", "5")``.
+    Unparseable input is returned cleaned but otherwise untouched.
+    """
+
+    cleaned = _SECTION_PREFIX_RE.sub("", str(value or ""), count=1)
+    cleaned = _SPACE_RE.sub("", cleaned)
+    match = _SECTION_BODY_RE.fullmatch(cleaned)
+    if not match:
+        return cleaned, None
+    number, letter, suffix = match.groups()
+    subsections = _SUBSECTION_RE.findall(suffix)
+    return f"{number}{letter.upper()}{suffix}", (subsections[0] if subsections else None)
+
+
+def _base_section(section: str) -> str:
+    """``"318(4)"`` -> ``"318"``."""
+
+    return section.split("(", 1)[0]
+
+
+# --------------------------------------------------------------------------- #
+# Records
+# --------------------------------------------------------------------------- #
 
 
 @dataclass(frozen=True)
@@ -38,61 +134,39 @@ class LawRecord:
     canonical_title: str | None = None
 
     @property
+    def key(self) -> tuple[str, str]:
+        return (self.code, self.section)
+
+    @property
     def citation(self) -> str:
         if self.former_citation:
             return f"{self.code}, Section {self.section} ({self.former_citation})"
         return f"{self.code}, Section {self.section}"
 
 
-def _normalize_code(value: str | None) -> str:
-    lowered = _SPACE_RE.sub(" ", (value or "").strip().lower())
-    aliases = {
-        "bns": "BNS",
-        "bharatiya nyaya sanhita": "BNS",
-        "bharatiya nyaya sanhita, 2023": "BNS",
-        "bnss": "BNSS",
-        "bharatiya nagarik suraksha sanhita": "BNSS",
-        "bharatiya nagarik suraksha sanhita, 2023": "BNSS",
-        "bsa": "BSA",
-        "bharatiya sakshya adhiniyam": "BSA",
-        "bharatiya sakshya adhiniyam, 2023": "BSA",
-        "ipc": "IPC",
-        "indian penal code": "IPC",
-        "indian penal code, 1860": "IPC",
-        "crpc": "CRPC",
-        "code of criminal procedure": "CRPC",
-        "code of criminal procedure, 1973": "CRPC",
-        "iea": "IEA",
-        "evidence act": "IEA",
-        "indian evidence act": "IEA",
-        "indian evidence act, 1872": "IEA",
-        "ica": "ICA",
-        "indian contract act": "ICA",
-        "indian contract act, 1872": "ICA",
-    }
-    return aliases.get(lowered, value.strip().upper() if value else "")
+_REQUIRED_FIELDS = ("act", "code", "section", "exact_text", "source_url", "source_version")
 
 
-def _normalize_section(value: str | None) -> tuple[str, str | None]:
-    """Return canonical section and optional subsection, e.g. ``1(1)``."""
-
-    cleaned = _SECTION_RE.sub("", value or "")
-    cleaned = cleaned.strip().replace(" ", "")
-    match = re.fullmatch(r"(\d+[A-Za-z]?)(?:\(([^()]*)\))?", cleaned)
-    if not match:
-        return cleaned, None
-    section, subsection = match.groups()
-    return f"{section}({subsection})" if subsection else section, subsection
+def _clean_hash(value: Any) -> str:
+    text = str(value).strip().lower()
+    return text[len("sha256:"):] if text.startswith("sha256:") else text
 
 
 def _record_from_payload(payload: dict[str, Any]) -> LawRecord:
+    if not isinstance(payload, dict):
+        raise ValueError(f"Legal source record must be an object, got {type(payload).__name__}")
+    label = f"{payload.get('code')} Section {payload.get('section')}"
+    missing = [f for f in _REQUIRED_FIELDS if payload.get(f) in (None, "")]
+    if missing:
+        raise ValueError(f"Legal source record {label} is missing fields: {', '.join(missing)}")
+
     exact_text = str(payload["exact_text"])
+    if not exact_text.strip():
+        raise ValueError(f"Legal source record {label} has empty exact_text")
     expected_hash = hashlib.sha256(exact_text.encode("utf-8")).hexdigest()
-    source_hash = str(payload.get("source_hash") or expected_hash)
+    source_hash = _clean_hash(payload.get("source_hash") or expected_hash)
     if source_hash != expected_hash:
-        raise ValueError(
-            f"Source hash mismatch for {payload.get('code')} Section {payload.get('section')}"
-        )
+        raise ValueError(f"Source hash mismatch for {label}")
 
     section, parsed_subsection = _normalize_section(str(payload["section"]))
     subsection = payload.get("subsection") or parsed_subsection
@@ -110,144 +184,219 @@ def _record_from_payload(payload: dict[str, Any]) -> LawRecord:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Concordance (old code -> 2023 code). Declared once; everything else is derived.
+# Rows: (old_section, new_section, canonical_title)
+#
+# NOTE: several old sections legitimately collapse into one new section
+# (e.g. IPC 415 and 420 -> BNS 318), and the new sections often carry the
+# old section as a sub-section (e.g. IPC 34 -> BNS 3(5), IPC 420 -> BNS 318(4)).
+# Keys are base sections because the corpus is keyed by base section.
+# Entries marked (fixed) were corrected from the earlier version; re-verify them
+# against the Gazette text before relying on them.
+# --------------------------------------------------------------------------- #
+
+_OLD_CODE_LABELS = {"IPC": "IPC", "CRPC": "CrPC", "IEA": "Indian Evidence Act"}
+
+_IPC_TO_BNS = (
+    ("34", "3", "Joint liability and common intention"),  # BNS 3(5)
+    ("120B", "61", "Criminal conspiracy"),
+    ("141", "189", "Unlawful assembly"),
+    ("147", "191", "Rioting"),
+    ("148", "191", "Rioting armed with deadly weapon"),
+    ("149", "190", "Unlawful assembly common object"),
+    ("153A", "196", "Promoting enmity between groups"),
+    ("166", "198", "Public servant disobeying law"),
+    ("193", "229", "Punishment for false evidence / perjury"),
+    ("279", "281", "Rash driving or riding on a public way"),
+    ("290", "292", "Public nuisance"),
+    ("295A", "299", "Deliberate acts outraging religious feelings"),
+    ("300", "101", "Murder / Culpable homicide"),
+    ("302", "103", "Punishment for murder"),
+    ("304", "105", "Culpable homicide not amounting to murder"),
+    ("304A", "106", "Causing death by negligence / Hit and run"),
+    ("304B", "80", "Dowry death"),
+    ("306", "108", "Abetment of suicide"),
+    ("307", "109", "Attempt to murder"),
+    ("308", "110", "Attempt to commit culpable homicide"),
+    ("323", "115", "Voluntarily causing hurt"),
+    ("324", "118", "Voluntarily causing hurt by dangerous weapons"),
+    ("325", "117", "Voluntarily causing grievous hurt"),
+    ("326", "118", "Voluntarily causing grievous hurt by dangerous weapons"),
+    ("326A", "124", "Acid attack"),
+    ("336", "125", "Act endangering life or personal safety"),
+    ("341", "126", "Wrongful restraint"),
+    ("342", "127", "Wrongful confinement"),
+    ("354", "74", "Assault or criminal force to woman with intent to outrage modesty"),
+    ("354A", "75", "Sexual harassment"),
+    ("354B", "76", "Assault with intent to disrobe"),
+    ("354C", "77", "Voyeurism"),
+    ("354D", "78", "Stalking"),
+    ("363", "137", "Kidnapping"),
+    ("365", "140", "Kidnapping or abducting with intent to secretly confine"),
+    ("375", "63", "Rape"),
+    ("376", "64", "Punishment for rape"),
+    ("376D", "70", "Gang rape"),
+    ("378", "303", "Theft"),
+    ("379", "303", "Punishment for theft"),
+    ("380", "305", "Theft in dwelling house"),
+    ("383", "308", "Extortion"),
+    ("384", "308", "Punishment for extortion"),
+    ("390", "309", "Robbery"),
+    ("391", "310", "Dacoity"),
+    ("392", "309", "Punishment for robbery"),
+    ("395", "310", "Punishment for dacoity"),
+    ("405", "316", "Criminal breach of trust"),
+    ("406", "316", "Punishment for criminal breach of trust"),
+    ("415", "318", "Cheating"),
+    ("420", "318", "Cheating and dishonestly inducing delivery of property"),
+    ("425", "324", "Mischief"),
+    ("441", "329", "Criminal trespass"),
+    ("447", "329", "Punishment for criminal trespass"),
+    ("448", "329", "Punishment for house-trespass"),  # (fixed) was 331
+    ("463", "336", "Forgery"),
+    ("465", "336", "Punishment for forgery"),
+    ("468", "336", "Forgery for purpose of cheating"),  # (fixed) was 338
+    ("471", "340", "Using as genuine a forged document"),
+    ("498A", "85", "Cruelty by husband or relatives of husband"),
+    ("499", "356", "Defamation"),
+    ("500", "356", "Punishment for defamation"),
+    ("503", "351", "Criminal intimidation"),
+    ("504", "352", "Intentional insult with intent to provoke breach of peace"),
+    ("506", "351", "Punishment for criminal intimidation"),
+    ("509", "79", "Word, gesture or act intended to insult modesty of woman"),
+)
+
+_CRPC_TO_BNSS = (
+    ("41", "35", "When police may arrest without warrant"),
+    ("41A", "35", "Notice of appearance before police officer"),
+    ("41B", "36", "Procedure of arrest and duties of officer making arrest"),
+    ("41D", "38", "Right of arrested person to meet an advocate"),
+    ("46", "43", "Arrest how made"),
+    ("50", "47", "Person arrested to be informed of grounds of arrest and right to bail"),
+    ("51", "49", "Search of arrested person"),
+    ("54", "53", "Medical examination of arrested person"),
+    ("57", "58", "Person arrested not to be detained more than twenty-four hours"),
+    ("61", "63", "Form of summons"),
+    ("70", "72", "Form of warrant of arrest"),
+    ("91", "94", "Summons to produce document or other thing"),
+    ("93", "96", "When search-warrant may be issued"),
+    ("100", "103", "Search of closed place and independent witnesses"),
+    ("154", "173", "Information in cognizable cases (FIR)"),
+    ("155", "174", "Information as to non-cognizable cases (NCR)"),
+    ("156", "175", "Police officer power to investigate cognizable case"),
+    ("160", "179", "Police officer power to require attendance of witnesses"),
+    ("161", "180", "Examination of witnesses by police"),
+    ("162", "181", "Statements to police not to be signed"),  # (fixed) was 182
+    ("164", "183", "Recording of confessions and statements by Magistrate"),
+    ("165", "185", "Search by police officer without warrant"),
+    ("167", "187", "Procedure when investigation cannot be completed in 24 hours (remand)"),
+    ("173", "193", "Report of police officer on completion of investigation (Chargesheet)"),
+    ("174", "194", "Police enquiry on suicide / Inquest"),
+    ("190", "210", "Cognizance of offences by Magistrates"),
+    ("200", "223", "Examination of complainant"),
+    ("204", "227", "Issue of process"),
+    ("207", "230", "Supply to the accused of copy of police report and other documents"),
+    ("227", "250", "Discharge in Sessions trial"),
+    ("228", "251", "Framing of charge in Sessions trial"),
+    ("436", "478", "In what cases bail to be taken (Bailable offences)"),
+    ("436A", "479", "Maximum period of detention of undertrial prisoner"),
+    ("437", "480", "When bail may be taken in case of non-bailable offence"),
+    ("438", "482", "Anticipatory bail (direction for grant of bail to person apprehending arrest)"),
+    ("439", "483", "Special powers of High Court or Court of Session regarding bail"),
+    ("482", "528", "Saving of inherent powers of High Court (Quashing)"),
+)
+
+_IEA_TO_BSA = (
+    ("61", "56", "Proof of contents of documents"),
+    ("62", "57", "Primary evidence"),
+    ("63", "58", "Secondary evidence"),
+    ("65A", "62", "Special provisions as to evidence relating to electronic record"),  # (fixed) was 61
+    ("65B", "63", "Admissibility of electronic records in evidence"),
+    ("101", "104", "Burden of proof"),
+    ("113A", "117", "Presumption as to abetment of suicide by married woman"),
+    ("113B", "118", "Presumption as to dowry death"),
+    ("133", "138", "Accomplice evidence"),
+    ("137", "142", "Examination of witnesses"),
+    ("141", "146", "Leading questions"),
+)
+
+# Significant provisions with no old-code counterpart.
+_NEW_PROVISIONS: dict[tuple[str, str], tuple[str, str]] = {
+    ("BNSS", "105"): ("new provision in BNSS, 2023", "Mandatory audio-video electronic recording of search and seizure"),
+    ("BNS", "304"): ("new provision in BNS, 2023", "Snatching"),
+    ("BNS", "69"): ("new provision in BNS, 2023", "Sexual intercourse by deceitful means / false promise to marry"),
+    ("BNS", "111"): ("new provision in BNS, 2023", "Organised crime"),
+    ("BNS", "112"): ("new provision in BNS, 2023", "Petty organised crime"),
+    ("BNS", "113"): ("new provision in BNS, 2023", "Terrorist act"),
+}
+
+# Last-resort fixes for specific model mislabels that no generic rule can recover.
+# (BNS 151 -> 351 looks like a one-off; delete it unless you have evidence it recurs.)
+_KNOWN_MISLABELS: dict[tuple[str, str], tuple[str, str, str, str]] = {
+    ("BNS", "151"): ("BNS", "351", "previously Section 506 IPC", "Criminal intimidation"),
+}
+
+
+def _former_label(old_code: str, old_section: str) -> str:
+    return f"previously Section {old_section} {_OLD_CODE_LABELS[old_code]}"
+
+
+def _build_forward() -> dict[tuple[str, str], tuple[str, str, str, str]]:
+    forward: dict[tuple[str, str], tuple[str, str, str, str]] = {}
+    blocks = (("IPC", "BNS", _IPC_TO_BNS), ("CRPC", "BNSS", _CRPC_TO_BNSS), ("IEA", "BSA", _IEA_TO_BSA))
+    for old_code, new_code, rows in blocks:
+        for old_sec, new_sec, title in rows:
+            key = (old_code, old_sec)
+            if key in forward:
+                raise ValueError(f"Duplicate concordance row: {old_code} {old_sec}")
+            forward[key] = (new_code, new_sec, _former_label(old_code, old_sec), title)
+    return forward
+
+
+def _join_sections(sections: list[str]) -> str:
+    if len(sections) == 1:
+        return sections[0]
+    return f"{', '.join(sections[:-1])} and {sections[-1]}"
+
+
+def _build_reverse(
+    forward: dict[tuple[str, str], tuple[str, str, str, str]],
+) -> dict[tuple[str, str], tuple[str, str]]:
+    """Group every old section that feeds a new section (the old code kept only the last)."""
+
+    grouped: dict[tuple[str, str], dict[str, list[str]]] = {}
+    first_title: dict[tuple[str, str], str] = {}
+    for (old_code, old_sec), (new_code, new_sec, _former, title) in forward.items():
+        key = (new_code, new_sec)
+        grouped.setdefault(key, {}).setdefault(old_code, []).append(old_sec)
+        first_title.setdefault(key, title)
+    reverse: dict[tuple[str, str], tuple[str, str]] = {}
+    for key, by_code in grouped.items():
+        parts = [
+            f"{'Section' if len(secs) == 1 else 'Sections'} {_join_sections(secs)} {_OLD_CODE_LABELS[code]}"
+            for code, secs in by_code.items()
+        ]
+        reverse[key] = ("previously " + "; ".join(parts), first_title[key])
+    overlap = set(reverse) & set(_NEW_PROVISIONS)
+    if overlap:
+        raise ValueError(f"Provisions listed as both mapped and new: {sorted(overlap)}")
+    reverse.update(_NEW_PROVISIONS)
+    return reverse
+
+
 # (Old Code, Old Section) -> (New Code, New Section, Former Citation String, Canonical Title)
-CONCORDANCE_MAP: dict[tuple[str, str], tuple[str, str, str, str]] = {
-    # IPC -> BNS
-    ("IPC", "34"): ("BNS", "3", "previously Section 34 IPC", "Joint liability and common intention"),
-    ("IPC", "120B"): ("BNS", "61", "previously Section 120B IPC", "Criminal conspiracy"),
-    ("IPC", "141"): ("BNS", "189", "previously Section 141 IPC", "Unlawful assembly"),
-    ("IPC", "147"): ("BNS", "191", "previously Section 147 IPC", "Rioting"),
-    ("IPC", "148"): ("BNS", "191", "previously Section 148 IPC", "Rioting armed with deadly weapon"),
-    ("IPC", "149"): ("BNS", "190", "previously Section 149 IPC", "Unlawful assembly common object"),
-    ("IPC", "153A"): ("BNS", "196", "previously Section 153A IPC", "Promoting enmity between groups"),
-    ("IPC", "166"): ("BNS", "198", "previously Section 166 IPC", "Public servant disobeying law"),
-    ("IPC", "193"): ("BNS", "229", "previously Section 193 IPC", "Punishment for false evidence / perjury"),
-    ("IPC", "279"): ("BNS", "281", "previously Section 279 IPC", "Rash driving or riding on a public way"),
-    ("IPC", "290"): ("BNS", "292", "previously Section 290 IPC", "Public nuisance"),
-    ("IPC", "295A"): ("BNS", "299", "previously Section 295A IPC", "Deliberate acts outraging religious feelings"),
-    ("IPC", "300"): ("BNS", "101", "previously Section 300 IPC", "Murder / Culpable homicide"),
-    ("IPC", "302"): ("BNS", "103", "previously Section 302 IPC", "Punishment for murder"),
-    ("IPC", "304"): ("BNS", "105", "previously Section 304 IPC", "Culpable homicide not amounting to murder"),
-    ("IPC", "304A"): ("BNS", "106", "previously Section 304A IPC", "Causing death by negligence / Hit and run"),
-    ("IPC", "304B"): ("BNS", "80", "previously Section 304B IPC", "Dowry death"),
-    ("IPC", "306"): ("BNS", "108", "previously Section 306 IPC", "Abetment of suicide"),
-    ("IPC", "307"): ("BNS", "109", "previously Section 307 IPC", "Attempt to murder"),
-    ("IPC", "308"): ("BNS", "110", "previously Section 308 IPC", "Attempt to commit culpable homicide"),
-    ("IPC", "323"): ("BNS", "115", "previously Section 323 IPC", "Voluntarily causing hurt"),
-    ("IPC", "324"): ("BNS", "118", "previously Section 324 IPC", "Voluntarily causing hurt by dangerous weapons"),
-    ("IPC", "325"): ("BNS", "117", "previously Section 325 IPC", "Voluntarily causing grievous hurt"),
-    ("IPC", "326"): ("BNS", "118", "previously Section 326 IPC", "Voluntarily causing grievous hurt by dangerous weapons"),
-    ("IPC", "326A"): ("BNS", "124", "previously Section 326A IPC", "Acid attack"),
-    ("IPC", "336"): ("BNS", "125", "previously Section 336 IPC", "Act endangering life or personal safety"),
-    ("IPC", "341"): ("BNS", "126", "previously Section 341 IPC", "Wrongful restraint"),
-    ("IPC", "342"): ("BNS", "127", "previously Section 342 IPC", "Wrongful confinement"),
-    ("IPC", "354"): ("BNS", "74", "previously Section 354 IPC", "Assault or criminal force to woman with intent to outrage modesty"),
-    ("IPC", "354A"): ("BNS", "75", "previously Section 354A IPC", "Sexual harassment"),
-    ("IPC", "354B"): ("BNS", "76", "previously Section 354B IPC", "Assault with intent to disrobe"),
-    ("IPC", "354C"): ("BNS", "77", "previously Section 354C IPC", "Voyeurism"),
-    ("IPC", "354D"): ("BNS", "78", "previously Section 354D IPC", "Stalking"),
-    ("IPC", "363"): ("BNS", "137", "previously Section 363 IPC", "Kidnapping"),
-    ("IPC", "365"): ("BNS", "140", "previously Section 365 IPC", "Kidnapping or abducting with intent to secretly confine"),
-    ("IPC", "375"): ("BNS", "63", "previously Section 375 IPC", "Rape"),
-    ("IPC", "376"): ("BNS", "64", "previously Section 376 IPC", "Punishment for rape"),
-    ("IPC", "376D"): ("BNS", "70", "previously Section 376D IPC", "Gang rape"),
-    ("IPC", "378"): ("BNS", "303", "previously Section 378 IPC", "Theft"),
-    ("IPC", "379"): ("BNS", "303", "previously Section 379 IPC", "Punishment for theft"),
-    ("IPC", "380"): ("BNS", "305", "previously Section 380 IPC", "Theft in dwelling house"),
-    ("IPC", "383"): ("BNS", "308", "previously Section 383 IPC", "Extortion"),
-    ("IPC", "384"): ("BNS", "308", "previously Section 384 IPC", "Punishment for extortion"),
-    ("IPC", "390"): ("BNS", "309", "previously Section 390 IPC", "Robbery"),
-    ("IPC", "391"): ("BNS", "310", "previously Section 391 IPC", "Dacoity"),
-    ("IPC", "392"): ("BNS", "309", "previously Section 392 IPC", "Punishment for robbery"),
-    ("IPC", "395"): ("BNS", "310", "previously Section 395 IPC", "Punishment for dacoity"),
-    ("IPC", "405"): ("BNS", "316", "previously Section 405 IPC", "Criminal breach of trust"),
-    ("IPC", "406"): ("BNS", "316", "previously Section 406 IPC", "Punishment for criminal breach of trust"),
-    ("IPC", "415"): ("BNS", "318", "previously Section 415 IPC", "Cheating"),
-    ("IPC", "420"): ("BNS", "318", "previously Section 420 IPC", "Cheating and dishonestly inducing delivery of property"),
-    ("IPC", "425"): ("BNS", "324", "previously Section 425 IPC", "Mischief"),
-    ("IPC", "441"): ("BNS", "329", "previously Section 441 IPC", "Criminal trespass"),
-    ("IPC", "447"): ("BNS", "329", "previously Section 447 IPC", "Punishment for criminal trespass"),
-    ("IPC", "448"): ("BNS", "331", "previously Section 448 IPC", "House-trespass"),
-    ("IPC", "463"): ("BNS", "336", "previously Section 463 IPC", "Forgery"),
-    ("IPC", "465"): ("BNS", "336", "previously Section 465 IPC", "Punishment for forgery"),
-    ("IPC", "468"): ("BNS", "338", "previously Section 468 IPC", "Forgery for purpose of cheating"),
-    ("IPC", "471"): ("BNS", "340", "previously Section 471 IPC", "Using as genuine a forged document"),
-    ("IPC", "498A"): ("BNS", "85", "previously Section 498A IPC", "Cruelty by husband or relatives of husband"),
-    ("IPC", "499"): ("BNS", "356", "previously Section 499 IPC", "Defamation"),
-    ("IPC", "500"): ("BNS", "356", "previously Section 500 IPC", "Punishment for defamation"),
-    ("IPC", "503"): ("BNS", "351", "previously Section 503 IPC", "Criminal intimidation"),
-    ("IPC", "504"): ("BNS", "352", "previously Section 504 IPC", "Intentional insult with intent to provoke breach of peace"),
-    ("IPC", "506"): ("BNS", "351", "previously Section 506 IPC", "Punishment for criminal intimidation"),
-    ("IPC", "509"): ("BNS", "79", "previously Section 509 IPC", "Word, gesture or act intended to insult modesty of woman"),
+CONCORDANCE_MAP: dict[tuple[str, str], tuple[str, str, str, str]] = _build_forward()
+# (New Code, New Section) -> (Former Citation String, Canonical Title)
+REVERSE_CONCORDANCE_MAP: dict[tuple[str, str], tuple[str, str]] = _build_reverse(CONCORDANCE_MAP)
 
-    # CrPC -> BNSS
-    ("CRPC", "41"): ("BNSS", "35", "previously Section 41 CrPC", "When police may arrest without warrant"),
-    ("CRPC", "41A"): ("BNSS", "35", "previously Section 41A CrPC", "Notice of appearance before police officer"),
-    ("CRPC", "41B"): ("BNSS", "36", "previously Section 41B CrPC", "Procedure of arrest and duties of officer making arrest"),
-    ("CRPC", "41D"): ("BNSS", "38", "previously Section 41D CrPC", "Right of arrested person to meet an advocate"),
-    ("CRPC", "46"): ("BNSS", "43", "previously Section 46 CrPC", "Arrest how made"),
-    ("CRPC", "50"): ("BNSS", "47", "previously Section 50 CrPC", "Person arrested to be informed of grounds of arrest and right to bail"),
-    ("CRPC", "51"): ("BNSS", "49", "previously Section 51 CrPC", "Search of arrested person"),
-    ("CRPC", "54"): ("BNSS", "53", "previously Section 54 CrPC", "Medical examination of arrested person"),
-    ("CRPC", "57"): ("BNSS", "58", "previously Section 57 CrPC", "Person arrested not to be detained more than twenty-four hours"),
-    ("CRPC", "61"): ("BNSS", "63", "previously Section 61 CrPC", "Form of summons"),
-    ("CRPC", "70"): ("BNSS", "72", "previously Section 70 CrPC", "Form of warrant of arrest"),
-    ("CRPC", "91"): ("BNSS", "94", "previously Section 91 CrPC", "Summons to produce document or other thing"),
-    ("CRPC", "93"): ("BNSS", "96", "previously Section 93 CrPC", "When search-warrant may be issued"),
-    ("CRPC", "100"): ("BNSS", "103", "previously Section 100 CrPC", "Search of closed place and independent witnesses"),
-    ("CRPC", "154"): ("BNSS", "173", "previously Section 154 CrPC", "Information in cognizable cases (FIR)"),
-    ("CRPC", "155"): ("BNSS", "174", "previously Section 155 CrPC", "Information as to non-cognizable cases (NCR)"),
-    ("CRPC", "156"): ("BNSS", "175", "previously Section 156 CrPC", "Police officer power to investigate cognizable case"),
-    ("CRPC", "160"): ("BNSS", "179", "previously Section 160 CrPC", "Police officer power to require attendance of witnesses"),
-    ("CRPC", "161"): ("BNSS", "180", "previously Section 161 CrPC", "Examination of witnesses by police"),
-    ("CRPC", "162"): ("BNSS", "182", "previously Section 162 CrPC", "Statements to police not to be signed"),
-    ("CRPC", "164"): ("BNSS", "183", "previously Section 164 CrPC", "Recording of confessions and statements by Magistrate"),
-    ("CRPC", "165"): ("BNSS", "185", "previously Section 165 CrPC", "Search by police officer without warrant"),
-    ("CRPC", "167"): ("BNSS", "187", "previously Section 167 CrPC", "Procedure when investigation cannot be completed in 24 hours (remand)"),
-    ("CRPC", "173"): ("BNSS", "193", "previously Section 173 CrPC", "Report of police officer on completion of investigation (Chargesheet)"),
-    ("CRPC", "174"): ("BNSS", "194", "previously Section 174 CrPC", "Police enquiry on suicide / Inquest"),
-    ("CRPC", "190"): ("BNSS", "210", "previously Section 190 CrPC", "Cognizance of offences by Magistrates"),
-    ("CRPC", "200"): ("BNSS", "223", "previously Section 200 CrPC", "Examination of complainant"),
-    ("CRPC", "204"): ("BNSS", "227", "previously Section 204 CrPC", "Issue of process"),
-    ("CRPC", "207"): ("BNSS", "230", "previously Section 207 CrPC", "Supply to the accused of copy of police report and other documents"),
-    ("CRPC", "227"): ("BNSS", "250", "previously Section 227 CrPC", "Discharge in Sessions trial"),
-    ("CRPC", "228"): ("BNSS", "251", "previously Section 228 CrPC", "Framing of charge in Sessions trial"),
-    ("CRPC", "436"): ("BNSS", "478", "previously Section 436 CrPC", "In what cases bail to be taken (Bailable offences)"),
-    ("CRPC", "436A"): ("BNSS", "479", "previously Section 436A CrPC", "Maximum period of detention of undertrial prisoner"),
-    ("CRPC", "437"): ("BNSS", "480", "previously Section 437 CrPC", "When bail may be taken in case of non-bailable offence"),
-    ("CRPC", "438"): ("BNSS", "482", "previously Section 438 CrPC", "Anticipatory bail (direction for grant of bail to person apprehending arrest)"),
-    ("CRPC", "439"): ("BNSS", "483", "previously Section 439 CrPC", "Special powers of High Court or Court of Session regarding bail"),
-    ("CRPC", "482"): ("BNSS", "528", "previously Section 482 CrPC", "Saving of inherent powers of High Court (Quashing)"),
-
-    # IEA -> BSA
-    ("IEA", "61"): ("BSA", "56", "previously Section 61 Indian Evidence Act", "Proof of contents of documents"),
-    ("IEA", "62"): ("BSA", "57", "previously Section 62 Indian Evidence Act", "Primary evidence"),
-    ("IEA", "63"): ("BSA", "58", "previously Section 63 Indian Evidence Act", "Secondary evidence"),
-    ("IEA", "65A"): ("BSA", "61", "previously Section 65A Indian Evidence Act", "Admissibility of electronic or digital record"),
-    ("IEA", "65B"): ("BSA", "63", "previously Section 65B Indian Evidence Act", "Admissibility of electronic records in evidence"),
-    ("IEA", "101"): ("BSA", "104", "previously Section 101 Indian Evidence Act", "Burden of proof"),
-    ("IEA", "113A"): ("BSA", "117", "previously Section 113A Indian Evidence Act", "Presumption as to abetment of suicide by married woman"),
-    ("IEA", "113B"): ("BSA", "118", "previously Section 113B Indian Evidence Act", "Presumption as to dowry death"),
-    ("IEA", "133"): ("BSA", "138", "previously Section 133 Indian Evidence Act", "Accomplice evidence"),
-    ("IEA", "137"): ("BSA", "142", "previously Section 137 Indian Evidence Act", "Examination of witnesses"),
-    ("IEA", "141"): ("BSA", "146", "previously Section 141 Indian Evidence Act", "Leading questions"),
-}
-
-REVERSE_CONCORDANCE_MAP: dict[tuple[str, str], tuple[str, str]] = {
-    (new_code, new_sec): (former, title)
-    for (old_code, old_sec), (new_code, new_sec, former, title) in CONCORDANCE_MAP.items()
-}
-# Significant new statutory provisions introduced in 2023 enactments
-REVERSE_CONCORDANCE_MAP[("BNSS", "105")] = ("new provision in BNSS, 2023", "Mandatory audio-video electronic recording of search and seizure")
-REVERSE_CONCORDANCE_MAP[("BNS", "304")] = ("new provision in BNS, 2023", "Snatching")
-REVERSE_CONCORDANCE_MAP[("BNS", "69")] = ("new provision in BNS, 2023", "Sexual intercourse by deceitful means / false promise to marry")
-REVERSE_CONCORDANCE_MAP[("BNS", "111")] = ("new provision in BNS, 2023", "Organised crime")
-REVERSE_CONCORDANCE_MAP[("BNS", "112")] = ("new provision in BNS, 2023", "Petty organised crime")
-REVERSE_CONCORDANCE_MAP[("BNS", "113")] = ("new provision in BNS, 2023", "Terrorist act")
+# --------------------------------------------------------------------------- #
+# Concept rules
+# --------------------------------------------------------------------------- #
 
 CONCEPT_RULES: list[dict[str, Any]] = [
     {
-        "keywords": ["murder", "killing", "killed", "homicide", "jaan se maar", "jaan se marne", "hatya"],
+        "keywords": ["murder", "killing", "killed", "homicide", "jaan se maar", "jaan se marne", "hatya", "हत्या"],
         "targets": [("BNS", "103"), ("BNS", "105"), ("BNS", "101")],
     },
     {
@@ -255,17 +404,17 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNS", "109")],
     },
     {
-        "keywords": ["cheat", "cheating", "fraud", "scam", "dhokhadhadi", "dhokha", "embezzlement", "420"],
+        "keywords": ["cheat", "cheating", "fraud", "scam", "dhokhadhadi", "dhokha", "embezzlement", "420", "धोखाधड़ी"],
         "targets": [("BNS", "318"), ("BNS", "316")],
     },
     {
-        "keywords": ["theft", "stole", "stolen", "stealing", "thief", "chori", "chura"],
+        "keywords": ["theft", "stole", "stolen", "stealing", "thief", "chori", "chura", "चोरी"],
         "targets": [("BNS", "303"), ("BNS", "305")],
     },
     {
         "keywords": [
             "snatch", "snatched", "snatching", "chain snatching", "mobile snatching", "phone snatching",
-            "chinauti", "chheen", "chheena", "chheen liya", "chheen kar", "cheen liya", "cheena"
+            "chinauti", "chheen", "chheena", "chheen liya", "chheen kar", "cheen liya", "cheena",
         ],
         "targets": [("BNS", "304"), ("BNS", "309")],
     },
@@ -273,27 +422,27 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "keywords": [
             "extortion", "extort", "extorted", "extorting", "demanded money", "demanding money",
             "demanded cash", "demand money", "hafta", "vasooli", "rangdari", "threatened to burn",
-            "burn down", "burn property", "blackmail", "blackmailing", "ransom"
+            "burn down", "burn property", "blackmail", "blackmailing", "ransom",
         ],
         "targets": [("BNS", "308"), ("BNS", "351")],
     },
     {
         "keywords": [
             "robbery", "robbed", "robbing", "loot", "looted", "looting", "dacoity", "dacoit",
-            "snatched by force", "snatched with violence", "snatched using force", "robbed phone"
+            "snatched by force", "snatched with violence", "snatched using force", "robbed phone",
         ],
         "targets": [("BNS", "309"), ("BNS", "308")],
     },
     {
         "keywords": [
             "threat", "threatening", "threatened", "intimidation", "dhamki", "dhamkaya",
-            "threatened to kill", "threatened to burn", "criminal intimidation", "jaan se marne ki dhamki"
+            "threatened to kill", "criminal intimidation", "jaan se marne ki dhamki", "धमकी",
         ],
         "targets": [("BNS", "351"), ("BNS", "352")],
     },
     {
         "keywords": [
-            "insult", "insulted", "abused", "abusive language", "gaali", "provoke breach of peace", "intentional insult"
+            "insult", "insulted", "abused", "abusive language", "gaali", "provoke breach of peace", "intentional insult",
         ],
         "targets": [("BNS", "352")],
     },
@@ -302,18 +451,18 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNS", "281"), ("BNS", "106")],
     },
     {
-        "keywords": ["dowry", "dahej", "cruelty", "domestic violence", "in-laws", "harassment by husband", "patni"],
+        "keywords": ["dowry", "dahej", "cruelty", "domestic violence", "in-laws", "harassment by husband", "patni", "दहेज"],
         "targets": [("BNS", "85"), ("BNS", "86"), ("BNS", "80")],
     },
     {
         "keywords": [
             "assault", "slap", "slapped", "slapping", "thappad", "beating", "beaten", "hit", "punched",
-            "marpeet", "fight", "hurt", "grievous hurt", "fracture", "chot", "injury", "physical violence"
+            "marpeet", "fight", "hurt", "grievous hurt", "fracture", "chot", "injury", "physical violence",
         ],
         "targets": [("BNS", "115"), ("BNS", "117"), ("BNS", "118")],
     },
     {
-        "keywords": ["rape", "balatkar", "sexual assault", "molestation", "chedchad", "outrage modesty", "stalking"],
+        "keywords": ["rape", "balatkar", "sexual assault", "molestation", "chedchad", "outrage modesty", "stalking", "बलात्कार"],
         "targets": [("BNS", "64"), ("BNS", "74"), ("BNS", "75"), ("BNS", "78")],
     },
     {
@@ -345,19 +494,20 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNSS", "482")],
     },
     {
-        "keywords": ["bail", "jamanat", "bond", "surety", "bailable", "non-bailable"],
+        "keywords": ["bail", "jamanat", "bond", "surety", "bailable", "non-bailable", "जमानत"],
         "targets": [("BNSS", "480"), ("BNSS", "478"), ("BNSS", "483")],
     },
     {
         "keywords": [
             "fir", "first information report", "police complaint", "zero fir", "refusal to register fir",
-            "police not registering", "lodge fir", "police station complaint", "lodging complaint"
+            "police not registering", "lodge fir", "police station complaint", "lodging complaint", "एफआईआर",
         ],
-        "targets": [("BNSS", "173"), ("BNSS", "175"), ("BNSS", "170")],
+        # (fixed) BNSS 170 (arrest to prevent cognizable offences) removed: it is not an FIR provision.
+        "targets": [("BNSS", "173"), ("BNSS", "175")],
     },
     {
         "keywords": ["police questioning", "witness", "interrogation", "statement to police", "161"],
-        "targets": [("BNSS", "179"), ("BNSS", "180"), ("BNSS", "182")],
+        "targets": [("BNSS", "179"), ("BNSS", "180"), ("BNSS", "181")],  # (fixed) was 182
     },
     {
         "keywords": ["remand", "police remand", "magisterial custody", "24 hours", "detention"],
@@ -368,10 +518,106 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNSS", "528")],
     },
     {
-        "keywords": ["electronic evidence", "digital evidence", "whatsapp", "cctv", "call recording", "phone records", "audio evidence", "video evidence", "screenshot", "65b"],
+        "keywords": [
+            "electronic evidence", "digital evidence", "whatsapp", "cctv", "call recording", "phone records",
+            "audio evidence", "video evidence", "screenshot", "65b",
+        ],
         "targets": [("BSA", "61"), ("BSA", "63")],
     },
 ]
+
+
+@dataclass(frozen=True)
+class _CompiledRule:
+    pattern: re.Pattern[str]
+    targets: tuple[tuple[str, str], ...]
+
+
+def _compile_rules(rules: Iterable[dict[str, Any]]) -> tuple[_CompiledRule, ...]:
+    """One precompiled alternation per rule. Lookarounds replace ``\\b`` so that
+    Devanagari keywords (whose combining marks are not ``\\w``) still match."""
+
+    compiled = []
+    for rule in rules:
+        words = sorted(
+            {unicodedata.normalize("NFC", kw).lower() for kw in rule["keywords"]}, key=len, reverse=True
+        )
+        body = "|".join(re.escape(w).replace(r"\ ", r"\s+") for w in words)
+        compiled.append(
+            _CompiledRule(re.compile(rf"(?<!\w)(?:{body})(?!\w)"), tuple(rule["targets"]))
+        )
+    return tuple(compiled)
+
+
+_COMPILED_RULES = _compile_rules(CONCEPT_RULES)
+
+# Non-offence preliminary/definition sections never returned as substantive hits
+# unless the user cited them explicitly together with an Act.
+_PRELIMINARY_SECTIONS = frozenset(
+    [("BNS", str(n)) for n in range(1, 11)]
+    + [("BNSS", s) for s in ("1", "2", "6", "7", "8", "9", "10")]
+    + [("BSA", s) for s in ("1", "2", "8")]
+)
+
+# Standalone numbers ("what is 420?") are only trusted if they are famous section numbers.
+_WELL_KNOWN_STANDALONE = frozenset({
+    "420", "302", "307", "376", "498A", "379", "384", "390", "392", "323", "504", "506",
+    "438", "437", "436", "41A", "144", "161", "164", "138", "65B", "154", "318", "103",
+    "106", "85", "64", "303", "304", "308", "309", "115", "351", "352", "482", "480",
+    "478", "173", "175", "185",
+})
+
+_STOPWORDS = frozenset({"what", "when", "where", "which", "about", "there", "their", "under", "police", "court"})
+
+_CODE_PATTERN = (
+    r"BNSS|BNS|BSA|I\.?P\.?C\.?|Cr\.?\s?P\.?\s?C\.?|I\.?E\.?A\.?|"
+    r"Indian\s+Penal\s+Code|Code\s+of\s+Criminal\s+Procedure|Indian\s+Evidence\s+Act|Evidence\s+Act|"
+    r"Bharatiya\s+Nyaya\s+Sanhita|Bharatiya\s+Nagarik\s+Suraksha\s+Sanhita|Bharatiya\s+Sakshya\s+Adhiniyam"
+)
+_SEC_PATTERN = r"\d+[A-Za-z]?(?:\([^()\s]+\))*"
+_SEC_KW = r"sections?|sec\.?|s\.|u/s|dhara|धारा"
+# "IPC 420", "BNSS section 482", "I.P.C. s. 302(1)"
+_CODE_THEN_SECTION_RE = re.compile(
+    rf"(?<!\w)(?P<code>{_CODE_PATTERN})(?:\s*,)?\s*(?:(?:{_SEC_KW})\s*)?(?P<sec>{_SEC_PATTERN})(?!\w)",
+    re.IGNORECASE,
+)
+# "Section 420 of the IPC", "420 IPC"
+_SECTION_THEN_CODE_RE = re.compile(
+    rf"(?<!\w)(?P<kw>{_SEC_KW})?\s*(?P<sec>{_SEC_PATTERN})\s+(?:of\s+)?(?:the\s+)?(?P<code>{_CODE_PATTERN})(?!\w)",
+    re.IGNORECASE,
+)
+# "section 308", "dhara 351" (no Act named)
+_SECTION_ONLY_RE = re.compile(rf"(?<!\w)(?:{_SEC_KW})\s*(?P<sec>\d+[A-Za-z]?)(?!\w)", re.IGNORECASE)
+_NUMBER_RE = re.compile(r"(?<![\w.,₹/-])(\d+[A-Za-z]?)(?![\w%]|\.\d)")
+_CURRENCY_BEFORE_RE = re.compile(r"(?:₹|\brs\.?|\binr)\s*$", re.IGNORECASE)
+_QUANTITY_AFTER_RE = re.compile(
+    r"\s*(?:rs\b|rupees?|inr|/-|lakhs?|crores?|thousand|km|kg|years?|days?|months?|persons?|people|times)\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_quantity(text: str, start: int, end: int) -> bool:
+    """True for '420 rupees', 'Rs. 420', '302 people' - numbers that are not section numbers."""
+
+    return bool(_CURRENCY_BEFORE_RE.search(text[max(0, start - 6):start])) or bool(
+        _QUANTITY_AFTER_RE.match(text, end)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Registry
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class Resolution:
+    """Result of resolving a candidate (code, section) from model/user input."""
+
+    record: LawRecord
+    # "direct": the code/section exists as given.
+    # "concordance": an old-code citation (IPC/CrPC/IEA) mapped to its 2023 equivalent.
+    # "label_correction": the model used a 2023 code label with an old-code section number.
+    match_type: str
 
 
 class LawSourceRegistry:
@@ -379,30 +625,55 @@ class LawSourceRegistry:
 
     def __init__(self, records: Iterable[LawRecord] = ()) -> None:
         self._records: dict[tuple[str, str], LawRecord] = {}
+        self._search_text: dict[tuple[str, str], str] = {}
         for record in records:
             key = (_normalize_code(record.code), _normalize_section(record.section)[0])
             if key in self._records:
                 raise ValueError(f"Duplicate legal source record: {key[0]} Section {key[1]}")
             self._records[key] = record
+            self._search_text[key] = unicodedata.normalize(
+                "NFC", f"{record.heading} {record.exact_text}"
+            ).lower()
+
+    # ----- loading --------------------------------------------------------- #
+
+    @staticmethod
+    def _read_records(path: Path, *, supplemental: bool) -> list[Any]:
+        label = "supplemental corpus" if supplemental else "legal corpus"
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON in {label} {path}: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise ValueError(f"Invalid {label} {path}: top level must be an object")
+        if payload.get("schema_version") != _SUPPORTED_SCHEMA:
+            kind = "supplemental corpus" if supplemental else "legal corpus"
+            raise ValueError(f"Unsupported {kind} schema: {payload.get('schema_version')}")
+        records = payload.get("records", [])
+        if not isinstance(records, list):
+            raise ValueError(f"Invalid {label} {path}: 'records' must be a list")
+        return records
 
     @classmethod
     def from_json(cls, path: str | Path = _DEFAULT_CORPUS_PATH) -> "LawSourceRegistry":
         source_path = Path(path)
-        payload = json.loads(source_path.read_text(encoding="utf-8"))
-        if payload.get("schema_version") != "1.0":
-            raise ValueError(f"Unsupported legal corpus schema: {payload.get('schema_version')}")
-        supplemental_path = source_path.with_name("contract_corpus.json")
-        supplemental_records = []
+        sources: list[tuple[Path, list[Any]]] = [(source_path, cls._read_records(source_path, supplemental=False))]
+        supplemental_path = source_path.with_name(_SUPPLEMENTAL_CORPUS_NAME)
         if supplemental_path.is_file():
-            supplemental = json.loads(supplemental_path.read_text(encoding="utf-8"))
-            if supplemental.get("schema_version") != "1.0":
-                raise ValueError(f"Unsupported supplemental corpus schema: {supplemental.get('schema_version')}")
-            supplemental_records = supplemental.get("records", [])
-        records = [
-            _record_from_payload(item)
-            for item in [*payload.get("records", []), *supplemental_records]
-        ]
-        return cls(records)
+            sources.append((supplemental_path, cls._read_records(supplemental_path, supplemental=True)))
+
+        records: list[LawRecord] = []
+        for file_path, items in sources:
+            for index, item in enumerate(items):
+                try:
+                    records.append(_record_from_payload(item))
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise ValueError(f"{exc} [record #{index} in {file_path.name}]") from exc
+        registry = cls(records)
+        logger.info("Loaded %d legal source records from %s", len(registry), source_path)
+        return registry
+
+    # ----- lookup ---------------------------------------------------------- #
 
     def lookup(
         self,
@@ -411,225 +682,295 @@ class LawSourceRegistry:
         *,
         code: str | None = None,
         subsection: str | None = None,
+        allow_parent: bool = False,
     ) -> LawRecord | None:
         """Look up a section using either an Act name or a short code.
 
         ``act`` and ``code`` are both accepted for compatibility with model
         providers that use different field names. If both are supplied, each
         normalized value is tried without mutating the caller's data.
+
+        With ``allow_parent=True`` a missing ``318(4)`` falls back to ``318``
+        (the returned record is then the whole parent section).
         """
 
-        candidate_codes = []
+        candidate_codes: list[str] = []
         for candidate in (code, act):
             normalized = _normalize_code(candidate)
             if normalized and normalized not in candidate_codes:
                 candidate_codes.append(normalized)
-        section_value = str(section or "").strip()
+        if not candidate_codes:
+            return None
+
+        section_value = "" if section is None else str(section).strip()
         if subsection and "(" not in section_value:
-            section_value = f"{section_value}({str(subsection).strip()})"
+            section_value = f"{section_value}({str(subsection).strip().strip('()')})"
         normalized_section, _ = _normalize_section(section_value)
-        for candidate_code in candidate_codes:
-            record = self._records.get((candidate_code, normalized_section))
-            if record is not None:
-                return record
+
+        while normalized_section:
+            for candidate_code in candidate_codes:
+                record = self._records.get((candidate_code, normalized_section))
+                if record is not None:
+                    return record
+            parent = _TRAILING_PAREN_RE.sub("", normalized_section)
+            if not allow_parent or parent == normalized_section:
+                break
+            normalized_section = parent
         return None
+
+    # ----- concordance ------------------------------------------------------ #
 
     def get_concordance_info(self, code: str | None, section: str | None) -> tuple[str | None, str | None]:
         """Return former section citation and canonical title if known."""
+
         norm_code = _normalize_code(code)
         norm_sec, _ = _normalize_section(section)
-        return REVERSE_CONCORDANCE_MAP.get((norm_code, norm_sec), (None, None))
+        return (
+            REVERSE_CONCORDANCE_MAP.get((norm_code, norm_sec))
+            or REVERSE_CONCORDANCE_MAP.get((norm_code, _base_section(norm_sec)))
+            or (None, None)
+        )
+
+    @staticmethod
+    def _enrich(record: LawRecord, former: str | None = None, title: str | None = None) -> LawRecord:
+        """Attach former citation / canonical title without overwriting values already present."""
+
+        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get(record.key, (None, None))
+        new_former = former or record.former_citation or rev_former
+        new_title = title or record.canonical_title or rev_title
+        if new_former == record.former_citation and new_title == record.canonical_title:
+            return record
+        return replace(record, former_citation=new_former, canonical_title=new_title)
+
+    def resolve_concordance_detailed(self, code: str | None, section: str | None) -> Resolution | None:
+        """Resolve a candidate statute to the authoritative 2023 record and say how.
+
+        Order: direct hit -> old-code concordance -> 2023 label with old section
+        number (own family first, then a *unique* cross-family match) -> known mislabels.
+        """
+
+        norm_code = _normalize_code(code)
+        norm_sec, _ = _normalize_section(section)
+        if not norm_code or not norm_sec:
+            return None
+        base = _base_section(norm_sec)
+
+        # 1. Direct hit (a sub-section citation falls back to its parent section).
+        direct = self.lookup(code=norm_code, section=norm_sec, allow_parent=True)
+        if direct is not None:
+            return Resolution(self._enrich(direct), "direct")
+
+        def via_old(old_code: str, match_type: str) -> Resolution | None:
+            entry = CONCORDANCE_MAP.get((old_code, base))
+            if entry is None:
+                return None
+            target_code, target_sec, former, title = entry
+            target = self.lookup(code=target_code, section=target_sec)
+            if target is None:
+                logger.debug("Concordance target %s %s not in corpus", target_code, target_sec)
+                return None
+            return Resolution(self._enrich(target, former, title), match_type)
+
+        # 2. Old-code citation (IPC 420, CrPC 438, IEA 65B).
+        if norm_code in _OLD_CODES:
+            return via_old(norm_code, "concordance")
+
+        if norm_code in _NEW_TO_OLD_FAMILY:
+            # 3a. 2023 label, old section number, same family (BNS 420, BNSS 438, BSA 65B).
+            resolved = via_old(_NEW_TO_OLD_FAMILY[norm_code], "label_correction")
+            if resolved is not None:
+                return resolved
+            # 3b. Cross-family, only if the number identifies exactly one old section (BNS 154 -> CrPC 154).
+            candidates = [oc for oc in _OLD_CODES if (oc, base) in CONCORDANCE_MAP]
+            if len(candidates) == 1:
+                resolved = via_old(candidates[0], "label_correction")
+                if resolved is not None:
+                    return resolved
+
+        # 4. Explicit, documented one-off mislabels.
+        known = _KNOWN_MISLABELS.get((norm_code, base))
+        if known is not None:
+            target_code, target_sec, former, title = known
+            target = self.lookup(code=target_code, section=target_sec)
+            if target is not None:
+                return Resolution(self._enrich(target, former, title), "label_correction")
+        return None
 
     def resolve_concordance(self, code: str | None, section: str | None) -> LawRecord | None:
         """Resolve any candidate statute, automatically mapping former codes (IPC/CrPC/IEA)
         or common model confusions directly to the authoritative 2023 Gazette record.
         """
-        norm_code = _normalize_code(code)
-        norm_sec, _ = _normalize_section(section)
-        if not norm_sec:
-            return None
 
-        # 1. Direct lookup in loaded 2023 records
-        rec = self.lookup(code=norm_code, section=norm_sec)
-        if rec is not None:
-            former, title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), (None, None))
-            return replace(rec, former_citation=former, canonical_title=title) if (former or title) else rec
+        resolution = self.resolve_concordance_detailed(code, section)
+        return resolution.record if resolution else None
 
-        # 2. Check if (norm_code, norm_sec) is in CONCORDANCE_MAP (e.g. ("IPC", "420") or ("CRPC", "438"))
-        if (norm_code, norm_sec) in CONCORDANCE_MAP:
-            target_code, target_sec, former, title = CONCORDANCE_MAP[(norm_code, norm_sec)]
-            target_rec = self.lookup(code=target_code, section=target_sec)
-            if target_rec is not None:
-                return replace(target_rec, former_citation=former, canonical_title=title)
+    # ----- retrieval -------------------------------------------------------- #
 
-        # 3. Model confusion: candidate is labeled "BNS" but uses former IPC section number (e.g. BNS 420 or BNS 302)
-        if norm_code == "BNS" and ("IPC", norm_sec) in CONCORDANCE_MAP:
-            target_code, target_sec, former, title = CONCORDANCE_MAP[("IPC", norm_sec)]
-            target_rec = self.lookup(code=target_code, section=target_sec)
-            if target_rec is not None:
-                return replace(target_rec, former_citation=former, canonical_title=title)
-
-        # 4. Model confusion: candidate is labeled "BNSS" but uses former CrPC section number (e.g. BNSS 41 or BNSS 438)
-        if norm_code == "BNSS" and ("CRPC", norm_sec) in CONCORDANCE_MAP:
-            target_code, target_sec, former, title = CONCORDANCE_MAP[("CRPC", norm_sec)]
-            target_rec = self.lookup(code=target_code, section=target_sec)
-            if target_rec is not None:
-                return replace(target_rec, former_citation=former, canonical_title=title)
-
-        # 5. Model confusion: candidate is labeled "BSA" and section is 65B or 65A
-        if norm_code == "BSA" and ("IEA", norm_sec) in CONCORDANCE_MAP:
-            target_code, target_sec, former, title = CONCORDANCE_MAP[("IEA", norm_sec)]
-            target_rec = self.lookup(code=target_code, section=target_sec)
-            if target_rec is not None:
-                return replace(target_rec, former_citation=former, canonical_title=title)
-
-        # 6. Model confusion on FIR and procedural sections
-        if norm_code in {"BNS", "BNSS"} and norm_sec in {"154", "154A"}:
-            target_rec = self.lookup(code="BNSS", section="173")
-            if target_rec is not None:
-                return replace(target_rec, former_citation="previously Section 154 CrPC", canonical_title="Information in cognizable cases (FIR)")
-
-        if norm_code == "BNS" and norm_sec == "151":
-            target_rec = self.lookup(code="BNS", section="351")
-            if target_rec is not None:
-                return replace(target_rec, former_citation="previously Section 506 IPC", canonical_title="Criminal intimidation")
-
-        return None
-
-    def find_relevant_statutes(self, query: str, top_k: int = 4) -> list[tuple[LawRecord, str, str]]:
+    def find_relevant_statutes(
+        self,
+        query: str,
+        top_k: int = 4,
+        *,
+        topup_with_text_search: bool = False,
+    ) -> list[tuple[LawRecord, str, str]]:
         """Retrieve verified statutory provisions from the official 2023 Gazette corpus.
 
         Returns a list of tuples: (LawRecord, former_citation_str, canonical_title).
+
+        Priority: explicit citations ("IPC 420", "section 308") -> factual concept rules
+        (most specific keyword wins) -> well-known standalone numbers -> free-text search.
+        Free-text search only runs when nothing else matched, unless
+        ``topup_with_text_search`` is set (weak matches can reduce precision).
         """
+
+        if top_k <= 0:
+            return []
+        q_clean = unicodedata.normalize("NFC", str(query or ""))[:MAX_QUERY_CHARS]
+        q_lower = _SPACE_RE.sub(" ", q_clean.lower())
+
         results: list[tuple[LawRecord, str, str]] = []
-        seen_keys: set[tuple[str, str]] = set()
+        seen: set[tuple[str, str]] = set()
 
-        # Non-offence preliminary definition sections that should never be returned as substantive offences
-        preliminary_sections = {
-            ("BNS", "1"), ("BNS", "2"), ("BNS", "3"), ("BNS", "4"), ("BNS", "5"),
-            ("BNS", "6"), ("BNS", "7"), ("BNS", "8"), ("BNS", "9"), ("BNS", "10"),
-            ("BNSS", "1"), ("BNSS", "2"), ("BNSS", "6"), ("BNSS", "7"), ("BNSS", "8"),
-            ("BNSS", "9"), ("BNSS", "10"), ("BSA", "1"), ("BSA", "2"), ("BSA", "8"),
-        }
+        def add(rec: LawRecord, *, allow_preliminary: bool = False) -> bool:
+            """Add a record; returns True once top_k is reached."""
+            if rec.key in seen or (not allow_preliminary and rec.key in _PRELIMINARY_SECTIONS):
+                return len(results) >= top_k
+            seen.add(rec.key)
+            enriched = self._enrich(rec)
+            results.append((enriched, enriched.former_citation or "", enriched.canonical_title or enriched.heading or ""))
+            return len(results) >= top_k
 
-        def add_record(rec: LawRecord, former: str = "", title: str = "", allow_preliminary: bool = False):
-            key = (rec.code, rec.section)
-            if not allow_preliminary and key in preliminary_sections:
-                return
-            if key not in seen_keys:
-                seen_keys.add(key)
-                rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get(key, (None, None))
-                final_former = former or rev_former or ""
-                final_title = title or rev_title or rec.heading or ""
-                enriched_rec = replace(rec, former_citation=final_former, canonical_title=final_title)
-                results.append((enriched_rec, final_former, final_title))
+        def by_number(num: str) -> Iterator[LawRecord]:
+            for old_code in _OLD_CODES:
+                if (old_code, num) in CONCORDANCE_MAP:
+                    rec = self.resolve_concordance(old_code, num)
+                    if rec is not None:
+                        yield rec
+            for new_code in _NEW_CODES:
+                rec = self.lookup(code=new_code, section=num)
+                if rec is not None:
+                    yield rec
 
-        q_clean = query or ""
-        q_lower = q_clean.lower()
-
-        # Step 1: Explicit mentions of acts + sections (e.g. IPC 420, BNS 318, CrPC 438, BNSS 482)
-        explicit_re = re.compile(
-            r"\b(BNS|BNSS|BSA|IPC|CRPC|IEA|EVIDENCE)\s*(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)\b|"
-            r"\b(?:section\s*)?(\d+[A-Za-z]?(?:\(\d+\))?)\s+(?:of\s+)?(BNS|BNSS|BSA|IPC|CRPC|IEA|EVIDENCE)\b",
-            re.IGNORECASE,
-        )
-        for match in explicit_re.finditer(q_clean):
-            if match.group(1):
-                raw_code, raw_sec = match.group(1), match.group(2)
-            else:
-                raw_sec, raw_code = match.group(3), match.group(4)
+        # Step 1: explicit "<Act> <section>" / "<section> of <Act>" citations, in order of appearance.
+        citations: list[tuple[int, str, str]] = []
+        for match in _CODE_THEN_SECTION_RE.finditer(q_clean):
+            citations.append((match.start(), match["code"], match["sec"]))
+        for match in _SECTION_THEN_CODE_RE.finditer(q_clean):
+            if not match["kw"] and len(match["sec"]) < 2:
+                continue  # "2 BNS cases" is not a citation of section 2
+            citations.append((match.start(), match["code"], match["sec"]))
+        for _, raw_code, raw_sec in sorted(citations):
             rec = self.resolve_concordance(raw_code, raw_sec)
-            if rec is not None:
-                rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                add_record(rec, rev_former, rev_title, allow_preliminary=False)
+            if rec is not None and add(rec, allow_preliminary=True):
+                return results
 
-        # Step 2: Match factual concept rules FIRST before standalone numbers
-        for rule in CONCEPT_RULES:
-            matches_rule = any(
-                re.search(r"\b" + re.escape(kw) + r"\b", q_lower)
-                for kw in rule["keywords"]
-            )
-            if matches_rule:
-                for target_code, target_sec in rule["targets"]:
-                    rec = self.lookup(code=target_code, section=target_sec)
-                    if rec is not None:
-                        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                        add_record(rec, rev_former, rev_title)
-                    if len(results) >= top_k:
-                        break
-            if len(results) >= top_k:
-                break
+        # Step 2: "section 308" / "dhara 351" with no Act named.
+        for match in _SECTION_ONLY_RE.finditer(q_clean):
+            for rec in by_number(match["sec"].upper()):
+                if add(rec):
+                    return results
 
-        # Step 3: Check numbers explicitly designated as sections (e.g. "Section 308", "sec 309", "dhara 351")
-        explicit_sec_matches = re.findall(r"\b(?:section|sec|s\.|dhara|u/s)\s*(\d+[A-Za-z]?)\b", q_clean, re.IGNORECASE)
-        for sec_num in explicit_sec_matches:
-            num_clean = sec_num.upper()
-            for old_code in ("IPC", "CRPC", "IEA"):
-                if (old_code, num_clean) in CONCORDANCE_MAP:
-                    rec = self.resolve_concordance(old_code, num_clean)
-                    if rec is not None:
-                        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                        add_record(rec, rev_former, rev_title)
-            for new_code in ("BNS", "BNSS", "BSA"):
-                rec = self.lookup(code=new_code, section=num_clean)
-                if rec is not None:
-                    rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                    add_record(rec, rev_former, rev_title)
+        # Step 3: concept rules; the rule with the longest (most specific) keyword hit goes first.
+        scored = []
+        for index, rule in enumerate(_COMPILED_RULES):
+            best = max((len(m.group(0)) for m in rule.pattern.finditer(q_lower)), default=0)
+            if best:
+                scored.append((-best, index, rule))
+        scored.sort(key=lambda item: item[:2])
+        for _, _, rule in scored:
+            for target_code, target_sec in rule.targets:
+                rec = self.lookup(code=target_code, section=target_sec)
+                if rec is not None and add(rec):
+                    return results
 
-        # Step 4: Standalone numbers ONLY if in well-known criminal section whitelist (prevents "8" matching Section 8)
-        well_known_standalone_sections = {
-            "420", "302", "307", "376", "498A", "379", "384", "390", "392", "323", "504", "506",
-            "438", "437", "436", "41A", "144", "161", "164", "138", "65B", "154", "318", "103",
-            "106", "85", "64", "303", "304", "308", "309", "115", "351", "352", "482", "480",
-            "478", "173", "175", "185",
-        }
-        num_matches = re.findall(r"\b(\d+[A-Za-z]?)\b", q_clean)
-        for num in num_matches:
-            num_clean = num.upper()
-            if num_clean not in well_known_standalone_sections:
+        # Step 4: standalone numbers, only famous ones, and not amounts/quantities.
+        for match in _NUMBER_RE.finditer(q_clean):
+            num = match.group(1).upper()
+            if num not in _WELL_KNOWN_STANDALONE or _looks_like_quantity(q_clean, match.start(1), match.end(1)):
                 continue
-            for old_code in ("IPC", "CRPC", "IEA"):
-                if (old_code, num_clean) in CONCORDANCE_MAP:
-                    rec = self.resolve_concordance(old_code, num_clean)
-                    if rec is not None:
-                        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                        add_record(rec, rev_former, rev_title)
-            for new_code in ("BNS", "BNSS", "BSA"):
-                rec = self.lookup(code=new_code, section=num_clean)
-                if rec is not None:
-                    rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                    add_record(rec, rev_former, rev_title)
+            for rec in by_number(num):
+                if add(rec):
+                    return results
 
-        # Step 5: If still fewer than top_k and query is specific, search text
-        if len(results) < top_k:
-            query_tokens = [w for w in re.findall(r"\w{4,}", q_lower) if w not in {"what", "when", "where", "which", "about", "there", "their", "under", "police", "court"}]
-            if query_tokens:
-                for rec in self._records.values():
-                    if rec.code not in {"BNS", "BNSS", "BSA"}:
+        # Step 5: ranked free-text fallback.
+        if not results or topup_with_text_search:
+            tokens = {w for w in re.findall(r"\w{4,}", q_lower) if w not in _STOPWORDS}
+            if tokens:
+                ranked = []
+                for key, text in self._search_text.items():
+                    if key[0] not in _NEW_CODES:
                         continue
-                    text_lower = rec.exact_text.lower()
-                    if sum(1 for tok in query_tokens if tok in text_lower) >= 2:
-                        rev_former, rev_title = REVERSE_CONCORDANCE_MAP.get((rec.code, rec.section), ("", ""))
-                        add_record(rec, rev_former, rev_title)
-                    if len(results) >= top_k:
+                    score = sum(1 for tok in tokens if tok in text)
+                    if score >= 2:
+                        ranked.append((-score, key))
+                ranked.sort()
+                for _, key in ranked:
+                    if add(self._records[key]):
                         break
-
         return results[:top_k]
+
+    # ----- diagnostics ------------------------------------------------------ #
+
+    def verify_integrity(self) -> list[str]:
+        """Re-hash every record; returns descriptions of any mismatches (empty == healthy)."""
+
+        return [
+            f"{r.code} Section {r.section}: stored hash does not match exact_text"
+            for r in self._records.values()
+            if hashlib.sha256(r.exact_text.encode("utf-8")).hexdigest() != r.source_hash
+        ]
+
+    def audit_references(self) -> list[str]:
+        """List concordance / concept-rule targets that are absent from the loaded corpus.
+
+        Absence is not an error (the corpus is deliberately small) but is useful in CI
+        to spot typos, e.g. a rule pointing at a section number that does not exist.
+        """
+
+        problems = []
+        for (old_code, old_sec), (new_code, new_sec, _f, _t) in CONCORDANCE_MAP.items():
+            if (new_code, new_sec) not in self._records:
+                problems.append(f"concordance {old_code} {old_sec} -> {new_code} {new_sec}: not in corpus")
+        for rule in CONCEPT_RULES:
+            for target in rule["targets"]:
+                if target not in self._records:
+                    problems.append(f"concept rule {rule['keywords'][0]!r} -> {target[0]} {target[1]}: not in corpus")
+        return problems
+
+    # ----- container protocol ----------------------------------------------- #
 
     def __len__(self) -> int:
         return len(self._records)
+
+    def __contains__(self, item: object) -> bool:
+        if not (isinstance(item, tuple) and len(item) == 2):
+            return False
+        return (_normalize_code(item[0]), _normalize_section(item[1])[0]) in self._records
 
     def records(self) -> tuple[LawRecord, ...]:
         return tuple(self._records.values())
 
 
 _registry: LawSourceRegistry | None = None
+_registry_lock = threading.Lock()
 
 
 def get_registry() -> LawSourceRegistry:
-    """Return the process-wide registry, loading and validating it once."""
+    """Return the process-wide registry, loading and validating it once (thread-safe)."""
 
     global _registry
     if _registry is None:
-        _registry = LawSourceRegistry.from_json()
+        with _registry_lock:
+            if _registry is None:
+                _registry = LawSourceRegistry.from_json()
     return _registry
+
+
+def reload_registry(path: str | Path | None = None) -> LawSourceRegistry:
+    """Rebuild the registry from disk. The old instance stays live if loading fails."""
+
+    global _registry
+    fresh = LawSourceRegistry.from_json(path) if path is not None else LawSourceRegistry.from_json()
+    with _registry_lock:
+        _registry = fresh
+    return fresh
