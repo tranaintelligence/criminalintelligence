@@ -43,8 +43,8 @@ PROVIDER_ENV_FIELDS = {
     ),
 }
 PROVIDER_ENV_DEFAULT_MODELS = {
-    "cerebras": "gpt-oss-120b",
-    "groq": "openai/gpt-oss-120b",
+    "cerebras": "llama3.3-70b",
+    "groq": "llama-3.3-70b-versatile",
 }
 IST = ZoneInfo("Asia/Kolkata")
 QUICK_UNAVAILABLE_COOLDOWN_SECONDS = 300

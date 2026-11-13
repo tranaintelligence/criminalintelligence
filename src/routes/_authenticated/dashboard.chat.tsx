@@ -591,6 +591,7 @@ export function ChatViewContent() {
     }
 
     const loadChat = async () => {
+      setQuickUnavailable(false);
       setIsChatLoading(true);
       setMessages([]);
       try {
@@ -652,6 +653,7 @@ export function ChatViewContent() {
     setChatAttachments([]);
     setPendingFiles([]);
     setInput('');
+    setQuickUnavailable(false);
     navigate({ to: '/dashboard/chat' });
   };
 

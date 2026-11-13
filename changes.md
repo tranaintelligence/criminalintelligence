@@ -4,6 +4,31 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 
 ---
 
+## [2026-11-14] - Fix Groq Model Defaults & Clear Sticky Rate Limit UI State
+
+### 1. Elimination of False Rate-Limit / Quota Lockout Caused by Invalid Groq Model ID
+- **Root Cause Identified**:
+  - The Admin Key Pool form had default model configured as `openai/gpt-oss-120b` for Groq (`key_manager.py` and `src/routes/founders.admin.tsx`).
+  - Groq does not have any model called `openai/gpt-oss-120b`.
+  - When queries were routed to Groq, Groq immediately threw `400 / 404 Model Not Found`.
+  - Because all configured Groq keys failed on this invalid model, the pipeline triggered `mark_quick_temporarily_unavailable()`, which placed a global 5-minute (300-second) in-memory block on all Quick Thinking requests and returned HTTP 429 (`QUICK_MODEL_UNAVAILABLE`).
+  - To the user, this appeared as being "ratemaxed" even when zero valid API calls completed.
+- **Fixes**:
+  - `key_manager.py`: Updated `PROVIDER_ENV_DEFAULT_MODELS["groq"]` to `"llama-3.3-70b-versatile"` and Cerebras to `"llama3.3-70b"`.
+  - `src/routes/founders.admin.tsx`:
+    - Updated default model from `'openai/gpt-oss-120b'` to `'llama-3.3-70b-versatile'`.
+    - Added reactive model auto-population when selecting providers in the dropdown (Groq -> `llama-3.3-70b-versatile`, Google -> `gemini-2.5-flash`, Cerebras -> `llama3.3-70b`).
+    - Updated input placeholder to `llama-3.3-70b-versatile`.
+
+### 2. Reset Sticky Rate-Limit State in Chat UI (`src/routes/_authenticated/dashboard.chat.tsx`)
+- **Root Cause Identified**:
+  - Once `quickUnavailable` state was set to `true` following a 429 response, neither `handleNewChat` nor switching chat sessions via `routeChatId` ever reset `quickUnavailable(false)`.
+  - As a result, opening a new chat session where no messages had been sent still displayed `⚠️ Quick Thinking rate-limited`.
+- **Fixes**:
+  - Added `setQuickUnavailable(false)` in `handleNewChat` and in `loadChat` when switching to a different chat session.
+
+---
+
 ## [2026-11-11] - PWA Setup & Capacitor Android Wrapper
 
 ### 1. Progressive Web App (PWA) Configuration
