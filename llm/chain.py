@@ -181,7 +181,18 @@ def _normalize_analysis_payload(payload: object) -> dict:
 
     if not isinstance(payload, dict):
         raise ValueError("provider response JSON was not an object")
-    normalized = dict(payload)
+    
+    # Flatten and normalize all keys from PascalCase/camelCase/spaced to lowercase snake_case
+    normalized = {}
+    for k, v in payload.items():
+        if isinstance(k, str):
+            s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', k)
+            s2 = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1)
+            snake_k = re.sub(r'[^a-z0-9_]+', '_', s2.lower()).strip('_')
+            normalized[snake_k] = v
+            clean_k = re.sub(r"[^a-z0-9_]+", "_", k.strip().lower()).strip("_")
+            normalized[clean_k] = v
+        normalized[k] = v
 
     def as_text(value, default=""):
         if value is None:
@@ -213,9 +224,24 @@ def _normalize_analysis_payload(payload: object) -> dict:
         return [as_text(item) for item in value if item is not None]
 
     # Map common aliases and synonyms from diverse LLM providers
+    conversational_text = (
+        normalized.get("conversational_reply")
+        or normalized.get("message")
+        or normalized.get("response")
+        or normalized.get("reply")
+        or normalized.get("greeting")
+        or normalized.get("answer")
+        or normalized.get("text")
+        or ""
+    )
+    if conversational_text and not normalized.get("conversational_reply"):
+        normalized["conversational_reply"] = as_text(conversational_text)
+
     if not normalized.get("situation_meaning"):
         normalized["situation_meaning"] = (
             normalized.get("complaint_analysis")
+            or normalized.get("document_overview")
+            or normalized.get("summary_of_allegations")
             or normalized.get("summary")
             or normalized.get("overview")
             or normalized.get("analysis")
@@ -223,6 +249,7 @@ def _normalize_analysis_payload(payload: object) -> dict:
             or normalized.get("case_summary")
             or normalized.get("allegations_summary")
             or normalized.get("details")
+            or normalized.get("conversational_reply")
             or ""
         )
     if not normalized.get("general_analysis"):
@@ -233,16 +260,19 @@ def _normalize_analysis_payload(payload: object) -> dict:
         )
         normalized["general_analysis"] = (
             normalized.get("legal_analysis")
+            or normalized.get("section_wise_legal_analysis")
             or normalized.get("legal_summary")
             or normalized.get("findings")
             or normalized.get("explanation")
             or normalized.get("content")
             or ("" if has_breakdown_fields else normalized.get("situation_meaning", ""))
+            or normalized.get("conversational_reply")
             or ""
         )
     if not normalized.get("bail_status"):
         normalized["bail_status"] = (
             normalized.get("bail")
+            or normalized.get("arrest_and_bail_position")
             or normalized.get("bail_eligibility")
             or normalized.get("bail_analysis")
             or normalized.get("bail_provisions")
@@ -267,6 +297,7 @@ def _normalize_analysis_payload(payload: object) -> dict:
     if not normalized.get("next_24_hours"):
         normalized["next_24_hours"] = (
             normalized.get("immediate_steps")
+            or normalized.get("immediate_practical_steps")
             or normalized.get("action_plan")
             or normalized.get("recommended_actions")
             or normalized.get("steps")
@@ -276,11 +307,16 @@ def _normalize_analysis_payload(payload: object) -> dict:
     if not normalized.get("rights"):
         normalized["rights"] = (
             normalized.get("legal_rights")
+            or normalized.get("rights_and_legal_remedies")
             or normalized.get("accused_rights")
             or normalized.get("citizen_rights")
             or normalized.get("statutory_safeguards")
             or []
         )
+    if not normalized.get("is_conversational"):
+        text_check = (str(normalized.get("situation_meaning") or "") + " " + str(normalized.get("general_analysis") or "")).lower()
+        if any(phrase in text_check for phrase in ["how can i help", "no fir, complaint", "no document has been provided", "please upload", "please describe the facts"]):
+            normalized["is_conversational"] = True
 
     for field_name in (
         "general_analysis",
@@ -416,6 +452,7 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
     body = response.json()
     try:
         content = body.get("choices", [{}])[0].get("message", {}).get("content", "")
+        logger.debug("GROQ RAW CONTENT: %s", content)
         return _require_readable_analysis(_parse_structured_analysis_content(content))
     except (json.JSONDecodeError, ValueError, TypeError) as exc:
         if hasattr(exc, "errors"):
@@ -562,20 +599,22 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
                 continue
             continue
     if empty_analysis_error is not None:
-        # The request completed, but every vision route returned blank fields.
-        # Return a clear, non-empty answer so clients never render an empty chat
-        # bubble or lose the fact that the image request reached the model.
+        fallback_msg = (
+            "I received the attached document, but couldn't produce an analysis after retrying. Please resend the images or ask about a specific clause so I can try a narrower analysis."
+            if has_media else
+            "I received your message, but couldn't formulate a specific legal analysis. Please share more details about your situation or ask a specific question about Indian criminal law (BNS, BNSS, BSA)."
+        )
         return StructuredAnalysis(
             general_analysis=(
-                "I received the attached document, but couldn't produce an "
-                "analysis after retrying. Please resend the images or ask about "
-                "a specific clause so I can try a narrower analysis.\n\n"
+                fallback_msg + "\n\n"
                 "Temporary diagnostics for this request (credentials and image "
                 "content are excluded):\n```text\n"
                 + "\n".join(diagnostic_log)
                 + "\n```"
-            )
-        ), "quick:vision-empty-response"
+            ),
+            situation_meaning=fallback_msg,
+            is_conversational=True,
+        ), "quick:empty-response"
     if quota_error_seen:
         mark_quick_temporarily_unavailable()
         raise QuickModelUnavailableError("Quick Thinking is temporarily unavailable because all configured Quick Thinking providers are rate-limited.")

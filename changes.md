@@ -4,6 +4,23 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 
 ---
 
+## [2026-11-14] - Fix Conversational Greetings & PascalCase Normalization (`EmptyAnalysisError`)
+
+### 1. Root Cause for "I received the attached document..." on Text Greetings
+- **Problem**: When a user sent a simple greeting like `"Hii"` without attachments, Groq responded with `{"message": "I am TRANA..."}` or formatted keys like `{"DocumentOverview": "..."}`.
+- **Why it failed**:
+  1. `_normalize_analysis_payload` only checked snake_case keys and did not recognize `message`, `reply`, `response` or PascalCase keys (`DocumentOverview`, `ImmediatePracticalSteps`, `RightsAndLegalRemedies`).
+  2. Because all target fields remained blank, `_require_readable_analysis` threw `EmptyAnalysisError`.
+  3. The error handler at line 581 of `llm/chain.py` had a static text string: `"I received the attached document, but couldn't produce an analysis..."`, which confused the user into thinking TRANA believed an image was uploaded.
+- **Fixes Applied**:
+  - `llm/chain.py`:
+    - Added comprehensive PascalCase / camelCase to snake_case normalization (`to_snake_case`) at the entry of `_normalize_analysis_payload`.
+    - Added direct mapping for conversational top-level keys (`message`, `response`, `reply`, `greeting`, `answer`) into `conversational_reply`, `situation_meaning`, and `general_analysis`.
+    - Flagged `is_conversational = True` automatically when conversational greeting text is detected.
+    - Updated fallback message in `_run_quick_provider_pipeline` so that the message only mentions attached documents if `has_media` is actually True.
+
+---
+
 ## [2026-11-14] - Fix Groq JSON Validation 400 Bug & Erroneous 429 Rate-Limit Masquerading
 
 ### 1. Root Cause Identified & Resolved
