@@ -530,5 +530,13 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 - **Reset Legal First Aid Prompt to Clean Placeholder (`llm/prompts.py`)**:
   - Cleared `SYSTEM_PROMPT`, `DIRECT_ANALYSIS_PROMPT`, and `CONVERSATIONAL_PROMPT` to a minimal schema-compatible placeholder per user request, ready for the user to provide a brand new prompt.
   - Kept `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` and `COMPLAINT_FIR_ANALYSIS_PROMPT` (the separate Complaint Analyser tool) completely untouched.
+- **TRANA Master System Prompt V2.1 Integration (`llm/prompts.py`)**:
+  - Integrated the full TRANA — MASTER SYSTEM PROMPT V2.1 (Sections 1 through 18) into `SYSTEM_PROMPT`, `DIRECT_ANALYSIS_PROMPT`, and `CONVERSATIONAL_PROMPT`.
+  - Enforced the Standard Response Format (A. In Short, B. What the Law Says, C. Is the Offence Bailable or Non-Bailable?, D. Immediate Steps, E. What to Do in the Next 24 Hours, F. Your Rights, G. Legal Reasoning, H. Professional Assistance), Mandatory Legal Accuracy Protocol, Section 18 Mandatory Complaint/FIR Redirection to `/dashboard/analyse`, and official indiacode.nic.in sources citations with statutory disclaimer.
+  - Kept `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` and `COMPLAINT_FIR_ANALYSIS_PROMPT` (the separate Complaint Analyser tool) completely untouched.
+- **Universal TRANA AI Chatbox Self-Introduction (`src/routes/_authenticated/dashboard.chat.tsx`)**:
+  - Configured TRANA AI to introduce itself at the head of every chatbox:
+    `"I am TRANA, an Indian criminal-law information and assistance platform designed to help ordinary people and families understand criminal law, their legal rights, and practical next steps under the BNS, BNSS, BSA, and related laws. How can I help you today?"`
+  - Ensured that new sessions, guest temporary chats, and historical loaded sessions begin with this introduction.
 - **Zero Website UI Changes**:
   - Preserved all website routes, layout, styling, and text exactly as authored.

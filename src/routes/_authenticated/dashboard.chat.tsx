@@ -35,7 +35,7 @@ export const Route = createFileRoute('/_authenticated/dashboard/chat')({
 });
 
 const loadingSynonyms = ['Thinking...', 'Analyzing statutes...', 'Reviewing provisions...', 'Almost there...'];
-const WELCOME_MESSAGE = "I'm TRANA—your legal information guide for Indian criminal law. I help ordinary families understand their rights under the BNS, BNSS, and BSA in simple, clear language. How can I help you today?";
+const WELCOME_MESSAGE = "I am TRANA, an Indian criminal-law information and assistance platform designed to help ordinary people and families understand criminal law, their legal rights, and practical next steps under the BNS, BNSS, BSA, and related laws. How can I help you today?";
 const CHAT_REQUEST_TIMEOUT_MS = 45_000;
 const TEMPORARY_CHAT_STORAGE_KEY = 'trana.temporary-chat';
 
@@ -342,7 +342,7 @@ export function ChatViewContent() {
   const navState = location.state as { preloadedMessages?: ChatMessage[]; forChatId?: string } | null;
   const preloadedMessages = navState?.forChatId === routeChatId ? navState?.preloadedMessages : undefined;
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    preloadedMessages ?? (routeChatId ? [] : credential ? [createWelcomeMessage()] : readTemporaryChat()),
+    preloadedMessages ?? (routeChatId ? [createWelcomeMessage()] : credential ? [createWelcomeMessage()] : readTemporaryChat()),
   );
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -602,23 +602,30 @@ export function ChatViewContent() {
         const chat = (await response.json()) as ChatSession;
         if (!active) return;
 
-        setMessages(
-          (chat.messages ?? []).map((message) => {
-            const sources = message.sources ?? undefined;
-            return {
-              role: message.role,
-              content:
-                message.role === 'assistant' && message.structured_content
-                  ? formatAnalysis(message.structured_content, { includeLegacyLawSummary: !sources?.length })
-                  : message.content,
-              sources,
-              structured_content: message.structured_content,
-              model_used: message.model_used ?? undefined,
-              processing_time_seconds: message.processing_time_seconds ?? undefined,
-              created_at: message.created_at,
-            };
-          }),
-        );
+        const loadedMessages: ChatMessage[] = (chat.messages ?? []).map((message) => {
+          const sources = message.sources ?? undefined;
+          return {
+            role: message.role,
+            content:
+              message.role === 'assistant' && message.structured_content
+                ? formatAnalysis(message.structured_content, { includeLegacyLawSummary: !sources?.length })
+                : message.content,
+            sources,
+            structured_content: message.structured_content,
+            model_used: message.model_used ?? undefined,
+            processing_time_seconds: message.processing_time_seconds ?? undefined,
+            created_at: message.created_at,
+          };
+        });
+
+        // Ensure TRANA introduces itself at the start of every chatbox
+        if (loadedMessages.length === 0) {
+          setMessages([createWelcomeMessage()]);
+        } else if (loadedMessages[0].role !== 'assistant' || !loadedMessages[0].content.includes('TRANA')) {
+          setMessages([createWelcomeMessage(), ...loadedMessages]);
+        } else {
+          setMessages(loadedMessages);
+        }
       } catch (error) {
         console.error('Failed to load chat history', error);
       } finally {
