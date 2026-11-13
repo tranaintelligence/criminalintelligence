@@ -12,7 +12,6 @@ import base64
 import json
 import re
 import time
-from dataclasses import replace
 from typing import Optional
 
 import httpx
@@ -39,8 +38,6 @@ from legal_sources.registry import LawSourceRegistry, get_registry
 from llm.prompts import (
     COMPLAINT_FIR_ANALYSIS_PROMPT,
     COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT,
-    DIRECT_ANALYSIS_PROMPT,
-    SYSTEM_PROMPT,
 )
 from models.schemas import AnalysisResponse, SourceChunk, StructuredAnalysis
 from utils.logger import get_logger
@@ -72,7 +69,6 @@ explanation in general_analysis and return the exact requested code and section
 as the only applicable_laws item. Leave quote and exact_text empty; the backend
 will attach the verified source text.
 """
-_SECTION_SOURCE_SYSTEM_PROMPT = SYSTEM_PROMPT + "\n\n" + _SECTION_SOURCE_SYSTEM_PROMPT
 _PROVIDER_BASE_URLS = {
     "groq": "https://api.groq.com/openai/v1",
     "cerebras": "https://api.cerebras.ai/v1",
@@ -417,7 +413,7 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
         "model": record.model,
         "messages": raw_messages,
         "temperature": settings.llm_temperature,
-        "max_tokens": 4096,
+        "max_tokens": 1200,
     }
     if record.provider == "groq":
         payload["response_format"] = {"type": "json_object"}
@@ -450,6 +446,16 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
             pass
         raise RuntimeError(f"{record.provider} HTTP {response.status_code}: {response.text[:300]}")
     body = response.json()
+    usage = body.get("usage") or {}
+    if usage:
+        logger.info(
+            "LLM token usage provider=%s model=%s prompt=%s completion=%s total=%s",
+            record.provider,
+            record.model,
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+            usage.get("total_tokens"),
+        )
     try:
         content = body.get("choices", [{}])[0].get("message", {}).get("content", "")
         logger.debug("GROQ RAW CONTENT: %s", content)
@@ -483,11 +489,8 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
                 "This chat contains an image or scanned PDF, but no vision-capable Gemini route is configured. "
                 "Configure a Gemini model to analyze visual attachments."
             )
-        # Gemini API quotas are model-specific. Gemma 4 can also read image
-        # inputs, so try it once with the first configured Google key when a
-        # Gemini route is quota-limited or returns an empty structured result.
-        if (settings.llm_model or "").lower().startswith("gemma-4"):
-            routes.insert(1, replace(routes[0], model=settings.llm_model))
+    # One request per chat: choose one eligible route and do not rotate.
+    routes = routes[:1]
     if not routes:
         raise QuickModelUnavailableError("Quick Thinking is temporarily unavailable because no Quick Thinking providers are configured.")
     attempted = set()
@@ -500,11 +503,7 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
         if route_identity in attempted:
             continue
         attempted.add(route_identity)
-        is_gemma_fallback = has_media and record.model == settings.llm_model and (
-            record.model or ""
-        ).lower().startswith("gemma-4")
-        if is_gemma_fallback and not (quota_error_seen or empty_analysis_error):
-            continue
+        is_gemma_fallback = False
         remaining = max(0.1, (deadline - time.monotonic()) if deadline else 8.0)
         diagnostic_log.append(
             f"route start: provider={record.provider} model={record.model} key_id={record.id}"
@@ -513,51 +512,15 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
             if record.provider == "google":
                 llm, _, key_id = _get_llm("quick", force_reinit=True, key_record=record)
                 structured = None if is_gemma_fallback else llm.with_structured_output(StructuredAnalysis)
-                analysis = None
-                for attempt in range(2):
-                    diagnostic_log.append(
-                        f"generation attempt: provider={record.provider} model={record.model} "
-                        f"attempt={attempt + 1}/2"
-                    )
-                    request_messages = messages
-                    if attempt:
-                        request_messages = [
-                            *messages,
-                            HumanMessage(content=(
-                                "Your previous response contained no readable analysis. "
-                                "Analyze the attached document now. Put the complete, useful "
-                                "answer in general_analysis. If text is unclear, say what is "
-                                "unclear and still summarize the readable clauses. Do not return "
-                                "blank fields."
-                            )),
-                        ]
-                    remaining = max(0.1, (deadline - time.monotonic()) if deadline else remaining)
-                    if is_gemma_fallback:
-                        response = await asyncio.wait_for(
-                            llm.ainvoke(request_messages), timeout=remaining
-                        )
-                        candidate = _parse_structured_analysis_content(response.content)
-                    else:
-                        response = await asyncio.wait_for(
-                            structured.ainvoke(request_messages), timeout=remaining
-                        )
-                        candidate = (
-                            response if isinstance(response, StructuredAnalysis)
-                            else StructuredAnalysis.model_validate(response)
-                        )
-                    try:
-                        analysis = _require_readable_analysis(candidate)
-                        break
-                    except EmptyAnalysisError as exc:
-                        empty_analysis_error = exc
-                        diagnostic_log.append(
-                            f"empty structured response: provider={record.provider} "
-                            f"model={record.model} attempt={attempt + 1}/2"
-                        )
-                        if attempt:
-                            raise
-                if analysis is None:
-                    raise EmptyAnalysisError("The model returned no readable analysis.")
+                remaining = max(0.1, (deadline - time.monotonic()) if deadline else remaining)
+                response = await asyncio.wait_for(
+                    structured.ainvoke(messages), timeout=remaining
+                )
+                candidate = (
+                    response if isinstance(response, StructuredAnalysis)
+                    else StructuredAnalysis.model_validate(response)
+                )
+                analysis = _require_readable_analysis(candidate)
             else:
                 key_id = record.id
                 analysis = await _invoke_openai_compatible(record, messages, remaining)
@@ -569,7 +532,7 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
             return _sanitize_analysis(analysis), f"quick:{record.provider}:{record.model}"
         except Exception as exc:
             last_error = exc
-            quota_error = is_quota_error(exc) or isinstance(exc, asyncio.TimeoutError)
+            quota_error = is_quota_error(exc)
             quota_error_seen = quota_error_seen or quota_error
             record_provider_key_attempt(record.id, record.provider, record.model, record.mode, "quota" if quota_error else "failure", exc)
             logger.warning("Quick provider route failed: provider=%s model=%s error=%s", record.provider, record.model, exc)
@@ -585,39 +548,26 @@ async def _run_quick_provider_pipeline(messages, deadline: float | None):
                 # structured payload. Treat that as a failed route and try
                 # the next configured Gemini key/model before surfacing it.
                 empty_analysis_error = exc
-                continue
-            error_text = str(exc).lower()
-            retryable = quota_error or any(marker in error_text for marker in (
-                "http 408", "http 500", "http 502", "http 503", "connection", "temporarily",
-                "http 400", "failed to generate json", "json_validate_failed", "invalid_request_error",
-            ))
-            if not retryable:
-                if len(routes) > 1 and len(attempted) < len(routes):
-                    continue
-                if empty_analysis_error is None:
-                    raise RuntimeError(f"Quick Thinking provider configuration failed: {exc}") from exc
-                continue
-            continue
+                break
+            if quota_error:
+                mark_quick_temporarily_unavailable()
+                raise QuickModelUnavailableError(
+                    "Quick Thinking is temporarily unavailable because the selected provider is rate-limited."
+                ) from exc
+            raise RuntimeError(f"Quick Thinking provider request failed: {exc}") from exc
     if empty_analysis_error is not None:
         fallback_msg = (
-            "I received the attached document, but couldn't produce an analysis after retrying. Please resend the images or ask about a specific clause so I can try a narrower analysis."
+            "I received the attached document, but couldn't produce an analysis from the single provider request. Please resend the images or ask about a specific clause so I can try a narrower analysis."
             if has_media else
             "I received your message, but couldn't formulate a specific legal analysis. Please share more details about your situation or ask a specific question about Indian criminal law (BNS, BNSS, BSA)."
         )
         return StructuredAnalysis(
-            general_analysis=(
-                fallback_msg + "\n\n"
-                "Temporary diagnostics for this request (credentials and image "
-                "content are excluded):\n```text\n"
-                + "\n".join(diagnostic_log)
-                + "\n```"
-            ),
+            general_analysis=fallback_msg,
             situation_meaning=fallback_msg,
-            is_conversational=True,
         ), "quick:empty-response"
     if quota_error_seen:
         mark_quick_temporarily_unavailable()
-        raise QuickModelUnavailableError("Quick Thinking is temporarily unavailable because all configured Quick Thinking providers are rate-limited.")
+        raise QuickModelUnavailableError("Quick Thinking is temporarily unavailable because the selected provider is rate-limited.")
     raise RuntimeError(f"All configured Quick Thinking providers failed: {last_error or 'unknown error'}")
 
 
@@ -762,41 +712,6 @@ def _enforce_bail_and_statutory_remedies(
         f"{analysis.bail_status or ''}"
     ).lower()
 
-    has_non_bailable_law = any(
-        (getattr(l, "code", "") or "").upper() == code and str(getattr(l, "section", "")).strip() == sec
-        for code, sec in NON_BAILABLE_SECTIONS
-        for l in (analysis.applicable_laws or [])
-    )
-
-    non_bailable_keywords = [
-        "robbery", "robbed", "robbing", "extortion", "extort", "extorted",
-        "hafta", "vasooli", "rangdari", "snatch", "snatched", "snatching",
-        "burn down", "threatened to burn", "arson", "murder", "killing",
-        "rape", "sexual assault", "gang rape", "dacoity", "acid attack"
-    ]
-    has_non_bailable_keyword = any(kw in text_corpus for kw in non_bailable_keywords)
-
-    if has_non_bailable_law or has_non_bailable_keyword:
-        current_bail = (analysis.bail_status or "").lower()
-        needs_override = (
-            not current_bail
-            or "cannot be determined" in current_bail
-            or "may be bailable" in current_bail
-            or "might be bailable" in current_bail
-            or "likely bailable" in current_bail
-            or "uncertain" in current_bail
-            or "depends on" in current_bail
-            or "non-bailable" not in current_bail
-        )
-        if needs_override:
-            analysis.bail_status = (
-                "NON-BAILABLE: Under the First Schedule of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS), "
-                "substantive offences involving Robbery (BNS Sec. 309), Snatching (BNS Sec. 304), and aggravated "
-                "Extortion (BNS Sec. 308) are strictly Cognizable and Non-Bailable. Police cannot grant bail at the police station. "
-                "Regular bail can only be considered at judicial discretion by the competent Judicial Magistrate or Court of Session "
-                "under Sections 480 / 483 of BNSS upon a formal bail application."
-            )
-
     fir_refusal_keywords = [
         "refused to lodge", "refuse to lodge", "refused to register", "refusing to register",
         "police refused", "refused fir", "no fir", "not filing fir", "police station refused"
@@ -848,6 +763,7 @@ def _get_llm(model_preference: str = "deep", force_reinit: bool = False, key_rec
         # makes Gemma spend much longer producing JSON and increases the risk of
         # repetitive generations without improving the user-facing answer.
         max_output_tokens=3072 if model_preference == "deep" else 1024,
+        retries=1,
     )
     logger.info(
         "LLM initialized: provider=google_genai, model=%s, temp=%.2f",
@@ -953,52 +869,113 @@ def _verify_law_candidates(
             )
         )
 
-    # Backfill with verified substantive statutes if model produced fewer than 4 valid laws
-    if len(verified_laws) < 4 and fallback_statutes:
-        for record in fallback_statutes:
-            key = (record.code, record.section)
-            if key in seen_keys or key in preliminary_sections:
-                continue
-            seen_keys.add(key)
-            flaw = ApplicableLaw(
-                act=record.act,
-                code=record.code,
-                section=record.section,
-                subsection=record.subsection,
-                exact_text=record.exact_text,
-                quote=record.exact_text,
-                explanation=record.heading or getattr(record, "canonical_title", "") or f"Statutory provision under {record.code} Section {record.section}.",
-                source_url=record.source_url,
-                source_version=record.source_version,
-                source_hash=record.source_hash,
-                quote_status="backend_verified",
-                verified=True,
-            )
-            verified_laws.append(flaw)
-            source_chunks.append(
-                SourceChunk(
-                    content=record.exact_text,
-                    document_name=record.act,
-                    act=record.act,
-                    code=record.code,
-                    section=record.section,
-                    subsection=record.subsection,
-                    exact_text=record.exact_text,
-                    quote=record.exact_text,
-                    verified=True,
-                    relevance_score=1.0,
-                    source_url=record.source_url,
-                    source_version=record.source_version,
-                    source_hash=record.source_hash,
-                    quote_status="backend_verified",
-                )
-            )
-            if len(verified_laws) >= 4:
-                break
+    analysis.applicable_laws = verified_laws
+    return source_chunks
 
-    # Retain up to 4 applicable laws and source chunks
-    analysis.applicable_laws = verified_laws[:4]
-    return source_chunks[:4]
+
+def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) -> SourceChunk | None:
+    """Apply the reviewed BNSS First Schedule classification for BNS 303(2)."""
+    alleges_theft = any(
+        (law.code or law.act).upper() == "BNS"
+        and re.match(r"^303(?:\(2\))?$", str(law.section).strip())
+        for law in analysis.applicable_laws
+    )
+    if not alleges_theft:
+        return None
+
+    schedule_text = (
+        "BNSS First Schedule, Part I, entry BNS 303(2): Theft — Cognizable; Non-bailable; "
+        "triable by Any Magistrate. Separate low-value entry: where the stolen property's value is "
+        "less than ₹5,000 and its value is returned or the property restored, the entry is "
+        "Non-cognizable and Bailable. BNS Section 303(2)'s community-service punishment also "
+        "requires a first conviction."
+    )
+    context = (context_text or "").lower()
+    same_property_exception = bool(re.search(
+        r"(?:stolen\s+(?:property|item)|property\s+stolen|item\s+stolen)"
+        r"[^.!?;]{0,100}(?:less\s+than|below|under|worth|valued\s+at)"
+        r"[^.!?;]{0,35}(?:₹\s*|rs\.?\s*|rupees?\s*)?[0-4],?\d{0,3}\b"
+        r"[^.!?;]{0,100}(?:returned|restored)",
+        context,
+    ))
+    if same_property_exception:
+        analysis.bail_status = (
+            "Bailable under the BNSS First Schedule's separate entry for theft valued below ₹5,000 "
+            "when the value is returned or the property is restored. The community-service punishment "
+            "under BNS 303(2) additionally requires a first conviction. Confirm the value and return/restoration facts."
+        )
+    else:
+        analysis.bail_status = (
+            "Ordinary theft under BNS 303(2) is non-bailable under the BNSS First Schedule, but bail "
+            "is still possible: the Magistrate may consider release under BNSS 480. The Schedule has "
+            "a separate bailable entry if the stolen property's value is below ₹5,000 and its value is "
+            "returned or the property restored; the community-service punishment also requires a first conviction. "
+            "The value, prior-conviction and return/restoration facts were not established here."
+        )
+    return SourceChunk(
+        content=schedule_text,
+        document_name="BNSS First Schedule",
+        act="Bharatiya Nagarik Suraksha Sanhita, 2023",
+        code="BNSS",
+        section="First Schedule, Part I — BNS 303(2)",
+        quote="",
+        verified=False,
+        source_url="https://www.ncrb.mha.gov.in/uploads/SankalanPortal/ScheduleBNSS.html",
+        source_version="NCRB BNSS First Schedule, reviewed 2026-11-14",
+        quote_status="unverified",
+    )
+
+
+def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -> SourceChunk | None:
+    """Fill essential custody rights and immediate steps when custody is stated."""
+    text = (context_text or "").lower()
+    affirmative_custody = bool(re.search(
+        r"\b(?:arrested|in custody|police custody|detained|taken into custody)\b", text
+    ))
+    if not affirmative_custody:
+        return None
+    if (
+        re.search(r"\b(?:hypothetically|if someone is arrested|if a person is arrested)\b", text)
+        and not re.search(r"\b(?:my|our|his|her|their|brother|sister|son|daughter|husband|wife|father|mother)\b", text)
+    ):
+        return None
+    if re.search(r"\b(?:not arrested|wasn't arrested|not in custody)\b", text) and not re.search(
+        r"\b(?:was|has been|got|had been) arrested\b", text
+    ):
+        return None
+
+    required_rights = [
+        "For an offence punishable up to seven years, BNSS Section 35 requires police to assess whether arrest is necessary; if it is not, they should issue an appearance notice. Ask for the full grounds of arrest under Section 47. Cognizability alone does not make arrest automatic.",
+        "The arrested person may meet an advocate of their choice during interrogation under BNSS Section 38.",
+        "Police must inform a nominated relative or friend of the arrest and place of detention under BNSS Section 48.",
+        "They must be taken before a Magistrate without unnecessary delay and not detained beyond 24 hours, excluding necessary travel time, under BNSS Sections 57–58 and Article 22(2) of the Constitution.",
+        "A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987; ask the Magistrate or jail legal aid clinic for a DLSA lawyer, or call NALSA 15100.",
+    ]
+    analysis.rights = required_rights
+
+    required_steps = [
+        "Call the police station; confirm the FIR number, arrest time, officer in charge, and where the person is being held.",
+        "Ask when and where the person will be produced before the Magistrate; record the time and court details.",
+        "Request a DLSA lawyer through the police station or Magistrate now; call NALSA 15100 if needed.",
+        "Ask the legal aid lawyer to review the FIR and seek bail before the competent court. Non-bailable means bail is discretionary, not barred.",
+    ]
+    analysis.next_24_hours = required_steps
+    aid_text = (
+        "NALSA states that persons in custody are eligible for free legal services under Section 12(g) "
+        "of the Legal Services Authorities Act, 1987. NALSA legal-aid helpline: 15100."
+    )
+    return SourceChunk(
+        content=aid_text,
+        document_name="National Legal Services Authority — Legal Aid",
+        act="Legal Services Authorities Act, 1987",
+        code="LSA",
+        section="Section 12(g)",
+        quote="",
+        verified=False,
+        source_url="https://nalsa.gov.in/legal-aid/",
+        source_version="NALSA Legal Aid page, reviewed 2026-11-14",
+        quote_status="unverified",
+    )
 
 
 async def run_analysis_pipeline(
@@ -1025,9 +1002,14 @@ async def run_analysis_pipeline(
 
     start_time = time.time()
     registry = source_registry if source_registry is not None else get_registry()
-    scan_text = f"{query or ''}\n{ephemeral_context or ''}".strip()
+    recent_user_context = "\n".join(
+        str(item.get("content") or "").strip()[:1200]
+        for item in (conversation_history or [])[-4:]
+        if item.get("role") == "user" and str(item.get("content") or "").strip()
+    )
+    scan_text = f"{recent_user_context}\n{query or ''}\n{ephemeral_context or ''}".strip()
     requested_law = _requested_law_record(query, registry)
-    relevant_statutes = registry.find_relevant_statutes(scan_text, top_k=6)
+    relevant_statutes = _select_relevant_statutes(query or "", scan_text, registry)
     fallback_records = [rec for rec, _, _ in relevant_statutes]
     has_media = bool(media_attachments)
     if has_media and not any(
@@ -1057,10 +1039,18 @@ async def run_analysis_pipeline(
             messages,
             time.monotonic() + min(settings.analysis_deadline_seconds, 20.0),
         )
+        if not has_media:
+            _ensure_requested_law_candidate(structured_analysis, requested_law)
         if requested_law is not None and _DIRECT_SECTION_INTENT.search(query or "") and not has_media:
             _enforce_direct_section_match(structured_analysis, requested_law, registry)
         source_chunks = _verify_law_candidates(structured_analysis, registry, fallback_statutes=fallback_records)
         structured_analysis = _enforce_bail_and_statutory_remedies(structured_analysis, scan_text)
+        schedule_source = _apply_bns_303_bail_rule(structured_analysis, scan_text)
+        aid_source = _ensure_custody_first_aid(structured_analysis, scan_text)
+        if schedule_source:
+            source_chunks.append(schedule_source)
+        if aid_source:
+            source_chunks.append(aid_source)
         elapsed = round(time.time() - start_time, 2)
         return AnalysisResponse(
             query=query,
@@ -1147,10 +1137,28 @@ async def run_analysis_pipeline(
             logger.error("LLM generation failed: %s", exc)
             raise RuntimeError(f"LLM generation failed: {exc}") from exc
 
-    if requested_law is not None and _DIRECT_SECTION_INTENT.search(query or "") and not media_attachments:
+    if not media_attachments:
+        _ensure_requested_law_candidate(structured_analysis, requested_law)
+    custody_intent = bool(re.search(
+        r"\b(?:arrested|arrest|detained|in custody|police custody|remand|bail|24\s*hours)\b",
+        f"{query or ''} {ephemeral_context or ''}",
+        re.I,
+    ))
+    if (
+        requested_law is not None
+        and _DIRECT_SECTION_INTENT.search(query or "")
+        and not custody_intent
+        and not media_attachments
+    ):
         _enforce_direct_section_match(structured_analysis, requested_law, registry)
     source_chunks = _verify_law_candidates(structured_analysis, registry, fallback_statutes=fallback_records)
     structured_analysis = _enforce_bail_and_statutory_remedies(structured_analysis, scan_text)
+    schedule_source = _apply_bns_303_bail_rule(structured_analysis, scan_text)
+    aid_source = _ensure_custody_first_aid(structured_analysis, scan_text)
+    if schedule_source:
+        source_chunks.append(schedule_source)
+    if aid_source:
+        source_chunks.append(aid_source)
     elapsed = round(time.time() - start_time, 2)
     logger.info(
         "Direct analysis complete — %d verified sources, %.2fs elapsed.",
@@ -1226,9 +1234,15 @@ def _build_prompt_messages(
             ephemeral_context=ephemeral_context or "(No uploaded document was provided.)",
         )
     else:
-        prompt = DIRECT_ANALYSIS_PROMPT.format(
-            question=query,
-            ephemeral_context=ephemeral_context or "(No uploaded document was provided.)",
+        prompt = (
+            "Answer the Indian-law question directly and concisely. Apply relevant rules to stated facts; treat allegations as allegations, "
+            "identify missing facts, answer every question, and give practical steps when requested. Use supplied source text for legal claims, "
+            "cite Act and section, and state when support is missing. Do not introduce an alternative offence unless facts support it and label it conditional. "
+            "For custody, prioritize free legal aid: request a DLSA lawyer through the Magistrate/police station and give NALSA 15100. "
+            "Explain arrest grounds, family notice, and production within 24 hours excluding travel; do not imply automatic release. "
+            "Non-bailable does not mean bail impossible. Distinguish alleged offence from procedure and never invent sections. "
+            "Return the required JSON schema.\n\n"
+            f"QUESTION:\n{query}\n\nFACTS / CONTEXT:\n{ephemeral_context or '(none)'}"
         )
     if media_attachments:
         prompt += (
@@ -1256,12 +1270,22 @@ def _build_prompt_messages(
             f"Section: {requested_law.section}\n"
             f"Official Reference: {ref_line}\n"
             f"Text: {requested_law.exact_text}\n"
-            "Explain only this provision. Do not describe another Act's "
-            "section with the same number. Cite this exact Act and section."
+            "Use this as the alleged/provision reference when relevant. Other procedural provisions may also apply; distinguish them from charged offences."
         )
-    elif relevant_statutes:
+    if re.search(r"\bBNS\s*(?:section\s*)?303(?:\(\d+\))?\b", f"{query or ''} {ephemeral_context or ''}", re.I):
+        prompt += (
+            "\n\nReviewed BNSS First Schedule, Part I, BNS 303(2) classification: ordinary theft is "
+            "cognizable and non-bailable. A separate entry is non-cognizable and bailable where value "
+            "is below ₹5,000 and the value is returned or the stolen property restored. BNS 303(2) "
+            "community-service punishment additionally requires a first conviction. Cite the Schedule, "
+            "explain that non-bailable does not mean bail impossible, and do not assume the exception facts. "
+            "Source: https://www.ncrb.mha.gov.in/uploads/SankalanPortal/ScheduleBNSS.html"
+        )
+    if relevant_statutes:
         statute_blocks = []
         for rec, former, title in relevant_statutes:
+            if requested_law is not None and (rec.code, rec.section) == (requested_law.code, requested_law.section):
+                continue
             ref_str = (
                 f"[Ref: {rec.act}, Section {rec.section} — {former}]"
                 if former
@@ -1281,16 +1305,17 @@ def _build_prompt_messages(
                 + "\n\n---\n\n".join(statute_blocks)
             )
 
-    active_system_prompt = COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT if is_complaint_fir else SYSTEM_PROMPT
+    active_system_prompt = COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT if is_complaint_fir else (
+        "You are TRANA, an Indian legal information assistant. Apply supplied legal sources to facts, explain uncertainty, "
+        "avoid inventing law or guaranteeing outcomes, and return valid JSON matching the analysis schema."
+    )
     messages = [SystemMessage(content=active_system_prompt)]
-    for item in conversation_history or []:
+    for item in (conversation_history or [])[-4:]:
         role = item.get("role")
-        content = str(item.get("content") or "").strip()
+        content = str(item.get("content") or "").strip()[:1200]
         if not content:
             continue
-        if role == "assistant":
-            messages.append(AIMessage(content=content))
-        elif role == "user":
+        if role == "user":
             messages.append(HumanMessage(content=content))
     content = prompt
     if media_attachments:
@@ -1322,6 +1347,60 @@ def _requested_law_record(query: str, registry: LawSourceRegistry):
     else:
         section, code = match.group(3), match.group(4)
     return registry.resolve_concordance(code=code, section=section)
+
+
+def _ensure_requested_law_candidate(analysis: StructuredAnalysis, record) -> None:
+    """Keep a user-named provision in the evidence set even if generation omits it."""
+    if record is None:
+        return
+    if any(
+        (law.code or law.act).upper() == record.code and str(law.section).strip() in {
+            record.section,
+            f"{record.section}({record.subsection})" if record.subsection else record.section,
+        }
+        for law in analysis.applicable_laws
+    ):
+        return
+    from models.schemas import ApplicableLaw
+
+    analysis.applicable_laws.insert(0, ApplicableLaw(
+        act=record.act,
+        code=record.code,
+        section=record.section,
+        subsection=record.subsection,
+        explanation="Provision expressly named by the user; allegation only, not a finding that it applies.",
+    ))
+
+
+def _select_relevant_statutes(query: str, scan_text: str, registry: LawSourceRegistry) -> list:
+    """Retrieve a compact evidence set without inferring BNS 305 from theft alone."""
+    statutes = registry.find_relevant_statutes(scan_text, top_k=3)
+    custody_query = bool(re.search(
+        r"\b(?:arrested|arrest|detained|in custody|police custody|remand|bail|24\s*hours)\b",
+        scan_text,
+        re.I,
+    ))
+    if custody_query:
+        present = {(record.code, record.section) for record, _, _ in statutes}
+        for section in ("35", "38", "47", "48", "57", "58", "480"):
+            record = registry.lookup(code="BNSS", section=section)
+            if record and (record.code, record.section) not in present:
+                statutes.append((record, None, record.heading or ""))
+                present.add((record.code, record.section))
+    if _EXPLICIT_LAW_SECTION.search(query or "") and re.search(
+        r"\bBNS\s*(?:section\s*)?303(?:\(\d+\))?\b", query or "", re.I
+    ):
+        aggravated_context = re.search(
+            r"\b(?:dwelling house|means of transport|place of worship|vehicle used for transport|cargo|warehouse)\b",
+            scan_text,
+            re.I,
+        )
+        if not aggravated_context:
+            statutes = [
+                item for item in statutes
+                if not (item[0].code == "BNS" and item[0].section == "305")
+            ]
+    return statutes
 
 
 def _enforce_direct_section_match(

@@ -1,6 +1,6 @@
 # TRANA legal-answer reliability implementation plan
 
-Status: proposed implementation; no runtime code changed. Prepared 2026-11-14.
+Status: implementation in progress. Core scoped chat fixes landed 2026-11-14; staged rollout and full evaluation remain.
 
 ## Objective and constraints
 
