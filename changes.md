@@ -486,3 +486,25 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
     `TRANA is a criminal intelligence platform designed to make legal information, procedural guidance and legal research more accessible through AI powered technology.`
 - **Considerations**:
   - Fulfills the user's explicit preference that this specific description belongs strictly inside the statutory, privacy, and company background contexts, and nowhere else across the platform.
+
+
+---
+
+## [2026-11-13] - Trana Master Criminal Law Prompt Integration
+
+### 1. Master Expert Legal Prompt Suite (`llm/prompts.py`)
+- **Integrated Templates**:
+  - `SYSTEM_PROMPT`: Integrated the comprehensive Trana expert persona specializing in BNS 2023, BNSS 2023, and BSA 2023, with former IPC/CrPC/IEA equivalents.
+  - `DIRECT_ANALYSIS_PROMPT`: Updated user analysis template with strict adherence to:
+    - `"In short: ..."` lead-in format.
+    - Selective answering (bail strictly on arrest; 24-hour playbooks only on active crisis; skip emergency fields for informational queries).
+    - Playbooks A (Arrest), B (House Search), and C (Police Notice/Summons).
+    - Source citation format: `(BNS, Section <X>; earlier IPC Section <Y>)`.
+    - Mandatory closing: `"Sources: <provisions>\nCheck the official text on indiacode.nic.in.\n\nThis is general information, not legal advice."`
+    - Reaching a lawyer protocol: Single offer followed by NALSA (15100), DLSA, Tele-Law (14454), Bar Council advice, and redirection to the Find a Professional section of TRANA.
+    - Out-of-scope non-criminal queries: Exact prompt response `"I'm only trained to help with criminal law situations under BNS, BNSS, BSA and related criminal laws. For anything else, please consult the right professional."`
+  - `CONVERSATIONAL_PROMPT`: Aligned conversational and short-prompt handler with the same warm midnight friend tone, lawyer reach flow, and scope guardrails.
+- **Complaint Analyser Isolated**:
+  - Kept `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` and `COMPLAINT_FIR_ANALYSIS_PROMPT` completely untouched per user directive ("keep the complaint analyser part out of this, ill give a seprate prompt fot that").
+- **Zero Website UI Changes**:
+  - Preserved all website routes, layout, styling, and text exactly as authored.
