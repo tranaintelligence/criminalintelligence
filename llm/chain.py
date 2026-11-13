@@ -152,10 +152,8 @@ def _quick_routes():
             continue
         for record in records:
             family = _model_family(model)
-            if family == "gpt-oss":
+            if family in ("llama", "gpt-oss"):
                 route_priority = 0
-            elif family == "llama":
-                route_priority = 1
             else:
                 route_priority = 2
             routes.append((
@@ -357,8 +355,11 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
     base_url = _provider_url(record)
     if not base_url:
         raise RuntimeError(f"No compatible base URL configured for provider {record.provider}.")
+    model_name = record.model
+    if record.provider == "groq" and model_name == "openai/gpt-oss-120b":
+        model_name = "llama-3.3-70b-versatile"
     payload = {
-        "model": record.model,
+        "model": model_name,
         "messages": [
             {
                 "role": (
@@ -376,12 +377,9 @@ async def _invoke_openai_compatible(record, messages, timeout: float | None) -> 
         "max_tokens": 4096,
     }
     if record.provider == "groq":
-        # GPT-OSS exposes reasoning separately. JSON Object Mode keeps the
-        # assistant content parseable across Groq responses, while disabling
-        # the reasoning field prevents it from being mixed into the answer.
         payload["response_format"] = {"type": "json_object"}
-        payload["include_reasoning"] = False
-        if _model_family(record.model) == "gpt-oss":
+        if _model_family(model_name) == "gpt-oss":
+            payload["include_reasoning"] = False
             payload["reasoning_effort"] = "low"
     headers = {"Authorization": f"Bearer {record.secret}", "Content-Type": "application/json"}
     request_timeout = timeout or 20.0

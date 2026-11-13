@@ -4,6 +4,19 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
 
 ---
 
+## [2026-11-14] - Switch Groq Execution & Auto-Migrate to `llama-3.3-70b-versatile`
+
+### 1. Transparent Fallback & Auto-Migration from `openai/gpt-oss-120b` to `llama-3.3-70b-versatile`
+- **Context**: While `openai/gpt-oss-120b` is hosted on Groq, Groq's developer tier enforces an 8,000 Tokens-Per-Minute (TPM) limit on it. Because TRANA's system prompt and statutory context reserve ~7,900 tokens per request, single calls trip the 100% quota cap immediately.
+- **Fixes Applied**:
+  - `llm/chain.py`:
+    - Updated `_invoke_openai_compatible` to automatically alias any configured Groq key with `openai/gpt-oss-120b` to `llama-3.3-70b-versatile` (which enjoys 100,000 TPM on Groq).
+    - Updated `_quick_routes` to promote `llama` model family to priority 0 alongside `gpt-oss`, prioritizing fast Llama 3.3 70B inference.
+  - `main.py`:
+    - Added an automatic DB migration query inside `_migrate_db_schema()`: `UPDATE provider_api_keys SET model = 'llama-3.3-70b-versatile' WHERE provider = 'groq' AND model = 'openai/gpt-oss-120b';` so existing database keys automatically update to `llama-3.3-70b-versatile` on startup.
+
+---
+
 ## [2026-11-14] - Fix Groq Model Defaults & Clear Sticky Rate Limit UI State
 
 ### 1. Elimination of False Rate-Limit / Quota Lockout Caused by Invalid Groq Model ID

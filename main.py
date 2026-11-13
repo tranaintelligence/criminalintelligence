@@ -382,6 +382,12 @@ def _migrate_db_schema():
                 except Exception as rls_err:
                     logger.debug("Table %s RLS notice: %s", tbl, rls_err)
 
+            # Migrate any legacy Groq keys using gpt-oss-120b to high-quota llama-3.3-70b-versatile
+            try:
+                conn.execute(text("UPDATE provider_api_keys SET model = 'llama-3.3-70b-versatile' WHERE provider = 'groq' AND model = 'openai/gpt-oss-120b';"))
+            except Exception as migrate_groq_err:
+                logger.debug("Groq model migration notice: %s", migrate_groq_err)
+
             conn.commit()
 
         # Seed initial founder ckhraiushh1@gmail.com if not already present
