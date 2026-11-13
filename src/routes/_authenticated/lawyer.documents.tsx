@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   FolderOpen, FileText, Download, Copy, Trash2, 
   Sparkles, Check, Lock, Shield, Plus, Upload, 
-  Search, Eye, ShieldAlert, File, ArrowRight, X, Clock, Tag
+  Search, Eye, ShieldAlert, File, ArrowRight, X, Clock, Tag, ShieldCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLawyerAuth } from "./lawyer";

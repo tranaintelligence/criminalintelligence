@@ -445,7 +445,9 @@ function DashboardLayout() {
         onClickCapture={(e) => {
           const target = (e.target as HTMLElement).closest('a[href="/dashboard/lawyers"]');
           if (target) {
-            const isCached = user?.id && typeof window !== "undefined" && localStorage.getItem(`trana_disclaimer_accepted_${user.id}`) === "true";
+            const isCached =
+              (user?.id && typeof window !== "undefined" && localStorage.getItem(`trana_disclaimer_accepted_${user.id}`) === "true") ||
+              (typeof window !== "undefined" && localStorage.getItem("trana_statutory_disclaimer_accepted") === "true");
             if (!hasAcknowledged && !isCached) {
               e.preventDefault();
               setDisclaimerChecked(false);
@@ -553,6 +555,9 @@ function DashboardLayout() {
                   }
                   if (user?.id && typeof window !== "undefined") {
                     localStorage.setItem(`trana_disclaimer_accepted_${user.id}`, "true");
+                  }
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("trana_statutory_disclaimer_accepted", "true");
                   }
                   qc.setQueryData(["advocate-disclaimer-acknowledged", user?.id], true);
                   setShowLawyerModal(false);

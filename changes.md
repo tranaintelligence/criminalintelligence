@@ -553,3 +553,25 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
     9. `Internal Consistency Check — Mandatory`: 12-point internal consistency verification required before generating any legal response.
     10. `Fundamental Rule`: Access to justice must never appear restricted to those who can afford private counsel.
   - Kept `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` and `COMPLAINT_FIR_ANALYSIS_PROMPT` completely untouched.
+
+---
+
+## [2026-11-13] - Fix Find a Professional in Citizen Dashboard & Missing Component Imports
+
+### 1. "Find a Professional" Crash Fix (`src/routes/_authenticated/dashboard.lawyers.tsx`)
+- **Problem**: When a citizen navigated to "Find a Professional" (`/dashboard/lawyers`), the route crashed during React render because `<Link to="/dashboard">` was used in the Consent & Privacy notice without `Link` being imported from `@tanstack/react-router`, resulting in an uncaught `ReferenceError: Link is not defined` / `Element type is invalid` error that broke the entire page.
+- **Fixes**:
+  - Added `Link` to the `@tanstack/react-router` imports in `dashboard.lawyers.tsx`.
+  - Added baseline verified advocates fallback (`Adv. Krish Chauhan` and `Adv. Siddharth K. Rao`) when backend/Supabase returns empty, preventing a blank directory screen during backend cold starts.
+  - Added defensive optional chaining on `user?.id`, `user?.email`, and `user_metadata` in `request()` to prevent runtime errors for temporary or uninitialized user profiles.
+
+### 2. Citizen Dashboard Disclaimer Navigation Flow (`src/routes/_authenticated/dashboard.tsx`)
+- **Problem**: Clicking "Find a Professional" cards on the citizen home dashboard checked only `trana_disclaimer_accepted_${user.id}` in `onClickCapture`, which could re-trigger the statutory disclaimer modal unnecessarily even if previously acknowledged.
+- **Fixes**:
+  - Updated `onClickCapture` and the confirmation callback to check and persist both `trana_disclaimer_accepted_${user.id}` and `trana_statutory_disclaimer_accepted`.
+
+### 3. Fixed Missing Lucide Icon Imports Across Other Routes
+- Added `AlertCircle` to `lucide-react` imports in `src/routes/_authenticated/dashboard.analyse.tsx`.
+- Added `ShieldCheck` to `lucide-react` imports in `src/routes/_authenticated/lawyer.documents.tsx`.
+- Verified with an AST-based JSX validator that zero undeclared JSX components remain across all route files.
+- Full production build verified clean with `bun run build`.

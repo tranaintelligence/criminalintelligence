@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { 
   Upload, X, FileText, Scale, ShieldCheck, CheckCircle2, 
-  AlertTriangle, ArrowRight, ExternalLink, Copy, Check, Sparkles, 
+  AlertTriangle, AlertCircle, ArrowRight, ExternalLink, Copy, Check, Sparkles, 
   MessageSquare, Loader2, RotateCcw, Clock, Trash2, History, HeartHandshake,
   Users, CreditCard, QrCode, Shield, FileSearch, Gavel, Info, Layers, CheckSquare, Square, SlidersHorizontal
 } from "lucide-react";
