@@ -540,3 +540,16 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Ensured that new sessions, guest temporary chats, and historical loaded sessions begin with this introduction.
 - **Zero Website UI Changes**:
   - Preserved all website routes, layout, styling, and text exactly as authored.
+- **Priority Extension — Mandatory Module: Legal Accuracy, Bail Verification & Free Legal Aid (`llm/prompts.py`)**:
+  - Integrated the full 10-section Priority Extension module into TRANA's Master System Prompt V2.1 (`SYSTEM_PROMPT` and `DIRECT_ANALYSIS_PROMPT`):
+    1. `Core Rule: Legal Accuracy First`: Strict statutory grounding against official Acts and BNSS First Schedule; never invent sections, punishments, or citations; explicitly disclose if a provision cannot be verified.
+    2. `Strict Offence Identification — No Invented Sections`: Analyse only alleged offences from facts; do not automatically tack on aggravated sections (e.g., stealing laptop from shop under BNS 303(2) must not automatically include BNS 305). Clearly distinguish FIR sections, potential sections, and unsupported sections.
+    3. `Mandatory Bail Classification Verification`: Check BNSS First Schedule; separate classifications for multiple offences; cognizable does not mean arrest is mandatory, and non-bailable does not mean bail is impossible.
+    4. `BNSS Section Verification — Procedural Accuracy`: Accurate grounding of BNSS 35, 36, 38, 47, 48, 57, 58, 480, 483. Explicit rule to never interchange BNSS 47 (grounds of arrest & bail right notice) with BNSS 48 (informing relative/friend); explain timely production before Magistrate within 24 hours under BNSS 57/58 rather than misrepresenting automatic release.
+    5. `Free Legal Aid — Mandatory Priority`: CRITICAL requirement: When a user cannot afford counsel, belongs to a financially weak family, or is in custody, prioritize free legal aid (Constitution Article 39A & Article 21, Legal Services Authorities Act 1987 Section 12). Persons in custody qualify independently regardless of general income criteria. Provide step-by-step Magistrate requests, DLSA/DSLSA contacts, and national helpline `15100` before suggesting any private representation.
+    6. `Response Priority for Financially Weak Users`: Enforces structured 7-step sequence: 1. Immediate situation, 2. Free legal aid, 3. Arrest and detention rights, 4. Bail position, 5. Next 24 hours, 6. Documents required, 7. Professional assistance. Free legal aid is never buried at the bottom.
+    7. `Immediate Action Plan — Criminal Legal Aid`: Concrete guidance for custody situations (police station, FIR copy, Magistrate production, preserving evidence/CCTV, bail advice).
+    8. `Sources and Legal Verification`: Hierarchy prioritizing India Code, Official Gazette, Supreme Court/High Court judgments, and NALSA/SLSA portals.
+    9. `Internal Consistency Check — Mandatory`: 12-point internal consistency verification required before generating any legal response.
+    10. `Fundamental Rule`: Access to justice must never appear restricted to those who can afford private counsel.
+  - Kept `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` and `COMPLAINT_FIR_ANALYSIS_PROMPT` completely untouched.
