@@ -527,5 +527,8 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
     8. `Reaching a lawyer`: Single offer when relevant, providing NALSA 15100, DLSA, Tele-Law 14454, Bar Council guidance, and TRANA Find a Professional.
   - For normal/general informational questions, explicitly instructed to skip the crisis sequence and provide simple, direct answers without unnecessary playbooks or bail sections.
   - Added `legal_reasoning` field to `StructuredAnalysis` schemas across Python backend and TypeScript frontend.
+- **Reset Legal First Aid Prompt to Clean Placeholder (`llm/prompts.py`)**:
+  - Cleared `SYSTEM_PROMPT`, `DIRECT_ANALYSIS_PROMPT`, and `CONVERSATIONAL_PROMPT` to a minimal schema-compatible placeholder per user request, ready for the user to provide a brand new prompt.
+  - Kept `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` and `COMPLAINT_FIR_ANALYSIS_PROMPT` (the separate Complaint Analyser tool) completely untouched.
 - **Zero Website UI Changes**:
   - Preserved all website routes, layout, styling, and text exactly as authored.
