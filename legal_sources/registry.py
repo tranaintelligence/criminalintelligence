@@ -227,11 +227,15 @@ _IPC_TO_BNS = (
     ("336", "125", "Act endangering life or personal safety"),
     ("341", "126", "Wrongful restraint"),
     ("342", "127", "Wrongful confinement"),
+    ("351", "130", "Assault"),
+    ("352", "131", "Punishment for assault or criminal force"),
+    ("353", "132", "Assault or criminal force to deter public servant"),
     ("354", "74", "Assault or criminal force to woman with intent to outrage modesty"),
     ("354A", "75", "Sexual harassment"),
     ("354B", "76", "Assault with intent to disrobe"),
     ("354C", "77", "Voyeurism"),
     ("354D", "78", "Stalking"),
+    ("357", "135", "Assault in attempting wrongfully to confine a person"),
     ("363", "137", "Kidnapping"),
     ("365", "140", "Kidnapping or abducting with intent to secretly confine"),
     ("375", "63", "Rape"),
@@ -456,10 +460,11 @@ CONCEPT_RULES: list[dict[str, Any]] = [
     },
     {
         "keywords": [
-            "assault", "slap", "slapped", "slapping", "thappad", "beating", "beaten", "hit", "punched",
-            "marpeet", "fight", "hurt", "grievous hurt", "fracture", "chot", "injury", "physical violence",
+            "assault", "assaulted", "criminal force", "slap", "slapped", "slapping", "thappad",
+            "beating", "beaten", "hit", "punched", "marpeet", "fight", "hurt", "grievous hurt",
+            "fracture", "chot", "injury", "physical violence",
         ],
-        "targets": [("BNS", "115"), ("BNS", "117"), ("BNS", "118")],
+        "targets": [("BNS", "115"), ("BNS", "131"), ("BNS", "117"), ("BNS", "135"), ("BNS", "118")],
     },
     {
         "keywords": ["rape", "balatkar", "sexual assault", "molestation", "chedchad", "outrage modesty", "stalking", "बलात्कार"],
@@ -563,7 +568,7 @@ _PRELIMINARY_SECTIONS = frozenset(
 _WELL_KNOWN_STANDALONE = frozenset({
     "420", "302", "307", "376", "498A", "379", "384", "390", "392", "323", "504", "506",
     "438", "437", "436", "41A", "144", "161", "164", "138", "65B", "154", "318", "103",
-    "106", "85", "64", "303", "304", "308", "309", "115", "351", "352", "482", "480",
+    "106", "85", "64", "303", "304", "308", "309", "115", "130", "131", "135", "351", "352", "482", "480",
     "478", "173", "175", "185",
 })
 
@@ -840,16 +845,31 @@ class LawSourceRegistry:
             results.append((enriched, enriched.former_citation or "", enriched.canonical_title or enriched.heading or ""))
             return len(results) >= top_k
 
+        # Determine if any 2023 code is explicitly mentioned in the query
+        explicit_matches = list(_CODE_THEN_SECTION_RE.finditer(q_clean)) + list(_SECTION_THEN_CODE_RE.finditer(q_clean))
+        explicit_spans = [(m.start(), m.end()) for m in explicit_matches]
+        query_codes = [_normalize_code(m["code"]) for m in explicit_matches]
+        preferred_code = query_codes[0] if query_codes else None
+
         def by_number(num: str) -> Iterator[LawRecord]:
+            if preferred_code:
+                rec = self.lookup(code=preferred_code, section=num)
+                if rec is not None:
+                    yield rec
+                    return
+
             for old_code in _OLD_CODES:
                 if (old_code, num) in CONCORDANCE_MAP:
                     rec = self.resolve_concordance(old_code, num)
                     if rec is not None:
                         yield rec
+                        return
+
             for new_code in _NEW_CODES:
                 rec = self.lookup(code=new_code, section=num)
                 if rec is not None:
                     yield rec
+                    return
 
         # Step 1: explicit "<Act> <section>" / "<section> of <Act>" citations, in order of appearance.
         citations: list[tuple[int, str, str]] = []
@@ -866,6 +886,8 @@ class LawSourceRegistry:
 
         # Step 2: "section 308" / "dhara 351" with no Act named.
         for match in _SECTION_ONLY_RE.finditer(q_clean):
+            if any(s <= match.start() and match.end() <= e for s, e in explicit_spans):
+                continue
             for rec in by_number(match["sec"].upper()):
                 if add(rec):
                     return results

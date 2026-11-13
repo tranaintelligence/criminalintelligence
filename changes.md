@@ -600,3 +600,17 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Removed the corrupted duplicate JSX block inside the action button render function.
   - Confirmed `handlePassOn` safely updates the local pool and React Query cache, and only executes background Supabase updates for valid UUIDs with isolated error handling.
 
+### 4. Legal Source Registry Concordance & Statute Retrieval Deduplication (`legal_sources/registry.py`)
+- **Problem**:
+  1. In `legal_sources/registry.py` line 462, the concept rule for "assault", "slap", "physical violence" mapped strictly to `[("BNS", "115"), ("BNS", "117"), ("BNS", "118")]` (which are hurt/grievous hurt sections), completely omitting actual BNS Assault provisions (BNS 130, 131, 135).
+  2. The concordance table `_IPC_TO_BNS` lacked mappings for IPC 351 (BNS 130), IPC 352 (BNS 131), IPC 353 (BNS 132), and IPC 357 (BNS 135).
+  3. In `find_relevant_statutes`, `by_number()` previously yielded every single Act in `_NEW_CODES` (`BNS`, `BNSS`, `BSA`) for any section number, polluting the prompt and crowd-out results (e.g., query for "BNS Section 135 & Section 352" dumped `BNSS 135` and `BSA 135`).
+- **Fixes**:
+  - Added IPC 351 -> BNS 130, IPC 352 -> BNS 131, IPC 353 -> BNS 132, and IPC 357 -> BNS 135 to `_IPC_TO_BNS`.
+  - Added BNS 130, 131, 135 to `_WELL_KNOWN_STANDALONE`.
+  - Updated concept rule targets on line 462 to include `("BNS", "131")` and `("BNS", "135")` alongside hurt provisions.
+  - Updated `find_relevant_statutes`:
+    - Tracks explicit citation spans so that `_SECTION_ONLY_RE` and `_NUMBER_RE` do not re-process section numbers that are already part of explicit `<Act> <Section>` citations.
+    - Honors `preferred_code` from the query and short-circuits `by_number()` on the first valid match, eliminating duplicate cross-Act pollution.
+
+
