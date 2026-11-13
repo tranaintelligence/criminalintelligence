@@ -513,5 +513,7 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - In `formatAnalysis`, ensured that crisis breakdown fields (`situation_meaning`, `bail_status`, `next_24_hours`, `rights`, `handling_authority`) are displayed alongside `general_analysis` when present.
   - Added an automatic fallback check ensuring every substantive legal response concludes with the mandatory statement: `*This is general information, not legal advice.*`
   - Suppressed redundant generic lawyer notes when the model's response already includes NALSA / DLSA reach guidance.
+- **Comprehensive Relevance Directive (`llm/prompts.py`)**:
+  - Reinforced both `SYSTEM_PROMPT` and `DIRECT_ANALYSIS_PROMPT` to mandate comprehensive coverage whenever any legal aspect (meaning, penal section & punishment, bail eligibility & anticipatory bail, immediate steps / next 24 hours, statutory rights, competent court/authority) is relevant to the user's inquiry, ensuring no crucial safeguards or actionable rights are omitted.
 - **Zero Website UI Changes**:
   - Preserved all website routes, layout, styling, and text exactly as authored.
