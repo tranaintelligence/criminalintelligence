@@ -506,5 +506,12 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - `CONVERSATIONAL_PROMPT`: Aligned conversational and short-prompt handler with the same warm midnight friend tone, lawyer reach flow, and scope guardrails.
 - **Complaint Analyser Isolated**:
   - Kept `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` and `COMPLAINT_FIR_ANALYSIS_PROMPT` completely untouched per user directive ("keep the complaint analyser part out of this, ill give a seprate prompt fot that").
+- **Routing & Trigger Separation (`llm/chain.py`)**:
+  - Narrowed `_is_complaint_fir_analysis` to prevent normal chat inquiries containing common criminal law words ("police station", "fir", "robbery", "assault") from mistakenly routing to the complaint analyser prompt. Only explicit calls targeting `/dashboard/analyse` or documents uploaded specifically for dedicated complaint analysis trigger the analyser prompt.
+  - Adjusted `_normalize_analysis_payload` so that breakdown fields (`bail_status`, `next_24_hours`, `rights`) do not suppress general analysis output, ensuring complete emergency playbook responses.
+- **Frontend Crisis Breakdown & Disclaimer Assurance (`src/routes/_authenticated/dashboard.chat.tsx`)**:
+  - In `formatAnalysis`, ensured that crisis breakdown fields (`situation_meaning`, `bail_status`, `next_24_hours`, `rights`, `handling_authority`) are displayed alongside `general_analysis` when present.
+  - Added an automatic fallback check ensuring every substantive legal response concludes with the mandatory statement: `*This is general information, not legal advice.*`
+  - Suppressed redundant generic lawyer notes when the model's response already includes NALSA / DLSA reach guidance.
 - **Zero Website UI Changes**:
   - Preserved all website routes, layout, styling, and text exactly as authored.

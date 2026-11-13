@@ -228,13 +228,18 @@ def _normalize_analysis_payload(payload: object) -> dict:
             or ""
         )
     if not normalized.get("general_analysis"):
+        has_breakdown_fields = bool(
+            normalized.get("bail_status")
+            or normalized.get("next_24_hours")
+            or normalized.get("rights")
+        )
         normalized["general_analysis"] = (
             normalized.get("legal_analysis")
             or normalized.get("legal_summary")
             or normalized.get("findings")
             or normalized.get("explanation")
             or normalized.get("content")
-            or normalized.get("situation_meaning")
+            or ("" if has_breakdown_fields else normalized.get("situation_meaning", ""))
             or ""
         )
     if not normalized.get("bail_status"):
@@ -1107,26 +1112,19 @@ async def run_analysis_pipeline(
 
 
 def _is_complaint_fir_analysis(query: str, ephemeral_context: Optional[str] = None) -> bool:
-    q = f"{query or ''} {ephemeral_context or ''}".lower()
-    return any(marker in q for marker in [
-        "trana complaint and fir analyser",
-        "complaint and fir analyser",
-        "complaint / fir analysis",
-        "criminal complaint / fir analysis",
-        "complaint and fir analysis",
-        "complaint analyser",
-        "fir analyser",
-        "analyze the uploaded document",
-        "fir",
-        "complaint",
-        "police station",
-        "police complaint",
-        "snatched",
-        "extortion",
-        "robbery",
-        "slapped",
-        "assault",
-    ])
+    """Detect whether a query specifically targets the dedicated Complaint & FIR Analyser tool."""
+    q = (query or "").lower().strip()
+    ctx = (ephemeral_context or "").lower().strip()
+    
+    # Explicit tool marker sent from the dedicated Complaint Analyser tool (/dashboard/analyse)
+    if "[trana complaint and fir analyser]" in q or "trana complaint and fir analyser" in q or "complaint and fir analyser" in q:
+        return True
+        
+    # An uploaded document explicitly submitted for dedicated complaint/fir analysis
+    if ("analyze the uploaded document" in q or "complaint / fir analysis" in q) and ctx:
+        return True
+        
+    return False
 
 
 def _build_prompt_messages(

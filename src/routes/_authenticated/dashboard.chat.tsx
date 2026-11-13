@@ -159,48 +159,46 @@ const formatAnalysis = (
   const hasGeneralAnalysis = Boolean(result.general_analysis?.trim());
 
   if (hasGeneralAnalysis) {
-    // If the model produced a detailed answer to the user's specific question
     sections.push(result.general_analysis.trim());
-  } else {
-    // 3. Incident Specific Breakdown (for initial emergency reports)
-    if (hasSituationMeaning) {
-      const meaning = result.situation_meaning.trim();
-      sections.push(meaning.startsWith('#') ? meaning : `### What This Situation Means\n\n${meaning}`);
-    }
+  } else if (hasSituationMeaning) {
+    const meaning = result.situation_meaning.trim();
+    sections.push(meaning.startsWith('#') ? meaning : `### What This Situation Means\n\n${meaning}`);
+  }
 
-    // 4. Bail Status (Selective — only if an arrest or potential arrest is involved)
-    if (result.bail_status?.trim()) {
-      const bail = result.bail_status.trim();
-      const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
-      if (isApplicable) {
-        sections.push(bail.startsWith('#') ? bail : `### Bail Status & Eligibility\n\n${bail}`);
-      }
+  // 3. Bail Status (Selective — only if an arrest or potential arrest is involved)
+  if (result.bail_status?.trim()) {
+    const bail = result.bail_status.trim();
+    const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
+    if (isApplicable && (!hasGeneralAnalysis || !result.general_analysis?.includes(bail))) {
+      sections.push(bail.startsWith('#') ? bail : `### Bail Status & Eligibility\n\n${bail}`);
     }
+  }
 
-    // 5. Next 24 Hours Action Steps (Selective — only for active encounters)
-    if (result.next_24_hours?.length) {
-      const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
-      if (validSteps.length > 0) {
-        sections.push(`### What To Do Next (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
-      }
+  // 4. Next 24 Hours Action Steps (Selective — only for active encounters)
+  if (result.next_24_hours?.length) {
+    const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+    if (validSteps.length > 0 && (!hasGeneralAnalysis || !result.general_analysis?.includes(validSteps[0].trim()))) {
+      sections.push(`### What To Do Next (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
     }
+  }
 
-    // 6. Rights
-    if (result.rights?.length) {
-      const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
-      if (validRights.length > 0) {
-        sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
-      }
+  // 5. Rights
+  if (result.rights?.length) {
+    const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+    if (validRights.length > 0 && (!hasGeneralAnalysis || !result.general_analysis?.includes(validRights[0].trim()))) {
+      sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
     }
+  }
 
-    // 7. Handling Authority
-    if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
-      const auth = result.handling_authority.trim();
+  // 6. Handling Authority
+  if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
+    const auth = result.handling_authority.trim();
+    if (!hasGeneralAnalysis || !result.general_analysis?.includes(auth)) {
       sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
     }
   }
 
-  // 8. Legacy Law Summary fallback (only if no interactive sources available)
+  // 7. Legacy Law Summary fallback (only if no interactive sources available)
   if (options.includeLegacyLawSummary && !hasGeneralAnalysis && result.applicable_laws?.length) {
     const laws = result.applicable_laws.filter((l) => l.act || l.code || l.section).map(formatLegalLaw);
     if (laws.length > 0) {
@@ -208,12 +206,23 @@ const formatAnalysis = (
     }
   }
 
-  // 9. Lawyer Recommendation (Only when genuinely needed)
-  if (result.suggest_lawyer) {
+  // 8. Lawyer Recommendation (Only when genuinely needed)
+  if (result.suggest_lawyer && !result.conversational_reply?.includes('NALSA')) {
     sections.push('> ⚖️ **Legal Note**: For formal court representation or filing bail applications, please consult a qualified advocate.');
   }
 
-  return sections.join('\n\n') || 'The backend returned an analysis without readable content.';
+  let finalOutput = sections.join('\n\n').trim();
+  if (!finalOutput) return 'The backend returned an analysis without readable content.';
+
+  // Ensure mandatory legal first aid disclaimer is present on all substantive legal responses
+  const isOutOfScope = finalOutput.includes("I'm only trained to help with criminal law situations");
+  const isShortGreeting = Boolean(result.is_conversational && !hasGeneralAnalysis && !hasSituationMeaning);
+
+  if (!isOutOfScope && !isShortGreeting && !finalOutput.toLowerCase().includes('not legal advice')) {
+    finalOutput += '\n\n*This is general information, not legal advice.*';
+  }
+
+  return finalOutput;
 };
 
 const ThinkingAnimation: React.FC = () => {
