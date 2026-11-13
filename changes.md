@@ -1,5 +1,13 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-14] - Legal-answer reliability implementation plan
+
+- Added `plans/legal-answer-reliability.md`, a phased, repository-grounded plan for exact offence matching, custody urgency/coverage, reviewed bail/procedure/legal-aid evidence, fact application, claim-level checks, safe fallbacks and accurate source labels.
+- Confirmed current failure mechanisms: generic bail override inserts robbery/snatching/extortion; theft retrieval nominates 303 and 305; verification pads toward four sources; source-text integrity does not validate case reasoning.
+- Interpreted the requested AI limit as preserving provider quotas, models, current per-provider output ceilings and the 20-second deadline. Proposed one normal generation, at most two total provider attempts, bounded input and deterministic validation without an AI reviewer. Numerical product limits still need configuration inventory during implementation.
+- Considerations: ordinary theft and the qualifying low-value branch need separate reviewed conditions; cross-check official schedule summaries against Act/Gazette text. Preserve dedicated Complaint Analyser behavior, existing deployment/authentication and legacy saved-response compatibility. The plan requires offline tests, legal review, staged rollout and privacy-conscious metrics.
+- Validation: inspected current registry, chain, schemas, source UI, provider handling and repository scripts; independent read-only discovery corroborated control-flow and budget gaps. Consulted official India Code/NCRB/NALSA sources. Documentation only; runtime fixes and their tests have not been implemented.
+
 This document tracks all changes made to the TRANA codebase, the context/reasoning behind them, and technical considerations for future agents working on this project. Always read this file before starting tasks.
 
 ---
