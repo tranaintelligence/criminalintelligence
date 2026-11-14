@@ -36,6 +36,7 @@ export function ConsultationChatModal({
 }: ConsultationChatModalProps) {
   const [messages, setMessages] = useState<ConsultationChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
+  const [leavePrompt, setLeavePrompt] = useState<null | "client" | "lawyer">(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const storageKey = `trana_consult_chat_${consultationId || "default"}`;
@@ -90,7 +91,7 @@ export function ConsultationChatModal({
             id: `msg-sys-${Date.now()}`,
             sender: "system",
             senderName: "TRANA Secure Relay",
-            text: `Confidential consultation channel opened between ${clientName} and ${lawyerName} (Mode: ${normalizedType}). Contact particulars, phone numbers, and numbers are strictly masked (XXXXX) for privacy.`,
+            text: `Confidential consultation channel opened between ${clientName} and ${lawyerName} (Mode: ${normalizedType}).`,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ];
@@ -222,13 +223,12 @@ export function ConsultationChatModal({
     }
   }
 
-  // Client Action: Consult Another Lawyer if not satisfied
-  async function handleConsultAnotherLawyer() {
-    const confirmed = window.confirm(
-      `Would you like to connect with another lawyer for this matter? This will unlock the directory so you can select new counsel.`
-    );
-    if (!confirmed) return;
+  // Client Action: Consult Another Lawyer / Leave chat
+  function handleConsultAnotherLawyer() {
+    setLeavePrompt("client");
+  }
 
+  async function executeConsultAnotherLawyer() {
     const systemNotice: ConsultationChatMessage = {
       id: `msg-reassign-${Date.now()}`,
       sender: "system",
@@ -273,20 +273,19 @@ export function ConsultationChatModal({
     }
 
     window.dispatchEvent(new Event("trana_consult_chat_update"));
-    toast.info("Navigating to Lawyer Directory to select alternative counsel.");
+    toast.info("You have left the chat. Navigating to Lawyer Directory to select alternative counsel.");
     onClose();
     if (typeof window !== "undefined") {
       window.location.href = "/dashboard/lawyers";
     }
   }
 
-  // Lawyer Action: Leave Case if they can no longer represent the client
-  async function handleLeaveCase() {
-    const confirmed = window.confirm(
-      `Are you sure you want to withdraw from this case? The client will be notified and given the option to consult another lawyer.`
-    );
-    if (!confirmed) return;
+  // Lawyer Action: Leave Case / Leave chat
+  function handleLeaveCase() {
+    setLeavePrompt("lawyer");
+  }
 
+  async function executeLeaveCase() {
     const systemNotice: ConsultationChatMessage = {
       id: `msg-leave-${Date.now()}`,
       sender: "system",
@@ -330,7 +329,7 @@ export function ConsultationChatModal({
     }
 
     window.dispatchEvent(new Event("trana_consult_chat_update"));
-    toast.warning(`You have withdrawn from this matter. Case status updated to Denied/Relinquished.`);
+    toast.warning(`You have left this consultation chat session. Case status updated.`);
     onClose();
   }
 
@@ -441,7 +440,7 @@ export function ConsultationChatModal({
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>
-              Strict Privacy Protected: Only names & consultation type disclosed. Phone numbers & Morse code masked (XXXXX).
+              Privileged Legal Consultation Relay &bull; Direct Advocate Channel
             </span>
           </div>
 
@@ -453,7 +452,7 @@ export function ConsultationChatModal({
                 onClick={handleConsultAnotherLawyer}
                 className="text-[0.65rem] text-amber-300 underline"
               >
-                Consult Another Lawyer
+                Leave / Switch Lawyer
               </button>
             ) : (
               <button
@@ -466,6 +465,51 @@ export function ConsultationChatModal({
             )}
           </div>
         </div>
+
+        {/* Leave Chat Confirmation Overlay */}
+        {leavePrompt && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+            <div className="max-w-md w-full rounded-2xl border border-red-500/40 bg-[#16161a] p-6 shadow-2xl text-center space-y-4 animate-in fade-in duration-150">
+              <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+                <UserMinus className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-white">
+                  {leavePrompt === "client" ? "You are leaving this consultation chat" : "You are withdrawing and leaving this chat"}
+                </h3>
+                <p className="mt-2 text-xs text-neutral-300 leading-relaxed">
+                  {leavePrompt === "client"
+                    ? `You are leaving this consultation session with Advocate ${lawyerName}. Once you leave, this active channel is concluded and you will be able to consult another advocate.`
+                    : `You are leaving this consultation channel with client ${clientName}. The client will be informed that you have left this chat session.`}
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLeavePrompt(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-300 hover:text-white bg-white/10 hover:bg-white/15 transition-colors cursor-pointer"
+                >
+                  Cancel (Stay in Chat)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const role = leavePrompt;
+                    setLeavePrompt(null);
+                    if (role === "client") {
+                      executeConsultAnotherLawyer();
+                    } else {
+                      executeLeaveCase();
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-colors cursor-pointer shadow-lg shadow-red-900/30"
+                >
+                  Yes, Leave Chat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Chat Messages Feed */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#0F0F0F]">

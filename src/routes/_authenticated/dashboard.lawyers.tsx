@@ -385,7 +385,7 @@ function Lawyers() {
           id: `msg-sys-${Date.now()}`,
           sender: "system",
           senderName: "TRANA Secure Relay",
-          text: `Confidential consultation channel opened between ${clientName} and ${l.full_name} (Mode: ${chosenMode === "call" ? "Telephonic Relay" : "Secure In-App Chat"}). Contact particulars and phone numbers are strictly masked (XXXXX) for privacy.`,
+          text: `Confidential consultation channel opened between ${clientName} and ${l.full_name} (Mode: ${chosenMode === "call" ? "Telephonic Relay" : "Secure In-App Chat"}).`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ];
@@ -493,7 +493,7 @@ function Lawyers() {
           <div className="space-y-0.5">
             <span className="font-semibold text-white">Consent &amp; Privacy Shield Protected</span>
             <p className="text-neutral-400 text-[11px] leading-relaxed">
-              When requesting a consultation, your intake brief is shared strictly at your voluntary initiative per BCI Rule 36. Contact numbers and emails are masked (XXXXX) for confidentiality.
+              When requesting a consultation, your intake brief is shared strictly at your voluntary initiative per BCI Rule 36.
             </p>
           </div>
         </div>
@@ -582,17 +582,20 @@ function Lawyers() {
                     )}
                   </div>
 
-                  {/* Profile Photo & Name */}
-                  <div className="flex items-center gap-3.5 my-2">
-                    <div className="relative h-12 w-12 rounded-full border border-white/20 bg-neutral-900 overflow-hidden shrink-0 flex items-center justify-center shadow-md">
+                  {/* Lawyer Picture & Name Header */}
+                  <div className="flex items-start gap-4 my-2">
+                    <div className="relative h-16 w-16 rounded-2xl border-2 border-white/20 bg-[#121216] overflow-hidden shrink-0 flex items-center justify-center shadow-lg group-hover:border-emerald-500/50 transition-colors">
                       {photoUrl ? (
                         <img src={photoUrl} alt={l.full_name} className="h-full w-full object-cover" />
                       ) : (
-                        <span className="font-display text-lg font-semibold text-white">
-                          {l.full_name.charAt(0) || "A"}
-                        </span>
+                        <div className="flex flex-col items-center justify-center text-center p-1">
+                          <User className="h-7 w-7 text-neutral-400 group-hover:text-emerald-400 transition-colors" />
+                          <span className="text-[10px] font-mono text-neutral-400 font-bold uppercase mt-0.5">
+                            {l.full_name.charAt(0) || "A"}
+                          </span>
+                        </div>
                       )}
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-black shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+                      <span className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black shadow-[0_0_8px_rgba(52,211,153,0.9)]" title="Active on panel" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="font-display text-2xl font-medium text-white truncate group-hover:text-emerald-300 transition-colors">
@@ -604,10 +607,27 @@ function Lawyers() {
                           <span className="truncate">{l.state_bar_council}</span>
                         </p>
                       )}
+                      <p className="mt-1 text-xs text-emerald-400/90 font-mono flex items-center gap-1">
+                        <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                        <span>Bar Enrolled Counsel</span>
+                      </p>
                     </div>
                   </div>
 
-                  <p className="mt-3 text-sm text-neutral-200 font-medium line-clamp-2">{l.specialisation}</p>
+                  {/* Proper Practice Description */}
+                  <div className="mt-3.5 space-y-1.5 bg-[#18181c]/80 border border-white/10 rounded-xl p-3">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+                      <FileText className="h-3 w-3" /> Practice Description
+                    </span>
+                    <p className="text-xs text-neutral-300 leading-relaxed line-clamp-3">
+                      {l.bio || l.specialisation || "Advocate with verified Bar Council enrollment, handling criminal litigation, trial procedure under BNSS/BNS, bail hearings, and statutory representation."}
+                    </p>
+                  </div>
+
+                  <p className="mt-2.5 text-xs text-neutral-400 font-medium line-clamp-1">
+                    <span className="text-neutral-500 font-mono uppercase text-[10px]">Specialisation: </span>
+                    <span className="text-neutral-200">{l.specialisation}</span>
+                  </p>
                   
                   {l.courts && (
                     <p className="mt-1 text-xs text-[#888888] line-clamp-1">

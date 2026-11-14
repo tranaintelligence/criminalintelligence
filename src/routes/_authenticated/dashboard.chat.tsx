@@ -8,6 +8,8 @@ import {
   Image as ImageIcon,
   X,
   Scale,
+  ShieldAlert,
+  AlertCircle,
   AlertTriangle,
   Plus,
   Trash2,
@@ -384,6 +386,7 @@ export function ChatViewContent() {
   });
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [modalInitialView, setModalInitialView] = useState<'notice' | 'directory' | 'free_aid'>('notice');
+  const [isSensitiveCase, setIsSensitiveCase] = useState(false);
   const [userRequestedLawyerRecently, setUserRequestedLawyerRecently] = useState(false);
   const [hasOfferedConnection, setHasOfferedConnection] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -1352,6 +1355,46 @@ export function ChatViewContent() {
             {isUploadingAttachments && (
               <p role="status" className="mb-2 text-xs text-neutral-400">Saving attachments to this chat…</p>
             )}
+
+            {/* Sensitive Case Toggle & Advocate Routing */}
+            <div className="mb-2 sm:mb-2.5 rounded-xl border border-rose-500/30 bg-rose-950/20 p-2.5 sm:p-3 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isSensitiveCase}
+                    onChange={(e) => setIsSensitiveCase(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-rose-500/50 bg-black text-rose-500 accent-rose-500 focus:ring-rose-500/30 cursor-pointer shrink-0"
+                  />
+                  <span className="font-semibold text-rose-200 flex items-center gap-1.5 text-[11px] sm:text-xs">
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                    Sensitive Case (Extra Privacy &amp; Real Lawyer Option)
+                  </span>
+                </label>
+                {isSensitiveCase && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalInitialView('directory');
+                      setIsConnectModalOpen(true);
+                    }}
+                    className="px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                  >
+                    <Scale className="w-3 h-3" />
+                    <span>Send to Real Lawyer</span>
+                  </button>
+                )}
+              </div>
+
+              {isSensitiveCase && (
+                <div className="mt-2 pt-2 border-t border-rose-500/20 flex items-start gap-2 text-[11px] text-amber-200 leading-relaxed animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-white font-medium">Important Fee Disclaimer:</strong> The fee between the citizen and the lawyer should be discussed properly and agreed upon directly between both parties. TRANA provides statutory legal aid information and does not arbitrate, set, or charge advocate consultation fees.
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="chat-view__input-shell flex items-center gap-2 sm:gap-3 bg-white/[0.05] border border-white/15 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-sm focus-within:border-amber-400/80 focus-within:ring-1 focus-within:ring-amber-400/50 transition-all">
               <input

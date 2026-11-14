@@ -57,6 +57,7 @@ function Consultations() {
   const [selectedChatId, setSelectedChatId] = useState<string>(searchParams?.chat || "");
   const [inputText, setInputText] = useState("");
   const [showCaseSummary, setShowCaseSummary] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [liveTrigger, setLiveTrigger] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -147,7 +148,7 @@ function Consultations() {
           id: `msg-sys-${row.id}`,
           sender: "system",
           senderName: "TRANA Secure Relay",
-          text: `Confidential consultation channel established with ${row.lawyer_name || "Advocate Counsel"}. Phone numbers, digits, and Morse code are automatically masked to XXXXX.`,
+          text: `Confidential consultation channel established with ${row.lawyer_name || "Advocate Counsel"}.`,
           timestamp: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active",
         });
       }
@@ -206,7 +207,7 @@ function Consultations() {
               id: `msg-sys-${consultId}`,
               sender: "system",
               senderName: "TRANA Secure Relay",
-              text: `Confidential consultation channel established with ${r.lawyerName}. Phone numbers and contact digits are masked to XXXXX.`,
+              text: `Confidential consultation channel established with ${r.lawyerName}.`,
               timestamp: r.date || "Today",
             });
           }
@@ -350,12 +351,13 @@ function Consultations() {
   }
 
   // Conclude / Switch Lawyer action
-  async function handleConcludeSession() {
+  function handleConcludeSession() {
+    setShowLeaveConfirm(true);
+  }
+
+  async function executeConcludeSession() {
     if (!activeChat) return;
-    const confirmed = window.confirm(
-      `Conclude consultation session with ${activeChat.lawyerName}? This will mark this matter complete and unlock the directory so you can consult another lawyer.`
-    );
-    if (!confirmed) return;
+    setShowLeaveConfirm(false);
 
     const notice: ConsultationChatMessage = {
       id: `msg-conclude-${Date.now()}`,
@@ -434,30 +436,9 @@ function Consultations() {
     );
   }, [consultations, searchQuery]);
 
-  // Render masked tokens nicely
+  // Render text cleanly
   function renderMaskedText(text: string) {
-    if (!text.includes("XXXXX")) {
-      return <span>{text}</span>;
-    }
-    const parts = text.split(/(XXXXX)/g);
-    return (
-      <span>
-        {parts.map((part, i) =>
-          part === "XXXXX" ? (
-            <span
-              key={i}
-              className="inline-flex items-center gap-0.5 px-1 py-0.5 mx-0.5 rounded bg-white/10 border border-white/20 text-white font-mono font-bold text-[0.8rem] tracking-widest shadow-sm"
-              title="TRANA Privacy Shield: Phone number, digits, or Morse code masked to protect neutrality"
-            >
-              <ShieldCheck className="h-3 w-3 inline text-emerald-400" />
-              XXXXX
-            </span>
-          ) : (
-            <span key={i}>{part}</span>
-          )
-        )}
-      </span>
-    );
+    return <span>{text}</span>;
   }
 
   return (
@@ -467,7 +448,7 @@ function Consultations() {
         <div>
           <h1 className="font-display text-3xl md:text-4xl text-white">Consultations</h1>
           <p className="mt-1 text-xs text-[#888888]">
-            Confidential multi-party communication relay with verified advocates. Messages are end-to-end masked for privacy.
+            Confidential multi-party communication relay with verified advocates. Privileged legal consultation channel.
           </p>
         </div>
 
@@ -655,12 +636,12 @@ function Consultations() {
                   </div>
                 </div>
 
-                {/* Anti-Evasion Privacy Banner */}
+                {/* Privileged Relay Banner */}
                 <div className="bg-[#111111] border-b border-[#222222] px-4 py-2 text-[0.68rem] font-mono text-[#AAAAAA] flex items-center justify-between gap-3 shrink-0">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                     <span>
-                      TRANA Privacy Shield: Phone numbers, digit sequences, and Morse code masked to <strong className="text-white">XXXXX</strong>.
+                      TRANA Privileged Relay: Direct confidential channel with verified counsel.
                     </span>
                   </div>
                   <span className="hidden sm:inline text-[0.6rem] border border-white/20 text-neutral-300 px-1.5 py-0.5 rounded">
@@ -762,6 +743,41 @@ function Consultations() {
           consultationType={activeChat.consultType}
           content={activeChat.intakeBrief || "No additional brief attached to this consultation."}
         />
+      )}
+
+      {/* Leave Consultation Confirmation Modal */}
+      {showLeaveConfirm && activeChat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="max-w-md w-full rounded-2xl border border-red-500/40 bg-[#16161a] p-6 shadow-2xl text-center space-y-4">
+            <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+              <RotateCcw className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-bold text-white">
+                You are leaving this consultation chat
+              </h3>
+              <p className="mt-2 text-xs text-neutral-300 leading-relaxed">
+                You are about to conclude your consultation session with Advocate {activeChat.lawyerName}. Leaving will mark this matter complete and unlock the directory so you can consult another legal professional.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-300 hover:text-white bg-white/10 hover:bg-white/15 transition-colors cursor-pointer"
+              >
+                Cancel (Stay in Chat)
+              </button>
+              <button
+                type="button"
+                onClick={executeConcludeSession}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-colors cursor-pointer shadow-lg shadow-red-900/30"
+              >
+                Yes, Leave Chat
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

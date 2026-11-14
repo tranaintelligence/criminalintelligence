@@ -1,6 +1,87 @@
 # Changelog & Architecture Notes for Future Agents
 
-## [2026-11-14] - Legal-answer reliability implementation plan
+## [2026-11-14] - Contact Channels, Unmasked Privacy Relay, Written Opinion Fee Removal, Sensitive Cases, Leave Confirmations & Law Student Internships
+
+### 1. Citizen Dashboard Help & Support Contact Info
+- **File**: `src/routes/_authenticated/dashboard.help.tsx`
+- **Changes**:
+  - Added official TRANA contact section featuring email address `tranaintelligence@gmail.com` with clickable `mailto:` link.
+  - Added direct contact numbers `9891438718` and `8368515600` with clickable `tel:` links.
+  - Rendered dedicated support cards with helpline details and statutory guidance notes.
+
+### 2. Elimination of Number Masking & Masking UI Artefacts
+- **Files**:
+  - `src/lib/privacy-mask.ts`: Updated `maskConfidentialPatterns(text)` to return `text` directly without regex scrubbing or replacement of numbers/sequences with `XXXXX`.
+  - `src/components/ConsultationChatModal.tsx`: Removed `(XXXXX)` and number-masking notes from initial system relay messages, mobile strips, and privacy banners.
+  - `src/routes/_authenticated/dashboard.consultations.tsx`: Updated `renderMaskedText` to render plain text; removed `(XXXXX)` references from initial relay prompts and top header banner.
+  - `src/routes/_authenticated/lawyer.inbox.tsx`: Removed masking notes from system notices, placeholder text, and privacy strip.
+  - `src/routes/_authenticated/dashboard.lawyers.tsx`: Removed masking clauses from intake briefs and confidential consultation relay notices.
+  - `src/routes/_authenticated/dashboard.index.tsx`: Cleaned up privacy shield card text to reflect privileged communication under BCI Rule 36 without claiming digits are scrubbed.
+  - `src/routes/founders.chats.tsx`: Updated audit relay strip, total consultations counter, and message text formatter to remove `XXXXX` badges.
+
+### 3. Legal Professional Written Opinion - Removal of ₹50 Text
+- **File**: `src/routes/_authenticated/dashboard.analyse.tsx`
+- **Changes**:
+  - Removed all instances of `₹50` text from:
+    - Provider selection option B badge (`Verified Written Opinion`).
+    - Primary submission action button (`Get Legal Professional Written Opinion`).
+    - Result footer consultation banner and badge (`Panel Opinion Available`).
+    - Written opinion request modal title and subtitle (`Verified Legal Professional Opinion • High Priority Panel Review`).
+    - Modal body description and payment method selector.
+    - Confirmation toasts (`Legal Professional Review confirmed! Complaint submitted with High Priority to panel advocates.`).
+  - Switched submission action from mock fee processing to a direct request for a verified panel advocate written opinion.
+
+### 4. Lawyer Picture & Proper Description in "Find a Professional"
+- **File**: `src/routes/_authenticated/dashboard.lawyers.tsx`
+- **Changes**:
+  - Enhanced lawyer profile card layout with an enlarged 64x64px photo slot (`h-16 w-16 rounded-2xl`), advocate avatar icon fallback, and active status indicator.
+  - Added a dedicated "Practice Description" card section on each lawyer card rendering `l.bio || l.specialisation` with readable typography.
+  - Preserved full modal profile inspection with high-resolution photo and detailed practice background.
+
+### 5. Extra Privacy for Sensitive Cases & Real Lawyer Routing
+- **Files**:
+  - `src/routes/_authenticated/dashboard.analyse.tsx`:
+    - Added "Mark as Sensitive Case (Extra Privacy & Direct Real Lawyer Option)" checkbox.
+    - When checked, displays a prominent fee disclaimer alert: *"The fee between the citizen and the lawyer should be discussed properly and agreed upon directly between both parties. TRANA provides statutory legal first aid and does not arbitrate, set, or charge advocate consultation fees."*
+    - Displays a direct "Send Query to Real Lawyer" button that opens `ConnectProfessionalOfferModal` with the matter details pre-populated.
+  - `src/routes/_authenticated/dashboard.chat.tsx`:
+    - Added "Sensitive Case (Extra Privacy & Real Lawyer Option)" toggle above the message input box.
+    - When enabled, displays the mandatory fee discussion disclaimer and a direct "Send to Real Lawyer" action routing to real counsel.
+
+### 6. Consultation Chat Leave Confirmation
+- **Files**:
+  - `src/components/ConsultationChatModal.tsx`:
+    - Implemented `leavePrompt` state and modal overlay. When client or advocate clicks to leave/withdraw, a clear dialog informs them: *"You are leaving this consultation chat session. Once you leave, this active channel is concluded and you will be able to consult another advocate."*
+  - `src/routes/_authenticated/dashboard.consultations.tsx`:
+    - Added `showLeaveConfirm` state and an in-app confirmation modal informing the client they are leaving their consultation session with Advocate counsel.
+  - `src/routes/_authenticated/lawyer.inbox.tsx`:
+    - Added `showLeaveConfirm` state and modal dialog informing counsel that they are withdrawing and leaving the active consultation chat session for their client.
+
+### 7. Law Student Partnered Firm Internships & CV Upload
+- **Files**:
+  - `src/lib/internship-applications.ts` *(new)*:
+    - Defined `InternshipApplication` and `PartneredFirm` interfaces.
+    - Added accredited partnered law firms: Shardul Amarchand Mangaldas & Co, Trilegal, AZB & Partners, Khaitan & Co, Chambers of Adv. Rajesh Mehra, Chambers of Adv. Vikramaditya Sen, DSK Legal.
+    - Implemented cross-tab persistence helpers (`getStoredInternshipApplications`, `saveInternshipApplication`, `updateInternshipApplicationStatus`, `trana_internships_updated` events).
+  - `src/components/ProfessionalNetworkView.tsx`:
+    - Added "Partnered Firms & Internships" tab to the network navigation.
+    - For law students: browse partnered firms, choose a firm, fill student details, and upload their CV (PDF/DOC up to 10 MB, encoded as base64 Data URL) with application tracking.
+    - For advocates: review incoming student applications for chamber/firm internships, review cover notes, and click **"View / Download CV"** to inspect or download the student's resume.
+  - `src/routes/founders.students.tsx`:
+    - Added "Partnered Firm Internships" tab in the Founders Dashboard.
+    - Founders can review all student internship submissions, view application details, click **"View / Download CV"**, and manage application status (Shortlist / Accept / Decline).
+
+### 8. Removal of "Check as an Intern" Checkbox on Sign-in
+- **File**: `src/routes/auth.tsx`
+- **Changes**:
+  - Removed `isInternLogin` state and the "Log in as Legal Intern" checkbox from the sign-in / sign-up screen.
+  - Default post-authentication destination simplified to `/dashboard/chat` (or user's redirected target).
+
+### 9. Build & Verification
+- `bun x vite build` executed successfully in 10.38s with zero errors. All routes, types, and SSR targets validated cleanly.
+
+---
+
 
 ### Follow-up implementation — custom headings and answer consistency
 - Added optional `section_headings` to the structured analysis schema and frontend type. The compact normal-chat instruction asks the model to provide concise headings for populated sections; the renderer uses them with legacy fallbacks, and accepts only known section keys with bounded labels.

@@ -4,9 +4,14 @@ import {
   GraduationCap, Check, X, Search, RefreshCw, Eye, ShieldCheck, 
   ShieldAlert, Clock, Building2, MapPin, Sparkles, Filter, 
   Copy, ExternalLink, ZoomIn, ZoomOut, RotateCcw, Award, Scale,
-  UserCheck, AlertCircle, FileText, ChevronRight, Briefcase
+  UserCheck, AlertCircle, FileText, ChevronRight, Briefcase, Download
 } from "lucide-react";
 import { toast } from "sonner";
+import { 
+  InternshipApplication, 
+  getStoredInternshipApplications, 
+  updateInternshipApplicationStatus 
+} from "@/lib/internship-applications";
 
 export const Route = createFileRoute("/founders/students")({
   head: () => ({
@@ -265,7 +270,9 @@ const DEFAULT_SEEDS: RegisteredStudentEntry[] = [
 
 function FoundersStudentsPage() {
   const [students, setStudents] = useState<RegisteredStudentEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "verified" | "interns" | "rejected">("pending");
+  const [internshipApplications, setInternshipApplications] = useState<InternshipApplication[]>([]);
+  const [viewingCvApp, setViewingCvApp] = useState<InternshipApplication | null>(null);
+  const [activeTab, setActiveTab] = useState<"all" | "pending" | "verified" | "interns" | "rejected" | "internship_applications">("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "student" | "intern">("all");
   
@@ -344,12 +351,18 @@ function FoundersStudentsPage() {
 
   useEffect(() => {
     loadStudents();
+    setInternshipApplications(getStoredInternshipApplications());
 
-    const handleUpdate = () => loadStudents();
+    const handleUpdate = () => {
+      loadStudents();
+      setInternshipApplications(getStoredInternshipApplications());
+    };
     window.addEventListener("trana_role_updated", handleUpdate);
+    window.addEventListener("trana_internships_updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
       window.removeEventListener("trana_role_updated", handleUpdate);
+      window.removeEventListener("trana_internships_updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
   }, []);
@@ -697,6 +710,23 @@ function FoundersStudentsPage() {
           >
             All Scholars ({totalCount})
           </button>
+
+          <button
+            onClick={() => setActiveTab("internship_applications")}
+            className={`apple-glass-pill px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              activeTab === "internship_applications"
+                ? "bg-amber-400 text-black shadow-md border-amber-400"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            <Briefcase className="h-3 w-3 text-amber-300" />
+            <span>Partnered Firm Internships</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+              activeTab === "internship_applications" ? "bg-black/20 text-black font-bold" : "bg-amber-500/20 text-amber-300"
+            }`}>
+              {internshipApplications.length}
+            </span>
+          </button>
         </div>
 
         {/* Search & Filters */}
@@ -724,8 +754,129 @@ function FoundersStudentsPage() {
         </div>
       </div>
 
-      {/* Student Registry Table & Cards */}
-      {filteredStudents.length === 0 ? (
+      {/* Main Content Area */}
+      {activeTab === "internship_applications" ? (
+        /* Partnered Firm Internships Tab */
+        <div className="space-y-6">
+          <div className="apple-glass-card p-6 border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-[#111116] to-transparent">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 font-semibold block">
+                  FOUNDERS INTERNSHIP RECRUITMENT AUDIT
+                </span>
+                <h2 className="mt-1 font-display text-2xl text-white font-medium">
+                  Partnered Firm Student Internship Applications &amp; Uploaded CVs
+                </h2>
+                <p className="mt-1.5 text-xs text-neutral-300 max-w-2xl leading-relaxed">
+                  Review law students who selected partnered firms and uploaded their CVs. Founders and lawyers can inspect qualifications, download candidate CVs, and coordinate with partner firms.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-amber-300 bg-amber-950/60 border border-amber-500/30 px-3 py-1.5 rounded-full">
+                  {internshipApplications.length} Applications Total
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {internshipApplications.length === 0 ? (
+            <div className="apple-glass-card p-12 text-center text-xs text-neutral-400 font-mono">
+              No student internship applications recorded yet.
+            </div>
+          ) : (
+            <div className="apple-glass-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                    <tr>
+                      <th className="py-3.5 px-4 font-medium">Candidate Name &amp; Contact</th>
+                      <th className="py-3.5 px-4 font-medium">Institution &amp; Year</th>
+                      <th className="py-3.5 px-4 font-medium">Targeted Partnered Firm</th>
+                      <th className="py-3.5 px-4 font-medium">Cover Statement</th>
+                      <th className="py-3.5 px-4 font-medium text-center">Student CV</th>
+                      <th className="py-3.5 px-4 font-medium">Status</th>
+                      <th className="py-3.5 px-4 font-medium text-right">Founder Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.06]">
+                    {internshipApplications.map((app) => (
+                      <tr key={app.id} className="hover:bg-white/[0.03] transition-colors group">
+                        <td className="py-3.5 px-4">
+                          <div className="font-semibold text-white">{app.studentName}</div>
+                          <div className="text-[11px] text-neutral-400 font-mono mt-0.5">{app.studentEmail}</div>
+                          {app.phone && <div className="text-[10px] text-neutral-500 font-mono">{app.phone}</div>}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="text-neutral-200">{app.university}</div>
+                          <div className="text-[11px] text-neutral-400 font-mono">{app.yearOfStudy}</div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="text-amber-300 font-medium">{app.partneredFirm}</div>
+                          <div className="text-[10px] text-neutral-400 font-mono">{app.practiceArea}</div>
+                        </td>
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <p className="text-[11px] text-neutral-300 line-clamp-2 leading-relaxed">
+                            "{app.coverNote}"
+                          </p>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setViewingCvApp(app)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                          >
+                            <FileText className="h-3 w-3" />
+                            <span>View CV</span>
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full border ${
+                            app.status === "ACCEPTED"
+                              ? "border-emerald-500/40 text-emerald-300 bg-emerald-950/40"
+                              : app.status === "SHORTLISTED"
+                              ? "border-sky-500/40 text-sky-300 bg-sky-950/40"
+                              : "border-amber-500/40 text-amber-300 bg-amber-950/40"
+                          }`}>
+                            {app.status.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {app.status !== "SHORTLISTED" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateInternshipApplicationStatus(app.id, "SHORTLISTED");
+                                  toast.success(`Candidate ${app.studentName} shortlisted!`);
+                                }}
+                                className="px-2 py-1 rounded text-[10px] font-mono text-sky-300 border border-sky-500/30 hover:bg-sky-950/40 transition-colors cursor-pointer"
+                              >
+                                Shortlist
+                              </button>
+                            )}
+                            {app.status !== "ACCEPTED" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateInternshipApplicationStatus(app.id, "ACCEPTED");
+                                  toast.success(`Candidate ${app.studentName} accepted!`);
+                                }}
+                                className="px-2 py-1 rounded text-[10px] font-mono text-emerald-300 border border-emerald-500/30 hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                              >
+                                Accept
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : filteredStudents.length === 0 ? (
         <div className="apple-glass-card p-12 text-center">
           <GraduationCap className="h-10 w-10 text-neutral-500 mx-auto mb-3" />
           <p className="text-sm font-semibold text-white">No scholars found matching your criteria</p>
@@ -1295,6 +1446,87 @@ function FoundersStudentsPage() {
               alt="College ID Fullscreen"
               className="max-w-[90vw] max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/20"
             />
+          </div>
+        </div>
+      )}
+      {/* Modal: View / Download Uploaded Student CV */}
+      {viewingCvApp && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="apple-glass-card w-full max-w-2xl p-6 relative max-h-[92vh] overflow-y-auto border border-white/20">
+            <button
+              onClick={() => setViewingCvApp(null)}
+              className="absolute right-4 top-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="border-b border-white/10 pb-4 mb-4">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold block">
+                FOUNDER AUDIT &bull; STUDENT CURRICULUM VITAE
+              </span>
+              <h3 className="font-display text-2xl text-white font-medium mt-1">
+                {viewingCvApp.studentName}
+              </h3>
+              <p className="text-xs text-neutral-400 font-mono mt-0.5">
+                {viewingCvApp.university} &bull; {viewingCvApp.yearOfStudy}
+              </p>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-white/[0.03] p-3 rounded-xl border border-white/5 font-mono">
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Firm Applied To:</span>
+                  <span className="text-white font-medium">{viewingCvApp.partneredFirm}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Practice Area:</span>
+                  <span className="text-white font-medium">{viewingCvApp.practiceArea}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Contact Email:</span>
+                  <span className="text-neutral-200">{viewingCvApp.studentEmail}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Phone:</span>
+                  <span className="text-neutral-200">{viewingCvApp.phone || "Not specified"}</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-mono text-neutral-400 uppercase block mb-1 font-semibold">
+                  Statement of Purpose / Cover Statement:
+                </span>
+                <p className="text-xs text-neutral-200 leading-relaxed bg-black/40 p-3.5 rounded-xl border border-white/10">
+                  {viewingCvApp.coverNote}
+                </p>
+              </div>
+
+              {/* CV File Display & Download Button */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-white block text-sm">
+                      {viewingCvApp.cvFileName}
+                    </span>
+                    <span className="text-[11px] text-neutral-400 font-mono">
+                      Curriculum Vitae Document &bull; Candidate File
+                    </span>
+                  </div>
+                </div>
+
+                <a
+                  href={viewingCvApp.cvFileUrl}
+                  download={viewingCvApp.cvFileName}
+                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-black flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shrink-0"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Download CV</span>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       )}

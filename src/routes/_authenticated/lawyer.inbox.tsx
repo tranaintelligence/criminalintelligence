@@ -54,6 +54,7 @@ function LawyerCaseInboxPage() {
   const [categoryFilter, setCategoryFilter] = useState<"client" | "peer">("client");
   const [selectedCaseId, setSelectedCaseId] = useState<string>(searchParams?.chat || "");
   const [showCaseSummary, setShowCaseSummary] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [messages, setMessages] = useState<ConsultationChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [incomingToast, setIncomingToast] = useState<{
@@ -307,7 +308,7 @@ function LawyerCaseInboxPage() {
             id: `msg-sys-${Date.now()}`,
             sender: "system",
             senderName: "TRANA Secure Relay",
-            text: `Confidential consultation channel active for ${activeCase.client} with Counsel ${lawyer?.full_name || "Advocate"} (Mode: ${activeCase.consultationType}). Contact particulars and phone numbers are masked (XXXXX) for privacy.`,
+            text: `Confidential consultation channel active for ${activeCase.client} with Counsel ${lawyer?.full_name || "Advocate"} (Mode: ${activeCase.consultationType}).`,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ];
@@ -466,12 +467,13 @@ function LawyerCaseInboxPage() {
   }
 
   // Lawyer Action: Leave Case
-  async function handleLeaveCase() {
+  function handleLeaveCase() {
+    setShowLeaveConfirm(true);
+  }
+
+  async function executeLeaveCase() {
     if (!activeCase) return;
-    const confirmed = window.confirm(
-      `Are you sure you want to withdraw/leave the case for ${activeCase.client}? The client will be notified and given the option to consult another lawyer from the directory.`
-    );
-    if (!confirmed) return;
+    setShowLeaveConfirm(false);
 
     const systemNotice: ConsultationChatMessage = {
       id: `msg-leave-${Date.now()}`,
@@ -833,11 +835,11 @@ function LawyerCaseInboxPage() {
               </div>
             </div>
 
-            {/* Privacy Compliance Strip */}
+            {/* Privileged Compliance Strip */}
             <div className="bg-[#121212] border-b border-[#222222] px-4 py-1.5 text-[0.68rem] text-[#888888] flex items-center gap-2 font-mono shrink-0">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
               <span>
-                Zero Evasion Guard: All phone numbers, sequences, and Morse code are automatically masked to XXXXX.
+                Privileged Consultation Channel: Direct communication between verified advocate and citizen client.
               </span>
             </div>
 
@@ -909,7 +911,7 @@ function LawyerCaseInboxPage() {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Message ${activeCase.client}... (Numbers & sequences masked to XXXXX)`}
+                placeholder={`Message ${activeCase.client}...`}
                 className="flex-1 border border-[#333333] bg-[#0A0A0A] px-3.5 py-2 text-xs md:text-sm text-white placeholder:text-[#555555] focus:border-white focus:outline-none rounded"
               />
               <button
@@ -979,6 +981,41 @@ function LawyerCaseInboxPage() {
               <span>Open Chat</span>
               <ArrowRight className="h-3 w-3" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Case Confirmation Modal */}
+      {showLeaveConfirm && activeCase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="max-w-md w-full rounded-2xl border border-red-500/40 bg-[#16161a] p-6 shadow-2xl text-center space-y-4">
+            <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+              <UserMinus className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-bold text-white">
+                You are leaving this consultation chat
+              </h3>
+              <p className="mt-2 text-xs text-neutral-300 leading-relaxed">
+                You are about to withdraw and leave the case for {activeCase.client}. The client will be notified that you have left this chat session and will be free to consult another lawyer from the directory.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-300 hover:text-white bg-white/10 hover:bg-white/15 transition-colors cursor-pointer"
+              >
+                Cancel (Stay in Chat)
+              </button>
+              <button
+                type="button"
+                onClick={executeLeaveCase}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-colors cursor-pointer shadow-lg shadow-red-900/30"
+              >
+                Yes, Leave Chat
+              </button>
+            </div>
           </div>
         </div>
       )}

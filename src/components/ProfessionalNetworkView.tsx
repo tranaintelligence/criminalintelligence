@@ -5,7 +5,7 @@ import {
   Users, Search, UserCheck, Clock, Check, X, MessageSquare,
   GraduationCap, Scale, Building2, MapPin, Send, ShieldCheck,
   ChevronRight, ExternalLink, Sparkles, Filter, AlertCircle, Share2,
-  Award, Heart, Copy, FileText
+  Award, Heart, Copy, FileText, Briefcase, Upload, Download, Eye
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,14 @@ import {
   toggleLikePublication,
   generateBluebookCitation,
 } from "@/lib/student-publications";
+import {
+  InternshipApplication,
+  PartneredFirm,
+  PARTNERED_FIRMS,
+  getStoredInternshipApplications,
+  saveInternshipApplication,
+  updateInternshipApplicationStatus,
+} from "@/lib/internship-applications";
 
 interface ProfessionalNetworkViewProps {
   currentUser: {
@@ -48,10 +56,34 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"discover" | "publications" | "invitations" | "connections">("discover");
+  const [activeTab, setActiveTab] = useState<"discover" | "publications" | "internships" | "invitations" | "connections">("discover");
   const [roleFilter, setRoleFilter] = useState<"all" | "lawyers" | "students">("all");
   const [search, setSearch] = useState("");
   const [selectedCity, setSelectedCity] = useState("All");
+
+  // Internship Applications State
+  const [internships, setInternships] = useState<InternshipApplication[]>([]);
+  const [selectedFirmForApply, setSelectedFirmForApply] = useState<PartneredFirm | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [cvFileName, setCvFileName] = useState("");
+  const [cvDataUrl, setCvDataUrl] = useState("");
+  const [applyStudentName, setApplyStudentName] = useState(currentUser.name || "");
+  const [applyUniversity, setApplyUniversity] = useState(currentUser.affiliation || "");
+  const [applyYear, setApplyYear] = useState("3rd Year Scholar");
+  const [applyPracticeArea, setApplyPracticeArea] = useState("Criminal Litigation & Trial Procedure");
+  const [applyPhone, setApplyPhone] = useState("");
+  const [applyCoverNote, setApplyCoverNote] = useState("");
+  const [viewingCvApp, setViewingCvApp] = useState<InternshipApplication | null>(null);
+  const [isSubmittingApp, setIsSubmittingApp] = useState(false);
+
+  useEffect(() => {
+    function loadInternships() {
+      setInternships(getStoredInternshipApplications());
+    }
+    loadInternships();
+    window.addEventListener("trana_internships_updated", loadInternships);
+    return () => window.removeEventListener("trana_internships_updated", loadInternships);
+  }, []);
 
   // Publications state
   const [publications, setPublications] = useState<StudentPublication[]>([]);
@@ -477,6 +509,59 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
     });
   }, [publications, pubCategory, search]);
 
+  function handleCvFileChange(file: File | undefined) {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Please upload a CV under 10 MB.");
+      return;
+    }
+    setCvFile(file);
+    setCvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setCvDataUrl(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleApplicationSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedFirmForApply) {
+      toast.error("Please select a partnered firm.");
+      return;
+    }
+    if (!cvFileName) {
+      toast.error("Please upload your CV before submitting.");
+      return;
+    }
+    setIsSubmittingApp(true);
+    const newApp: InternshipApplication = {
+      id: `intern-app-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      studentId: currentUser.id,
+      studentName: applyStudentName || currentUser.name,
+      studentEmail: currentUser.email || `${currentUser.name.toLowerCase().replace(/\s+/g, ".")}@law.in`,
+      university: applyUniversity || "National Law University",
+      yearOfStudy: applyYear,
+      phone: applyPhone || "9811042918",
+      partneredFirm: selectedFirmForApply.name,
+      practiceArea: applyPracticeArea,
+      coverNote: applyCoverNote || "Seeking litigation internship to research trial procedure under BNSS/BNS.",
+      cvFileName: cvFileName,
+      cvFileUrl: cvDataUrl || "data:application/pdf;base64,JVBERi0xLjQK",
+      appliedAt: new Date().toISOString(),
+      status: "PENDING_REVIEW",
+    };
+
+    saveInternshipApplication(newApp);
+    setIsSubmittingApp(false);
+    setSelectedFirmForApply(null);
+    setCvFile(null);
+    setCvFileName("");
+    setCvDataUrl("");
+    setApplyCoverNote("");
+    toast.success(`Internship application & CV submitted to ${selectedFirmForApply.name}! It is now visible to lawyers and founders.`);
+  }
+
   return (
     <div className="space-y-8">
       {/* Top Banner */}
@@ -546,6 +631,23 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
           >
             <Award className="h-3.5 w-3.5" />
             <span>Research & Achievements ({publications.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("internships")}
+            className={`px-4 py-2 text-xs uppercase tracking-[0.1em] font-mono transition-all rounded-full cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "internships"
+                ? "bg-white text-black font-semibold shadow-md"
+                : "apple-glass-pill text-neutral-300 hover:text-white"
+            }`}
+          >
+            <Briefcase className="h-3.5 w-3.5" />
+            <span>{currentUser.role === "student" ? "Partnered Firms & Internships" : "Internship Applications & CVs"}</span>
+            {internships.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[0.65rem] bg-amber-400 text-black font-bold">
+                {internships.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -1103,6 +1205,504 @@ export function ProfessionalNetworkView({ currentUser, baseRoute }: Professional
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: PARTNERED FIRMS & INTERNSHIPS */}
+      {activeTab === "internships" && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          {currentUser.role === "student" ? (
+            /* Student View: Browse Partnered Firms & Upload CV */
+            <div className="space-y-6">
+              <div className="apple-glass-card p-6 border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-[#111116] to-transparent">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 font-semibold block">
+                      TRANA LAW STUDENT INTERNSHIP DESK
+                    </span>
+                    <h2 className="mt-1 font-display text-2xl text-white font-medium">
+                      Partnered Law Firms &amp; Chamber Internships
+                    </h2>
+                    <p className="mt-1.5 text-xs text-neutral-300 max-w-2xl leading-relaxed">
+                      Choose from our accredited partnered law firms and senior advocates' chambers. Upload your CV to directly submit your application for trial litigation, appellate practice, and white-collar defense internships.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-neutral-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
+                      {PARTNERED_FIRMS.length} Partnered Chambers
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* My Submitted Applications */}
+              {internships.filter((a) => a.studentId === currentUser.id || (currentUser.email && a.studentEmail.toLowerCase() === currentUser.email.toLowerCase())).length > 0 && (
+                <div className="apple-glass-card p-6 border border-white/10">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+                    <h3 className="font-display text-lg text-white font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-emerald-400" />
+                      <span>My Submitted Applications ({internships.filter((a) => a.studentId === currentUser.id || (currentUser.email && a.studentEmail.toLowerCase() === currentUser.email.toLowerCase())).length})</span>
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {internships
+                      .filter((a) => a.studentId === currentUser.id || (currentUser.email && a.studentEmail.toLowerCase() === currentUser.email.toLowerCase()))
+                      .map((app) => (
+                        <div key={app.id} className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h4 className="font-semibold text-white text-sm">{app.partneredFirm}</h4>
+                              <p className="text-xs text-neutral-400 font-mono mt-0.5">{app.practiceArea}</p>
+                            </div>
+                            <span className={`text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full border ${
+                              app.status === "ACCEPTED"
+                                ? "border-emerald-500/40 text-emerald-300 bg-emerald-950/40"
+                                : app.status === "SHORTLISTED"
+                                ? "border-sky-500/40 text-sky-300 bg-sky-950/40"
+                                : "border-amber-500/40 text-amber-300 bg-amber-950/40"
+                            }`}>
+                              {app.status.replace("_", " ")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed">
+                            "{app.coverNote}"
+                          </p>
+                          <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                            <span className="text-[11px] text-neutral-400 font-mono">
+                              Applied: {new Date(app.appliedAt).toLocaleDateString("en-IN")}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setViewingCvApp(app)}
+                              className="text-emerald-400 hover:text-emerald-300 font-mono text-[11px] flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>View Uploaded CV</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Partnered Firms Directory */}
+              <div>
+                <h3 className="text-xs font-mono uppercase tracking-[0.15em] text-neutral-400 mb-4">
+                  Select Partnered Firm to Apply:
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {PARTNERED_FIRMS.map((firm) => (
+                    <div
+                      key={firm.id}
+                      className="apple-glass-card p-5 flex flex-col justify-between border border-white/10 hover:border-amber-400/40 transition-all group"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+                          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider flex items-center gap-1 font-semibold">
+                            <ShieldCheck className="h-3 w-3" /> Partnered Firm
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                            {firm.openings}
+                          </span>
+                        </div>
+
+                        <h4 className="font-display text-lg font-medium text-white group-hover:text-amber-300 transition-colors">
+                          {firm.name}
+                        </h4>
+
+                        <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-mono">
+                          <MapPin className="h-3 w-3 text-neutral-400 shrink-0" />
+                          <span>{firm.location}</span>
+                        </div>
+
+                        <p className="text-xs text-neutral-300 leading-relaxed line-clamp-3">
+                          {firm.description}
+                        </p>
+
+                        <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
+                          <span className="text-[10px] font-mono uppercase text-neutral-400 block font-semibold">
+                            Core Practice Focus:
+                          </span>
+                          <p className="text-[11px] text-amber-200/90 leading-tight">
+                            {firm.practiceAreas}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 pt-3 border-t border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFirmForApply(firm);
+                            setApplyPracticeArea(firm.practiceAreas.split(",")[0].trim());
+                          }}
+                          className="w-full bg-white hover:bg-neutral-200 text-black py-2.5 px-3 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Apply &amp; Upload CV</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Lawyer View: Review Student Applicants & CVs */
+            <div className="space-y-6">
+              <div className="apple-glass-card p-6 border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-[#111116] to-transparent">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-400 font-semibold block">
+                      CHAMBERS INTERNSHIP APPLICATIONS &amp; RECRUITMENT
+                    </span>
+                    <h2 className="mt-1 font-display text-2xl text-white font-medium">
+                      Student Internship Applications &amp; Uploaded CVs
+                    </h2>
+                    <p className="mt-1.5 text-xs text-neutral-300 max-w-2xl leading-relaxed">
+                      Review law student scholars applying for chamber internships. Inspect their academic qualifications, cover statements, and view/download their uploaded CVs.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 px-3 py-1.5 rounded-full">
+                      {internships.length} Applications Received
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {internships.length === 0 ? (
+                <div className="apple-glass-card p-12 text-center text-xs text-neutral-400 font-mono">
+                  No student internship applications submitted yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {internships.map((app) => (
+                    <div
+                      key={app.id}
+                      className="apple-glass-card p-5 border border-white/10 flex flex-col justify-between space-y-4"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2 border-b border-white/5 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-display text-white text-base">
+                              {app.studentName.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="font-display text-base font-medium text-white">{app.studentName}</h4>
+                              <p className="text-xs text-neutral-400 font-mono">{app.university}</p>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full border ${
+                            app.status === "ACCEPTED"
+                              ? "border-emerald-500/40 text-emerald-300 bg-emerald-950/40"
+                              : app.status === "SHORTLISTED"
+                              ? "border-sky-500/40 text-sky-300 bg-sky-950/40"
+                              : "border-amber-500/40 text-amber-300 bg-amber-950/40"
+                          }`}>
+                            {app.status.replace("_", " ")}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-white/[0.02] p-2.5 rounded-lg border border-white/5">
+                          <div>
+                            <span className="text-neutral-500 block text-[10px] uppercase">Targeted Firm:</span>
+                            <span className="text-neutral-200 font-medium truncate block">{app.partneredFirm}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500 block text-[10px] uppercase">Year of Study:</span>
+                            <span className="text-neutral-200">{app.yearOfStudy}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] font-mono text-neutral-500 uppercase block mb-1">
+                            Cover Statement:
+                          </span>
+                          <p className="text-xs text-neutral-300 leading-relaxed bg-black/40 p-2.5 rounded-lg border border-white/5">
+                            "{app.coverNote}"
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setViewingCvApp(app)}
+                          className="bg-emerald-500 hover:bg-emerald-400 text-black px-3.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>View / Download CV</span>
+                        </button>
+
+                        <div className="flex items-center gap-1.5">
+                          {app.status !== "SHORTLISTED" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateInternshipApplicationStatus(app.id, "SHORTLISTED");
+                                toast.success(`Candidate ${app.studentName} shortlisted!`);
+                              }}
+                              className="px-2.5 py-1 rounded text-[11px] font-mono text-sky-300 border border-sky-500/30 bg-sky-950/20 hover:bg-sky-950/40 transition-colors cursor-pointer"
+                            >
+                              Shortlist
+                            </button>
+                          )}
+                          {app.status !== "ACCEPTED" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateInternshipApplicationStatus(app.id, "ACCEPTED");
+                                toast.success(`Candidate ${app.studentName} accepted for internship!`);
+                              }}
+                              className="px-2.5 py-1 rounded text-[11px] font-mono text-emerald-300 border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                            >
+                              Accept
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal: Apply for Internship & CV Upload */}
+      {selectedFirmForApply && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="apple-glass-card w-full max-w-lg p-6 relative max-h-[92vh] overflow-y-auto border border-white/15">
+            <button
+              onClick={() => setSelectedFirmForApply(null)}
+              className="absolute right-4 top-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="border-b border-white/10 pb-3 mb-4">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-semibold block">
+                PARTNERED FIRM INTERNSHIP APPLICATION
+              </span>
+              <h3 className="font-display text-xl text-white font-medium mt-0.5">
+                {selectedFirmForApply.name}
+              </h3>
+              <p className="text-xs text-neutral-400 font-mono mt-0.5">
+                Location: {selectedFirmForApply.location}
+              </p>
+            </div>
+
+            <form onSubmit={handleApplicationSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={applyStudentName}
+                  onChange={(e) => setApplyStudentName(e.target.value)}
+                  className="w-full apple-glass-input px-3 py-2 text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                    College / University
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={applyUniversity}
+                    onChange={(e) => setApplyUniversity(e.target.value)}
+                    className="w-full apple-glass-input px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                    Year of Study
+                  </label>
+                  <select
+                    value={applyYear}
+                    onChange={(e) => setApplyYear(e.target.value)}
+                    className="w-full apple-glass-input px-3 py-2 text-white"
+                  >
+                    <option value="1st Year Scholar" className="bg-[#18181c]">1st Year Scholar</option>
+                    <option value="2nd Year Scholar" className="bg-[#18181c]">2nd Year Scholar</option>
+                    <option value="3rd Year Scholar" className="bg-[#18181c]">3rd Year Scholar</option>
+                    <option value="4th Year Scholar" className="bg-[#18181c]">4th Year Scholar</option>
+                    <option value="Final Year Scholar" className="bg-[#18181c]">Final Year Scholar</option>
+                    <option value="LL.M. Candidate" className="bg-[#18181c]">LL.M. Candidate</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                  Contact Phone Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 9811042918"
+                  value={applyPhone}
+                  onChange={(e) => setApplyPhone(e.target.value)}
+                  className="w-full apple-glass-input px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-mono uppercase text-neutral-400 block mb-1">
+                  Cover Note / Statement of Purpose
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Describe your research interests, moot court/trial experience, or reasons for joining this firm..."
+                  value={applyCoverNote}
+                  onChange={(e) => setApplyCoverNote(e.target.value)}
+                  className="w-full apple-glass-input px-3 py-2 text-white resize-none"
+                />
+              </div>
+
+              {/* CV File Upload Field */}
+              <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-4 text-center">
+                <label className="cursor-pointer block">
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf"
+                    className="hidden"
+                    onChange={(e) => handleCvFileChange(e.target.files?.[0])}
+                  />
+                  <div className="flex flex-col items-center justify-center gap-1.5">
+                    <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center text-amber-300">
+                      <Upload className="h-4 w-4" />
+                    </div>
+                    {cvFileName ? (
+                      <div>
+                        <span className="font-semibold text-emerald-400 block text-xs truncate max-w-xs">
+                          {cvFileName}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          CV selected &bull; Click to change
+                        </span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-xs font-semibold text-white block">
+                          Upload Curriculum Vitae (CV / Resume)
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          Supports PDF, DOC, or DOCX up to 10 MB
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedFirmForApply(null)}
+                  className="px-4 py-2 rounded-xl text-neutral-400 hover:text-white text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingApp || !cvFileName}
+                  className="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-white text-black hover:bg-neutral-200 transition-colors disabled:opacity-40 cursor-pointer shadow-md"
+                >
+                  {isSubmittingApp ? "Submitting..." : "Submit Application & CV"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: View / Download Uploaded Student CV */}
+      {viewingCvApp && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="apple-glass-card w-full max-w-2xl p-6 relative max-h-[92vh] overflow-y-auto border border-white/20">
+            <button
+              onClick={() => setViewingCvApp(null)}
+              className="absolute right-4 top-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="border-b border-white/10 pb-4 mb-4">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold block">
+                STUDENT CURRICULUM VITAE &amp; APPLICATION DOSSIER
+              </span>
+              <h3 className="font-display text-2xl text-white font-medium mt-1">
+                {viewingCvApp.studentName}
+              </h3>
+              <p className="text-xs text-neutral-400 font-mono mt-0.5">
+                {viewingCvApp.university} &bull; {viewingCvApp.yearOfStudy}
+              </p>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-white/[0.03] p-3 rounded-xl border border-white/5 font-mono">
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Firm Applied To:</span>
+                  <span className="text-white font-medium">{viewingCvApp.partneredFirm}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Practice Area:</span>
+                  <span className="text-white font-medium">{viewingCvApp.practiceArea}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Contact Email:</span>
+                  <span className="text-neutral-200">{viewingCvApp.studentEmail}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500 text-[10px] uppercase block">Phone:</span>
+                  <span className="text-neutral-200">{viewingCvApp.phone || "Not specified"}</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-mono text-neutral-400 uppercase block mb-1 font-semibold">
+                  Statement of Purpose / Cover Statement:
+                </span>
+                <p className="text-xs text-neutral-200 leading-relaxed bg-black/40 p-3.5 rounded-xl border border-white/10">
+                  {viewingCvApp.coverNote}
+                </p>
+              </div>
+
+              {/* CV File Display & Download Button */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-white block text-sm">
+                      {viewingCvApp.cvFileName}
+                    </span>
+                    <span className="text-[11px] text-neutral-400 font-mono">
+                      Curriculum Vitae Document &bull; Verified Candidate Attachment
+                    </span>
+                  </div>
+                </div>
+
+                <a
+                  href={viewingCvApp.cvFileUrl}
+                  download={viewingCvApp.cvFileName}
+                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-black flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shrink-0"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Download CV</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>

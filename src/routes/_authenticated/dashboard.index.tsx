@@ -311,7 +311,7 @@ function Home() {
                 <span>TRANA Privacy Shield</span>
               </div>
               <p className="text-[11px] text-neutral-400">
-                Direct phone numbers, email addresses, and personal identities are masked (<strong className="text-white">XXXXX</strong>). Lawyers receive only the factual allegations and statutory questions.
+                Your intake brief is shared securely per BCI Rule 36. Lawyers receive your factual allegations and statutory questions with full legal privilege.
               </p>
             </div>
 

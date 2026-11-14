@@ -523,30 +523,9 @@ function FoundersChatsPage() {
     toast.success(`Transcript for ${activeSession.id} exported successfully.`);
   }
 
-  // Format message text and visually highlight any masked tokens
+  // Format message text
   function renderMaskedText(text: string) {
-    if (!text.includes("XXXXX")) {
-      return <span className="whitespace-pre-wrap">{text}</span>;
-    }
-    const parts = text.split(/(XXXXX)/g);
-    return (
-      <span className="whitespace-pre-wrap">
-        {parts.map((part, i) =>
-          part === "XXXXX" ? (
-            <span
-              key={i}
-              className="inline-flex items-center gap-0.5 px-1 py-0.5 mx-0.5 rounded bg-white/10 border border-white/20 text-white font-mono font-bold text-[0.8rem] tracking-widest shadow-sm"
-              title="TRANA Privacy Shield: Phone number, digits, or Morse code masked to protect neutrality"
-            >
-              <ShieldCheck className="h-3 w-3 inline text-emerald-400" />
-              XXXXX
-            </span>
-          ) : (
-            <span key={i}>{part}</span>
-          )
-        )}
-      </span>
-    );
+    return <span className="whitespace-pre-wrap">{text}</span>;
   }
 
   const isSyncing = isFetchingAdminChats || isFetchingConsults;
@@ -639,7 +618,7 @@ function FoundersChatsPage() {
             <span>ENFORCED</span>
           </div>
           <div className="mt-1 text-[0.65rem] text-[#888888]">
-            {stats.totalInterceptions} numbers masked to XXXXX
+            {stats.totalConsultations} active client consultations
           </div>
         </div>
       </div>
@@ -839,12 +818,12 @@ function FoundersChatsPage() {
                 </div>
               </div>
 
-              {/* Anti-Evasion Privacy Banner */}
+              {/* Privileged Relay Banner */}
               <div className="bg-[#0E0E0E] border-b border-[#222222] px-4 py-2.5 text-[0.7rem] font-mono text-[#AAAAAA] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>
-                    TRANA Anti-Evasion Privacy Engine: Contact numbers, digits, and Morse code transmissions are masked to <strong className="text-white">XXXXX</strong>.
+                    TRANA Privileged Relay: Consultation chat log between verified counsel and citizen.
                   </span>
                 </div>
                 <span className="hidden sm:inline text-[0.65rem] border border-white/20 text-neutral-300 px-1.5 py-0.5 rounded">
