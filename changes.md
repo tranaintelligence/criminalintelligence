@@ -1,5 +1,24 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Improve custody answer readability and safeguard coverage
+
+### Changes
+- Added provision-level links in the answer for BNS 303, BNSS 35, 36, 38, 47, 48, 53, 56, 57, 58 and 480, plus Legal Services Authorities Act Section 12. The expandable source references continue to point to primary/official statute material where available; provision links are convenience navigation.
+- Explained arrest memo witness/signature requirements, medical examination and injury recording, and the custodian's health-and-safety duty. The urgent checklist now includes confirming the memo, medical examination, production deadline, legal-aid request and bail review.
+- Shortened case-specific bail discussion so value/classification appears with bailability and personal circumstances/recovery/investigation factors appear with the bail-availability answer.
+- Made the 24-hour deadline wording explicit and kept action items operational. Bail and legal-aid information remain separate answers when the user asks separate questions.
+- The response changes are deterministic formatting/rule changes after the existing model response; no second LLM call or additional prompt tokens were introduced.
+
+### Verification
+- Reviewed the rendered answer path and confirmed numbered prompts are mapped to one answer section per extracted question; the chat view suppresses the conversational preamble when those sections exist.
+- Reviewed provision links and compared the arrest-memo, medical-examination, health/safety, bail and custody claims against BNSS text. The source-card verification flag remains conservative; a direct link alone does not mark a claim verified.
+- Tests/build were not rerun in this pass.
+
+### Future-agent notes
+- Keep the distinct claim links and primary statute source cards separate: the link target is navigation, while source verification is based on retrieved/registry text.
+- Keep custody safeguards in the rights answer and concrete requests in the 24-hour checklist. Avoid adding a second summary that repeats both sections.
+- Preserve the single-generation budget. Validate improvements through the existing focused test suite/build when the user requests verification.
+
 ## [2026-11-14] - Preserve question-by-question custody answers in backend output
 
 ### Changes

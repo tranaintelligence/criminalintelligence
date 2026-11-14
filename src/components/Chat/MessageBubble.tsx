@@ -3,7 +3,6 @@ import {
   User,
   Scale,
   ChevronDown,
-  ChevronUp,
   Clock,
   CalendarClock,
   ExternalLink,
@@ -156,6 +155,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     return [];
   }, [message.sources, message.structured_content]);
 
+  const sourceGroups = useMemo(() => {
+    const groups = new Map<string, { source: SourceChunk; index: number }[]>();
+    effectiveSources.forEach((source, index) => {
+      const act = formatActName(source);
+      const group = groups.get(act) ?? [];
+      group.push({ source, index });
+      groups.set(act, group);
+    });
+    return Array.from(groups, ([act, sources]) => ({ act, sources }));
+  }, [effectiveSources]);
+
   const [animatedContent, setAnimatedContent] = useState(isUser ? '' : message.content);
 
   useEffect(() => {
@@ -234,9 +244,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-neutral-300 hover:text-white transition-all cursor-pointer shadow-sm group select-none"
               >
                 <BookOpen size={13} className="text-amber-300 group-hover:scale-110 transition-transform" />
-                <span>
-                  Sources & Statutory References ({effectiveSources.length})
-                </span>
+                <span>Statutory references ({effectiveSources.length} across {sourceGroups.length} Acts)</span>
                 <ChevronDown
                   size={13}
                   className={`text-neutral-400 transition-transform duration-200 ${sourcesOpen ? 'rotate-180' : ''}`}
@@ -244,86 +252,60 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               </button>
 
               {sourcesOpen && (
-                <div className="message-sources__list mt-3 w-full grid grid-cols-1 md:grid-cols-2 gap-3 animate-fade-in">
-                  {effectiveSources.map((source, idx) => {
-                    const verified = isVerifiedSource(source);
-                    const officialUrl = getOfficialActUrl(source);
-                    const explanation = getConciseExplanation(source);
-                    const sourceText = getVerifiedText(source) ?? getSourceText(source);
+                <div className="message-sources__list mt-3 w-full flex flex-col gap-3 animate-fade-in">
+                  {sourceGroups.map(({ act, sources }) => (
+                    <section key={act} className="rounded-lg border border-white/10 bg-[#101012] p-3">
+                      <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-200">{act}</h4>
+                      <div className="flex flex-col divide-y divide-white/5">
+                        {sources.map(({ source, index }) => {
+                          const verified = isVerifiedSource(source);
+                          const officialUrl = getOfficialActUrl(source);
+                          const explanation = getConciseExplanation(source);
+                          const sourceText = getVerifiedText(source) ?? getSourceText(source);
+                          const sectionLabel = formatSectionLabel(source);
+                          const referenceLabel = /^(?:first|second) schedule\b/i.test(sectionLabel)
+                            ? sectionLabel
+                            : `Section ${sectionLabel}`;
 
-                    return (
-                      <article
-                        key={idx}
-                        className="bg-[#141416] hover:bg-[#18181c] border border-white/10 hover:border-amber-400/40 rounded-xl p-3.5 flex flex-col justify-between transition-all shadow-md group"
-                      >
-                        <div>
-                          <div className="flex items-start justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <FileText size={14} className="text-amber-300 shrink-0" />
-                              <span className="font-mono text-[10px] uppercase font-bold text-amber-200 tracking-wider truncate">
-                                {formatActName(source)}
-                              </span>
-                            </div>
-                            <span
-                              className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono font-medium border ${
-                                verified
-                                  ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/60'
-                                  : 'bg-neutral-800 text-neutral-400 border-neutral-700'
-                              }`}
-                            >
-                              {verified ? 'Source text matched' : 'Statute Ref'}
-                            </span>
-                          </div>
-
-                          {verified && (
-                            <p className="text-[10px] text-neutral-500 mb-1.5 leading-relaxed">
-                              This confirms the source text only; it does not verify that the provision applies to these facts.
-                            </p>
-                          )}
-
-                          <h4 className="text-xs font-semibold text-white group-hover:text-amber-100 transition-colors">
-                            {/^(?:first|second) schedule\b/i.test(formatSectionLabel(source))
-                              ? formatSectionLabel(source)
-                              : `Section ${formatSectionLabel(source)}`}
-                          </h4>
-
-                          {explanation && (
-                            <p className="text-[11px] text-neutral-300 mt-1.5 leading-relaxed bg-[#0d0d0f] p-2 rounded-lg border border-white/5">
-                              {explanation}
-                            </p>
-                          )}
-
-                          {sourceText && (
-                            <details className="mt-2 text-[11px] group/details">
-                              <summary className="cursor-pointer text-neutral-400 hover:text-neutral-200 select-none py-0.5 flex items-center gap-1">
-                                <span>{verified ? 'Verbatim statutory text' : 'Provision excerpt'}</span>
+                          return (
+                            <details key={`${source.code}-${sectionLabel}-${index}`} className="group py-1.5">
+                              <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-neutral-200 hover:text-white">
+                                <FileText size={13} className="shrink-0 text-amber-300" />
+                                <span className="min-w-0 flex-1">{referenceLabel}</span>
+                                <span className={`shrink-0 text-[9px] ${verified ? 'text-emerald-300' : 'text-neutral-500'}`}>
+                                  {verified ? 'Text matched' : 'Reference'}
+                                </span>
                               </summary>
-                              <div className="mt-1.5 p-2 rounded-lg bg-[#0a0a0c] border border-white/5 text-neutral-300 font-mono text-[10px] leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar">
-                                {sourceText}
+                              <div className="ml-5 mt-2 space-y-2 border-l border-white/10 pl-3">
+                                {verified && (
+                                  <p className="text-[10px] leading-relaxed text-neutral-500">
+                                    Source text matched; this alone does not verify application to the facts.
+                                  </p>
+                                )}
+                                {explanation && <p className="text-[11px] leading-relaxed text-neutral-300">{explanation}</p>}
+                                {sourceText && (
+                                  <details className="text-[10px] text-neutral-400">
+                                    <summary className="cursor-pointer">{verified ? 'Show statutory text' : 'Show excerpt'}</summary>
+                                    <div className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-black/30 p-2 font-mono leading-relaxed text-neutral-300">
+                                      {sourceText}
+                                    </div>
+                                  </details>
+                                )}
+                                <div className="flex items-center justify-between gap-3 text-[10px]">
+                                  {officialUrl ? (
+                                    <a href={officialUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300">
+                                      Official statute text <ExternalLink size={10} />
+                                    </a>
+                                  ) : <span className="text-neutral-500">Statute reference</span>}
+                                  <span className="text-neutral-600">Ref #{index + 1}</span>
+                                </div>
                               </div>
                             </details>
-                          )}
-                        </div>
-
-                        <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
-                          {officialUrl ? (
-                            <a
-                              href={officialUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] text-sky-400 hover:text-sky-300 font-medium transition-colors"
-                            >
-                              <span>Official Text & Gazette</span>
-                              <ExternalLink size={11} />
-                            </a>
-                          ) : (
-                            <span className="text-[10px] text-neutral-500 font-mono">India Code Reference</span>
-                          )}
-                          <span className="text-[9px] text-neutral-500 font-mono">Ref #{idx + 1}</span>
-                        </div>
-                      </article>
-                    );
-                  })}
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               )}
             </div>

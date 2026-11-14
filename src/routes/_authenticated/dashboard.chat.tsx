@@ -167,9 +167,12 @@ const formatAnalysis = (
   const sections: string[] = [];
   const isAnalysisFailureText = (value?: string): boolean =>
     Boolean(value && /couldn't formulate a specific legal analysis/i.test(value));
+  const explicitQuestionSections = options.query
+    ? buildExplicitQuestionSections(options.query, result)
+    : null;
 
-  // 1. Conversational Reply
-  if (result.conversational_reply?.trim() && !isAnalysisFailureText(result.conversational_reply)) {
+  // A conversational summary often repeats the structured rights and action plan.
+  if (!explicitQuestionSections?.length && result.conversational_reply?.trim() && !isAnalysisFailureText(result.conversational_reply)) {
     sections.push(result.conversational_reply.trim());
   }
 
@@ -181,10 +184,6 @@ const formatAnalysis = (
     result.bail_status?.trim() || result.bail_options?.trim() || result.legal_aid?.trim()
       || result.rights?.length || result.next_24_hours?.length,
   );
-  const explicitQuestionSections = options.query
-    ? buildExplicitQuestionSections(options.query, result)
-    : null;
-
   if (explicitQuestionSections?.length) {
     sections.push(...explicitQuestionSections.map(({ heading, answer }) => `### ${heading}\n\n${answer}`));
   } else if (hasQuestionAnswers) {

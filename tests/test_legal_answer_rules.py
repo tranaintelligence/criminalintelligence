@@ -28,8 +28,8 @@ class LegalAnswerRuleTests(unittest.TestCase):
         source = _apply_bns_303_bail_rule(analysis, "FIR says BNS 303(2); value unknown")
 
         self.assertIn("non-bailable", analysis.bail_status.lower())
-        self.assertIn("bail is prohibited", analysis.bail_options.lower())
-        self.assertIn("BNSS Section 480", analysis.bail_options)
+        self.assertIn("bail is barred", analysis.bail_options.lower())
+        self.assertIn("Section 480", analysis.bail_options)
         self.assertEqual("unverified", source.quote_status)
         self.assertIn("indiacode.nic.in", source.source_url)
 
@@ -80,9 +80,9 @@ class LegalAnswerRuleTests(unittest.TestCase):
         )
         self.assertIn("Non-bailable", analysis.bail_status)
         self.assertIn("\u20b935,000", analysis.bail_status)
-        self.assertIn("no prior criminal record", analysis.bail_options)
-        self.assertIn("daily-wage", analysis.bail_options)
-        self.assertIn("his age of 23 (he is an adult)", analysis.legal_reasoning)
+        self.assertIn("no prior criminal record", analysis.legal_reasoning)
+        self.assertIn("daily-wage", analysis.legal_reasoning)
+        self.assertIn("age 23 (an adult)", analysis.legal_reasoning)
         self.assertIn("do not change", analysis.legal_reasoning)
 
     def test_custody_response_fills_rights_and_action_plan(self):
@@ -92,8 +92,11 @@ class LegalAnswerRuleTests(unittest.TestCase):
         rights = " ".join(analysis.rights)
         self.assertIn("Section 35", rights)
         self.assertIn("Section 47", rights)
+        self.assertIn("Section 36", rights)
         self.assertIn("Section 38", rights)
         self.assertIn("Section 48", rights)
+        self.assertIn("Section 53", rights)
+        self.assertIn("Section 56", rights)
         self.assertIn("24 hours", rights)
         self.assertIn("15100", analysis.legal_aid)
         self.assertIn("1516", analysis.legal_aid)
@@ -103,7 +106,7 @@ class LegalAnswerRuleTests(unittest.TestCase):
         analysis = StructuredAnalysis()
         _ensure_custody_law_candidates(analysis, "My brother is under arrest", get_registry())
         sections = {(law.code, law.section) for law in analysis.applicable_laws}
-        self.assertTrue({("BNSS", section) for section in ("35", "38", "47", "48", "57", "58", "480")}.issubset(sections))
+        self.assertTrue({("BNSS", section) for section in ("35", "36", "38", "47", "48", "53", "56", "57", "58", "480")}.issubset(sections))
 
     def test_custody_required_rights_replace_incomplete_model_items(self):
         analysis = StructuredAnalysis(rights=["BNSS Section 48 exists."])
@@ -137,14 +140,14 @@ class LegalAnswerRuleTests(unittest.TestCase):
         self.assertIn("### 4. Can he get free legal aid, and where in Delhi?", analysis.general_analysis)
         self.assertIn("### 5. What should our family do in the next 24 hours?", analysis.general_analysis)
         self.assertIn("Non-bailable", analysis.general_analysis)
-        self.assertIn("Yes. Non-bailable does not mean bail is prohibited", analysis.general_analysis)
-        self.assertIn("BNSS Section 480", analysis.general_analysis)
+        self.assertIn("Yes. Non-bailable does not mean bail is barred", analysis.general_analysis)
+        self.assertIn("Section 480", analysis.general_analysis)
         self.assertIn("\u20b935,000", analysis.general_analysis)
         self.assertIn("1516", analysis.general_analysis)
         self.assertIn("Section 12(g)", analysis.general_analysis)
         self.assertNotIn("family reports the family reports", analysis.general_analysis.lower())
         self.assertEqual(1, analysis.general_analysis.count("DSLSA 1516"))
-        self.assertIn("Case application:", analysis.bail_options)
+        self.assertIn("Case-specific bail considerations:", analysis.bail_options)
         self.assertEqual("", analysis.legal_reasoning)
         self.assertEqual("Can he get bail?", analysis.section_headings["bail_options"])
         self.assertNotIn("couldn't formulate", analysis.general_analysis)
@@ -177,7 +180,7 @@ class LegalAnswerRuleTests(unittest.TestCase):
 
         self.assertEqual("deterministic:custody-provider-fallback", response.model_used)
         self.assertIn("Non-bailable", response.analysis.general_analysis)
-        self.assertIn("BNSS Section 480", response.analysis.general_analysis)
+        self.assertIn("Section 480", response.analysis.general_analysis)
         self.assertIn("1516", response.analysis.general_analysis)
         self.assertIn("24 hours", response.analysis.general_analysis)
 

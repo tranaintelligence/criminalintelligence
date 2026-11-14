@@ -49,6 +49,18 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+BNSS_SCHEDULE_URL = "https://www.indiacode.nic.in/bitstream/123456789/20340/1/bnss%2C_2023.pdf"
+LEGAL_SERVICES_ACT_URL = "https://upload.indiacode.nic.in/showfile?actid=AC_DH_62_1290_00001_00001_1562745383931&filename=the_legal_service_authorities_act%2C_1987.pdf&type=actfile"
+LEGAL_SERVICES_SECTION_12_URL = "https://indiacode.ecourtsindia.com/legal-services-authorities-act-1987/section/12/"
+
+
+def _provision_url(code: str, section: str) -> str:
+    """Link directly to the cited provision; official Act PDFs remain in sources."""
+    code = code.lower()
+    if code not in {"bns", "bnss"}:
+        raise ValueError(f"Unsupported provision code: {code}")
+    return f"https://indiacode.ecourtsindia.com/{code}/section/{section}/"
+
 _llms = {}
 _REPEATED_WORDS = re.compile(r"\b(\w+)(?:\s+\1){2,}\b", re.IGNORECASE)
 _EXPLICIT_LAW_SECTION = re.compile(
@@ -1081,7 +1093,7 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
 
     if same_property_exception:
         analysis.bail_status = (
-            "Bailable under the separate BNSS First Schedule entry for theft valued below \u20b95,000 "
+            f"Bailable under the separate [BNSS First Schedule entry]({BNSS_SCHEDULE_URL}) for theft valued below \u20b95,000 "
             "where the value is returned or the stolen property is restored. The BNS 303(2) community-service punishment also requires a first conviction; confirm these facts from the FIR and recovery record."
         )
         analysis.bail_options = (
@@ -1089,60 +1101,40 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
         )
     else:
         analysis.bail_status = (
-            "Non-bailable. The BNSS First Schedule, Part I classifies ordinary theft under BNS Section 303(2) as non-bailable. "
+            f"Non-bailable. [BNS Section 303(2)]({_provision_url('bns', '303')}) is classified as non-bailable in "
+            f"[BNSS First Schedule, Part I]({BNSS_SCHEDULE_URL}). "
             + (
                 f"The reported stolen-item value, \u20b9{stated_amount:,}, is above the separate below-\u20b95,000 entry."
                 if stated_amount is not None else
                 "A separate bailable entry concerns property below \u20b95,000 when its value is returned or the property is restored."
             )
         )
-        bail_factors = []
-        lowered = context.lower()
-        if re.search(r"\bno (?:prior |previous )?(?:criminal )?record\b|\bno criminal record\b", lowered):
-            bail_factors.append("no prior criminal record")
-        if re.search(r"daily[- ]wage|daily[- ]wager", lowered):
-            bail_factors.append("daily-wage work and financial circumstances")
-        factors = (
-            " The lawyer can present " + " and ".join(bail_factors)
-            + " with reliable supporting details; these factors do not guarantee release."
-            if bail_factors else ""
-        )
         analysis.bail_options = (
-            "Yes. Non-bailable does not mean bail is prohibited. A Magistrate may consider regular bail under BNSS Section 480, "
-            "subject to the statutory conditions and full case record."
-            + factors
+            "Yes. Non-bailable does not mean bail is barred. A Magistrate may consider regular bail under "
+            f"BNSS [Section 480]({_provision_url('bnss', '480')}), subject to its conditions and the case record."
         )
 
-    application = [
-        "The user identifies the FIR allegation as BNS Section 303(2), which concerns punishment for theft; the allegation alone does not prove dishonest taking or guilt.",
-        (
-            f"The reported laptop value is \u20b9{stated_amount:,}, above the separate below-\u20b95,000 Schedule entry."
-            if stated_amount is not None else "Confirm the value of the alleged stolen property from the FIR and recovery record."
-        ),
-    ]
+    application = []
     lowered = context.lower()
     personal_factors = []
     if re.search(r"\bno (?:prior |previous )?(?:criminal )?record\b|\bno criminal record\b", lowered):
-        personal_factors.append("the absence of any prior criminal record")
+        personal_factors.append("no prior criminal record")
     if re.search(r"daily[- ]wage|daily[- ]wager", lowered):
-        personal_factors.append("daily-wage employment")
+        personal_factors.append("daily-wage work")
     if re.search(r"\b23[- ]year[- ]old\b|\b23 years? old\b", lowered):
-        personal_factors.append("his age of 23 (he is an adult)")
+        personal_factors.append("age 23 (an adult)")
     if personal_factors:
         application.append(
             "The family reports " + ", ".join(personal_factors)
-            + ". The lawyer can explain these circumstances to the bail court with supporting details; "
-            "they do not change the offence's ordinary bailability classification."
-        )
-    if stated_amount is not None and stated_amount >= 5000:
-        application.append(
-            "The below-\u20b95,000 bailable-entry exception does not fit the stated value."
+            + ". Counsel can support these facts with documents."
         )
     application.append(
-        "The bail court will assess the actual record, including recovery, investigation needs, residence and risk of non-appearance; "
-        "the family has not supplied facts about recovery or the prosecution's position."
+        "The court will also consider recovery, remaining investigation, residence and risk of non-appearance; "
+        "the family has not provided the recovery status or prosecution position."
     )
-    analysis.legal_reasoning = "Case application: " + " ".join(application)
+    if personal_factors:
+        application.append("These personal circumstances do not change the offence's bailability classification.")
+    analysis.legal_reasoning = "Case-specific bail considerations: " + " ".join(application)
 
     schedule_text = (
         "BNSS First Schedule, Part I, BNS 303(2): theft is cognizable and non-bailable, triable by Any Magistrate. "
@@ -1156,7 +1148,7 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
         section="First Schedule, Part I — BNS 303(2)",
         quote="",
         verified=False,
-        source_url="https://www.indiacode.nic.in/bitstream/123456789/20340/1/bnss%2C_2023.pdf",
+        source_url=BNSS_SCHEDULE_URL,
         source_version="India Code BNSS First Schedule, reviewed 2026-11-14",
         quote_status="unverified",
     )
@@ -1188,31 +1180,33 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
     ):
         return None
     required_rights = [
-        "For a cognizable offence punishable up to seven years, BNSS Section 35 requires police to assess whether arrest is necessary and record reasons; where arrest is not required, the law provides for a notice to appear. Ask the lawyer to check the recorded reasons and arrest procedure.",
-        "Under BNSS Section 47(1), police must promptly communicate the full grounds of arrest. The separate duty to inform an arrested person of a right to bail in Section 47(2) applies to bailable offences; the alleged offence here is ordinarily non-bailable.",
-        "The arrested person may meet an advocate of their choice during interrogation under BNSS Section 38; this does not mean the advocate must be present throughout questioning.",
-        "Police must inform a nominated relative or friend of the arrest and place of detention under BNSS Section 48.",
-        "The arrested person must be taken before a Magistrate without unnecessary delay and not detained beyond 24 hours, excluding necessary travel time, under BNSS Sections 57 and 58 and Article 22(2) of the Constitution. A lawful court order may authorize further custody.",
+        f"For an offence punishable up to seven years, police must assess whether arrest is necessary, record reasons, and issue an appearance notice when arrest is not required ([BNSS Section 35]({_provision_url('bnss', '35')})). The officer must prepare an arrest memo attested by a family member or respectable local witness and countersigned by the arrested person ([Section 36]({_provision_url('bnss', '36')})), and promptly communicate the full grounds ([Section 47]({_provision_url('bnss', '47')})).",
+        f"He may meet an advocate of his choice during interrogation, though not throughout it ([BNSS Section 38]({_provision_url('bnss', '38')})).",
+        f"Police must notify a relative, friend or person he nominated about the arrest and place of detention ([BNSS Section 48]({_provision_url('bnss', '48')})).",
+        f"He must be brought before a Magistrate without unnecessary delay and ordinarily within 24 hours, excluding necessary travel time; further detention requires lawful authority ([BNSS Section 57]({_provision_url('bnss', '57')}); [Section 58]({_provision_url('bnss', '58')}); Constitution Article 22(2)).",
+        f"A medical officer must examine him soon after arrest, record injuries and their approximate timing, and provide the report to him or his nominee ([BNSS Section 53]({_provision_url('bnss', '53')})).",
+        f"The person holding him in custody must take reasonable care of his health and safety ([BNSS Section 56]({_provision_url('bnss', '56')})). Tell the lawyer and Magistrate promptly about any injury, threat or urgent medical need.",
     ]
     analysis.rights = required_rights
     if re.search(r"\bdelhi\b", text):
         analysis.legal_aid = (
-            "Yes. A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987. "
+            f"Yes. A person in custody is eligible to seek free legal services under [Section 12(g) of the Legal Services Authorities Act, 1987]({LEGAL_SERVICES_SECTION_12_URL}). "
             "In Delhi, call [DSLSA 1516](https://dslsa.org/wp-content/uploads/2024/12/AO-final-directory-with-cover.pdf) "
             "or [NALSA 15100](https://nalsa.gov.in/faqs/) and ask for the DLSA covering the police station or court district; "
             "the family can also request a legal-aid lawyer from the Magistrate or jail legal-aid clinic."
         )
     else:
         analysis.legal_aid = (
-            "Yes. A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987. "
+            f"Yes. A person in custody is eligible to seek free legal services under [Section 12(g) of the Legal Services Authorities Act, 1987]({LEGAL_SERVICES_SECTION_12_URL}). "
             "Ask the Magistrate, jail legal-aid clinic, or district DLSA for a lawyer; call [NALSA 15100](https://nalsa.gov.in/faqs/)."
         )
 
     required_steps = [
-        "Call the police station now. Confirm the FIR number, arrest time, officer in charge and current location. Ask the officer to communicate the full arrest grounds, and write down the answers.",
-        "Ask whether and when the arrested person will be produced before a Magistrate. Get the court name and production time; if 24 hours from arrest (excluding necessary travel) may pass, contact the Magistrate's court and legal-aid lawyer urgently.",
-        "Request a legal-aid lawyer immediately through the station or Magistrate. Use the contacts in the legal-aid section and give them the police-station or court location so they can direct you to the right district DLSA.",
-        "Ask the lawyer to obtain/review the FIR and arrest papers and request bail from the competent court. Share proof of his address, work, family ties, and no prior record if available; do not assume recovery facts.",
+        "Call the police station now. Confirm the FIR number, arrest time, officer in charge, current location and Magistrate production time. Check that production will happen within 24 hours of arrest, excluding necessary travel; contact the Magistrate and legal-aid lawyer urgently if it may be missed.",
+        "Ask for the arrest memo and confirm that a nominated relative was informed. Tell the lawyer if either step appears missing.",
+        "Confirm that the medical examination happened. Report any injury or urgent health issue and ask the lawyer to obtain the examination report.",
+        "Request a legal-aid lawyer immediately through the station or Magistrate. Use the contacts in the legal-aid section and provide the police-station or court location for district routing.",
+        "Ask the lawyer to review the FIR and arrest/medical papers and seek bail. Share proof of address, work, family ties and no prior record if available.",
     ]
     analysis.next_24_hours = required_steps
     aid_text = (
@@ -1227,7 +1221,7 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
         section="12(g)",
         quote="",
         verified=False,
-        source_url="https://upload.indiacode.nic.in/showfile?actid=AC_DH_62_1290_00001_00001_1562745383931&filename=the_legal_service_authorities_act%2C_1987.pdf&type=actfile",
+        source_url=LEGAL_SERVICES_ACT_URL,
         source_version="India Code Legal Services Authorities Act, reviewed 2026-11-14",
         quote_status="unverified",
     )
@@ -1348,6 +1342,7 @@ def _compose_custody_answer(analysis: StructuredAnalysis, query: str = "") -> No
     analysis.situation_meaning = (
         "The FIR alleges theft under BNS Section 303(2). An FIR is an accusation, not a finding of guilt."
     )
+    analysis.conversational_reply = None
     analysis.is_conversational = False
     analysis.suggest_lawyer = True
 
@@ -1794,7 +1789,7 @@ def _ensure_custody_law_candidates(
         ((law.code or law.act).upper(), str(law.section).strip())
         for law in analysis.applicable_laws
     }
-    for section in ("35", "38", "47", "48", "57", "58", "480"):
+    for section in ("35", "36", "38", "47", "48", "53", "56", "57", "58", "480"):
         if ("BNSS", section) in existing:
             continue
         record = registry.lookup(code="BNSS", section=section)
