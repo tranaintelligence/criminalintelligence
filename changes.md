@@ -1,5 +1,22 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-14] - Render answers under each explicit user question
+
+### Changes
+- Chat analysis formatting now receives the original query for new replies and persisted chat history.
+- When a query contains numbered questions or direct question sentences, the UI renders each question as a numbered heading and places its corresponding structured answer beneath it. Bail status and bail availability are distinguished; arrest rights, legal aid, and urgent action steps map to their own fields.
+- Bail-availability answers also include case-specific legal reasoning when present, so facts such as property value, record, work, recovery, and investigation needs remain visible with the bail discussion.
+- Added a local coverage fallback so every extracted question retains a non-empty answer section when a structured field is missing. This does not add an LLM call or prompt tokens.
+- Added focused frontend regression tests for the five-question arrest scenario, unnumbered questions, and missing-field fallback.
+
+### Verification
+- `npm test -- --run` passed (2 test files, 4 tests).
+- `npm run build` passed. Vite emitted its existing chunk-size and plugin-timing notices; the build completed successfully.
+
+### Future-agent notes
+- The question-to-field mapping is deliberately local and deterministic; it does not add an LLM call. Extend mappings alongside the structured response schema when adding new legal answer fields.
+- Chat history formatting associates an assistant answer with the most recent preceding user message; preserve this pairing when changing message persistence or rendering.
+
 
 ## [2026-11-14] - Reviewed theft/custody answer reliability and shared LLM token budget
 

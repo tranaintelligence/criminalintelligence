@@ -22,6 +22,7 @@ import { SystemStatus } from '@/components/Sidebar/SystemStatus';
 import { ConnectProfessionalOfferModal } from '@/components/ConnectProfessionalOfferModal';
 import { supabase } from '@/integrations/supabase/client';
 import type { ApplicableLaw, ChatMessage, ChatSession, StructuredAnalysis } from '@/lib/trana-types';
+import { buildExplicitQuestionSections } from '@/lib/analysis-questions';
 import { authFetch, authHeaders, notifyApiOnline, useTranaCredential, API_ONLINE_EVENT } from '@/lib/trana-auth';
 import { API_URL } from '@/lib/trana-backend';
 
@@ -157,7 +158,7 @@ const formatLegalLaw = (law: ApplicableLaw): string => {
 
 const formatAnalysis = (
   analysis: unknown,
-  options: { includeLegacyLawSummary?: boolean } = {},
+  options: { includeLegacyLawSummary?: boolean; query?: string } = {},
 ): string => {
   if (typeof analysis === 'string') return analysis;
   if (!analysis || typeof analysis !== 'object') return 'The backend returned an empty analysis.';
@@ -180,8 +181,13 @@ const formatAnalysis = (
     result.bail_status?.trim() || result.bail_options?.trim() || result.legal_aid?.trim()
       || result.rights?.length || result.next_24_hours?.length,
   );
+  const explicitQuestionSections = options.query
+    ? buildExplicitQuestionSections(options.query, result)
+    : null;
 
-  if (hasQuestionAnswers) {
+  if (explicitQuestionSections?.length) {
+    sections.push(...explicitQuestionSections.map(({ heading, answer }) => `### ${heading}\n\n${answer}`));
+  } else if (hasQuestionAnswers) {
     if (result.bail_status?.trim()) {
       sections.push(`### ${sectionHeading(result, 'bail_status', '1. Is the offence bailable?')}\n\n${result.bail_status.trim()}`);
     }
@@ -650,13 +656,18 @@ export function ChatViewContent() {
         const chat = (await response.json()) as ChatSession;
         if (!active) return;
 
-        const loadedMessages: ChatMessage[] = (chat.messages ?? []).map((message) => {
+        const chatMessages = chat.messages ?? [];
+        const loadedMessages: ChatMessage[] = chatMessages.map((message, index) => {
           const sources = message.sources ?? undefined;
+          const previousUserMessage = [...chatMessages.slice(0, index)].reverse().find((prior) => prior.role === 'user');
           return {
             role: message.role,
             content:
               message.role === 'assistant' && message.structured_content
-                ? formatAnalysis(message.structured_content, { includeLegacyLawSummary: !sources?.length })
+                ? formatAnalysis(message.structured_content, {
+                    includeLegacyLawSummary: !sources?.length,
+                    query: previousUserMessage?.content,
+                  })
                 : message.content,
             sources,
             structured_content: message.structured_content,
@@ -833,7 +844,10 @@ export function ChatViewContent() {
         const sources = Array.isArray(data.sources) ? data.sources : undefined;
         const assistantMessage: ChatMessage = {
           role: 'assistant',
-          content: formatAnalysis(data.analysis, { includeLegacyLawSummary: !sources?.length }),
+          content: formatAnalysis(data.analysis, {
+            includeLegacyLawSummary: !sources?.length,
+            query: newMessage.content,
+          }),
           sources,
           structured_content: data.analysis,
           model_used: data.model_used,
