@@ -322,14 +322,16 @@ class StructuredAnalysis(BaseModel):
     suggest_lawyer: bool = Field(default=False, description="True if the user's situation is severe or complex enough that they should consult a real lawyer.")
     general_analysis: str = Field(default="", description="1. General Legal Analysis (Use this for general questions like 'What is the difference between X and Y'). Leave empty if it's a specific personal situation.")
     situation_meaning: str = Field(default="", description="1. What the situation means")
-    bail_status: str = Field(default="", description="2. Bail Status")
+    bail_status: str = Field(default="", description="Direct answer: is the charged offence bailable or non-bailable? Name the exact Act/section and classification.")
+    bail_options: str = Field(default="", description="Direct answer whether bail can still be granted and by which court/provision; apply relevant stated facts without guaranteeing release.")
     next_24_hours: list[str] = Field(default_factory=list, description="3. What to do in the next 24 hours (Step-by-Step)")
     rights: list[str] = Field(default_factory=list, description="4. Your Rights")
+    legal_aid: str = Field(default="", description="Direct answer on free legal aid eligibility and the specific local legal services authority/contact when known.")
     handling_authority: str = Field(default="", description="5. Which Authority handles this?")
     legal_reasoning: str = Field(default="", description="6. Legal reasoning at the end")
     section_headings: dict[str, str] = Field(
         default_factory=dict,
-        description="Optional concise custom headings for populated sections. Keys: situation_meaning, bail_status, next_24_hours, rights, handling_authority, legal_reasoning.",
+        description="Optional question-style headings chosen for this user. Keys: situation_meaning, bail_status, bail_options, next_24_hours, rights, legal_aid, handling_authority, legal_reasoning.",
     )
     applicable_laws: list[ApplicableLaw] = Field(default_factory=list, description="List of applicable laws")
     relevant_source_indices: list[int] = Field(default_factory=list, description="Deprecated legacy chunk indices.")

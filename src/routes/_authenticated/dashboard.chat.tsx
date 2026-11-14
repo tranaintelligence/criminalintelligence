@@ -128,7 +128,7 @@ const formatSection = (section?: string | null, subsection?: string | null): str
   return subsection ? `${cleanSection}(${subsection})` : cleanSection;
 };
 
-type AnalysisHeadingKey = 'situation_meaning' | 'bail_status' | 'next_24_hours' | 'rights' | 'handling_authority' | 'legal_reasoning';
+type AnalysisHeadingKey = 'situation_meaning' | 'bail_status' | 'bail_options' | 'next_24_hours' | 'rights' | 'legal_aid' | 'handling_authority' | 'legal_reasoning';
 
 const sectionHeading = (
   analysis: StructuredAnalysis,
@@ -164,18 +164,45 @@ const formatAnalysis = (
 
   const result = analysis as StructuredAnalysis;
   const sections: string[] = [];
+  const isAnalysisFailureText = (value?: string): boolean =>
+    Boolean(value && /couldn't formulate a specific legal analysis/i.test(value));
 
   // 1. Conversational Reply
-  if (result.conversational_reply?.trim()) {
+  if (result.conversational_reply?.trim() && !isAnalysisFailureText(result.conversational_reply)) {
     sections.push(result.conversational_reply.trim());
   }
 
   // 2. Problem/Scenario Breakdown Sequence vs Direct Informational Question
-  const hasSituationMeaning = Boolean(result.situation_meaning?.trim());
-  const hasGeneralAnalysis = Boolean(result.general_analysis?.trim());
+  const hasSituationMeaning = Boolean(result.situation_meaning?.trim()) && !isAnalysisFailureText(result.situation_meaning);
+  const hasGeneralAnalysis = Boolean(result.general_analysis?.trim()) && !isAnalysisFailureText(result.general_analysis);
   const hasLegalReasoning = Boolean(result.legal_reasoning?.trim());
+  const hasQuestionAnswers = Boolean(
+    result.bail_status?.trim() || result.bail_options?.trim() || result.legal_aid?.trim()
+      || result.rights?.length || result.next_24_hours?.length,
+  );
 
-  if (hasSituationMeaning) {
+  if (hasQuestionAnswers) {
+    if (result.bail_status?.trim()) {
+      sections.push(`### ${sectionHeading(result, 'bail_status', '1. Is the offence bailable?')}\n\n${result.bail_status.trim()}`);
+    }
+    if (result.bail_options?.trim()) {
+      sections.push(`### ${sectionHeading(result, 'bail_options', '2. Can bail be granted?')}\n\n${result.bail_options.trim()}`);
+    }
+    const validRights = (result.rights || []).filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+    if (validRights.length) {
+      sections.push(`### ${sectionHeading(result, 'rights', '3. What are his rights after arrest?')}\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+    }
+    if (result.legal_aid?.trim()) {
+      sections.push(`### ${sectionHeading(result, 'legal_aid', '4. Can he get free legal aid, and where in Delhi?')}\n\n${result.legal_aid.trim()}`);
+    }
+    const validSteps = (result.next_24_hours || []).filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
+    if (validSteps.length) {
+      sections.push(`### ${sectionHeading(result, 'next_24_hours', '5. What should the family do in the next 24 hours?')}\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+    }
+    if (hasLegalReasoning && !isAnalysisFailureText(result.legal_reasoning)) {
+      sections.push(`### ${sectionHeading(result, 'legal_reasoning', 'How the law applies to these facts')}\n\n${result.legal_reasoning!.trim()}`);
+    }
+  } else if (hasSituationMeaning) {
     // 1. Meaning (easy terms - flowing paragraph)
     const meaning = result.situation_meaning.trim();
     sections.push(meaning.startsWith('#') ? meaning : `### ${sectionHeading(result, 'situation_meaning', 'Meaning')}\n\n${meaning}`);

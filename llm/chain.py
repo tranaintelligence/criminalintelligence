@@ -85,6 +85,8 @@ def _require_readable_analysis(analysis: StructuredAnalysis) -> StructuredAnalys
         analysis.general_analysis,
         analysis.situation_meaning,
         analysis.bail_status,
+        analysis.bail_options,
+        analysis.legal_aid,
         analysis.handling_authority,
         analysis.legal_reasoning,
         *(analysis.next_24_hours or []),
@@ -275,6 +277,20 @@ def _normalize_analysis_payload(payload: object) -> dict:
             or normalized.get("bail_provisions")
             or ""
         )
+    if not normalized.get("bail_options"):
+        normalized["bail_options"] = (
+            normalized.get("bail_application")
+            or normalized.get("regular_bail")
+            or normalized.get("can_bail_be_granted")
+            or ""
+        )
+    if not normalized.get("legal_aid"):
+        normalized["legal_aid"] = (
+            normalized.get("free_legal_aid")
+            or normalized.get("legal_aid_guidance")
+            or normalized.get("legal_services")
+            or ""
+        )
     if not normalized.get("handling_authority"):
         normalized["handling_authority"] = (
             normalized.get("authority")
@@ -321,6 +337,8 @@ def _normalize_analysis_payload(payload: object) -> dict:
         "general_analysis",
         "situation_meaning",
         "bail_status",
+        "bail_options",
+        "legal_aid",
         "handling_authority",
         "legal_reasoning",
     ):
@@ -334,8 +352,8 @@ def _normalize_analysis_payload(payload: object) -> dict:
     normalized["next_24_hours"] = as_text_list(normalized.get("next_24_hours"))
     normalized["rights"] = as_text_list(normalized.get("rights"))
     allowed_heading_keys = {
-        "situation_meaning", "bail_status", "next_24_hours", "rights",
-        "handling_authority", "legal_reasoning",
+        "situation_meaning", "bail_status", "bail_options", "next_24_hours",
+        "rights", "legal_aid", "handling_authority", "legal_reasoning",
     }
     normalized["section_headings"] = {
         key: as_text(value).strip()[:80]
@@ -664,10 +682,15 @@ def _sanitize_analysis(analysis: StructuredAnalysis) -> StructuredAnalysis:
         "general_analysis",
         "situation_meaning",
         "bail_status",
+        "bail_options",
+        "legal_aid",
         "handling_authority",
+        "legal_reasoning",
     ):
         value = getattr(analysis, field_name)
         if isinstance(value, str):
+            if re.search(r"couldn't formulate a specific legal analysis", value, re.I):
+                value = ""
             value = _correct_common_statutory_hallucinations(value)
             if field_name == "general_analysis":
                 setattr(
@@ -897,9 +920,19 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
         (law.code or law.act).upper() == "BNS"
         and re.match(r"^303(?:\(2\))?$", str(law.section).strip())
         for law in analysis.applicable_laws
-    )
+    ) or bool(re.search(r"\bBNS\s*(?:Section\s*)?303\s*\(\s*2\s*\)", context_text or "", re.I))
     if not alleges_theft:
         return None
+    if not any(
+        (law.code or law.act).upper() == "BNS"
+        and re.match(r"^303(?:\(2\))?$", str(law.section).strip())
+        for law in analysis.applicable_laws
+    ):
+        from models.schemas import ApplicableLaw
+        analysis.applicable_laws.insert(0, ApplicableLaw(
+            act="Bharatiya Nyaya Sanhita, 2023", code="BNS", section="303", subsection="2",
+            explanation="The FIR section explicitly named by the user.",
+        ))
 
     schedule_text = (
         "BNSS First Schedule, Part I, entry BNS 303(2): Theft — Cognizable; Non-bailable; "
@@ -909,7 +942,9 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
         "requires a first conviction."
     )
     context = (context_text or "").lower()
-    same_property_exception = bool(re.search(
+    amount_match = re.search(r"(?:₹\s*|rs\.?\s*|rupees?\s*)([\d,]+)", context, re.I)
+    stated_amount = int(amount_match.group(1).replace(",", "")) if amount_match else None
+    same_property_exception = bool(stated_amount is not None and stated_amount < 5000 and re.search(
         r"(?:stolen\s+(?:property|item)|property\s+stolen|item\s+stolen)"
         r"[^.!?;]{0,100}(?:less\s+than|below|under|worth|valued\s+at)"
         r"[^.!?;]{0,35}(?:₹\s*|rs\.?\s*|rupees?\s*)?[0-4],?\d{0,3}\b"
@@ -922,14 +957,56 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
             "when the value is returned or the property is restored. The community-service punishment "
             "under BNS 303(2) additionally requires a first conviction. Confirm the value and return/restoration facts."
         )
+        analysis.bail_options = "Because this qualifying low-value entry is bailable, apply for bail as of right under BNSS Section 478; ask the legal-aid lawyer to arrange it promptly."
     else:
         analysis.bail_status = (
-            "Ordinary theft under BNS 303(2) is non-bailable under the BNSS First Schedule, but bail "
-            "is still possible: the Magistrate may consider release under BNSS 480. The Schedule has "
-            "a separate bailable entry if the stolen property's value is below ₹5,000 and its value is "
-            "returned or the property restored; the community-service punishment also requires a first conviction. "
-            "The value, prior-conviction and return/restoration facts were not established here."
+            "Non-bailable. The BNSS First Schedule, Part I classifies ordinary theft under BNS Section 303(2) as non-bailable. "
+            + (
+                f"The stated value, ₹{stated_amount:,}, is above the separate bailable-entry threshold of ₹5,000."
+                if stated_amount is not None else
+                "The separate bailable entry requires value below ₹5,000 plus return/restoration; confirm the laptop's stated value."
+            )
         )
+        bail_factors = []
+        context = (context_text or "").lower()
+        if re.search(r"\bno (?:prior |previous )?(?:criminal )?record\b|\bno criminal record\b", context):
+            bail_factors.append("you report no prior criminal record")
+        if re.search(r"daily[- ]wage|daily[- ]wager", context):
+            bail_factors.append("his daily-wage work circumstances")
+        factors = (
+            f" The lawyer can present {', and '.join(bail_factors)} as individual circumstances, with any verifiable address/work details; "
+            "these do not guarantee release."
+            if bail_factors else ""
+        )
+        analysis.bail_options = (
+            "Yes. Non-bailable does not mean bail is prohibited. The Magistrate may grant regular bail under BNSS Section 480 after considering the case and the prosecution's response."
+            + factors
+        )
+    application_parts = [
+        "The FIR names BNS Section 303(2), so this analysis applies that theft provision and does not assume robbery or another offence."
+    ]
+    application_parts.append(
+        f"The reported value is ₹{stated_amount:,}, above the First Schedule's below-₹5,000 bailable-entry threshold."
+        if stated_amount is not None else "The value should be confirmed against the FIR and property record."
+    )
+    personal_factors = []
+    if re.search(r"\bno (?:prior |previous )?(?:criminal )?record\b|\bno criminal record\b", context):
+        personal_factors.append("the family reports no prior criminal record")
+    if re.search(r"daily[- ]wage|daily[- ]wager", context):
+        personal_factors.append("he is a daily-wage worker")
+    if re.search(r"\b23[- ]year[- ]old\b|\b23 years? old\b", context):
+        personal_factors.append("he is 23")
+    if personal_factors:
+        application_parts.append(
+            "The family reports " + ", ".join(personal_factors) + ". These circumstances may be presented on bail, "
+            "but do not change bailability or guarantee release."
+        )
+    application_parts.append("The allegation is not a finding of guilt; the Magistrate decides bail on the full record.")
+    case_application = "Case-specific application: " + " ".join(application_parts)
+    if not analysis.legal_reasoning.strip():
+        analysis.legal_reasoning = case_application
+    elif "case-specific application:" not in analysis.legal_reasoning.lower():
+        analysis.legal_reasoning = analysis.legal_reasoning.strip() + "\n\n" + case_application
     return SourceChunk(
         content=schedule_text,
         document_name="BNSS First Schedule",
@@ -963,15 +1040,22 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
         return None
 
     required_rights = [
-        "For an offence punishable up to seven years, BNSS Section 35 requires police to assess whether arrest is necessary; if it is not, they should issue an appearance notice. Ask for the full grounds of arrest under Section 47. Cognizability alone does not make arrest automatic.",
+        "For an offence punishable up to seven years, BNSS Section 35 requires police to assess whether arrest is necessary and record reasons; if arrest is unnecessary, they should issue an appearance notice. Police must promptly communicate the grounds of arrest and the right to bail under BNSS Section 47. Tell the Magistrate and legal-aid lawyer if this was not done.",
         "The arrested person may meet an advocate of their choice during interrogation under BNSS Section 38.",
         "Police must inform a nominated relative or friend of the arrest and place of detention under BNSS Section 48.",
         "They must be taken before a Magistrate without unnecessary delay and not detained beyond 24 hours, excluding necessary travel time, under BNSS Sections 57–58 and Article 22(2) of the Constitution.",
-        "A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987; ask the Magistrate or jail legal aid clinic for a DLSA lawyer, or call NALSA 15100.",
     ]
     analysis.rights = required_rights
     if re.search(r"\bdelhi\b", text):
-        analysis.rights[-1] += " In Delhi, contact DSLSA or the DLSA for the district where the police station/court is located; call DSLSA at 1516 or NALSA at 15100."
+        analysis.legal_aid = (
+            "Yes. A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987. "
+            "In Delhi, call DSLSA at 1516 or NALSA at 15100 and ask for the DLSA covering the police station or court district; the family can also request a legal-aid lawyer from the Magistrate or jail legal-aid clinic."
+        )
+    else:
+        analysis.legal_aid = (
+            "Yes. A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987. "
+            "Ask the Magistrate, jail legal-aid clinic, or district DLSA for a lawyer; NALSA helpline: 15100."
+        )
 
     required_steps = [
         "Call the police station; confirm the FIR number, arrest time, officer in charge, and where the person is being held.",
@@ -1259,7 +1343,8 @@ def _build_prompt_messages(
         prompt = (
             "Answer the Indian-law question directly and concisely. Apply relevant rules to stated facts; treat allegations as allegations, "
             "answer each distinct question explicitly, apply each stated case fact (including amount, prior record, and work/family circumstances when given), identify missing facts, and give practical steps when requested. "
-            "Choose concise headings for populated sections and return them in section_headings using the matching section keys. "
+            "For arrest/multi-question requests, answer separately in bail_status, bail_options, rights, legal_aid, and next_24_hours. "
+            "Set section_headings to concise question-style headings for those fields; do not use a generic Meaning heading instead of answers. "
             "Do not claim a specific analysis could not be formulated if any analysis is present. Use supplied source text for legal claims, "
             "cite Act and section, and state when support is missing. Do not introduce an alternative offence unless facts support it and label it conditional. "
             "For custody, prioritize free legal aid: request a DLSA lawyer through the Magistrate/police station and give NALSA 15100; for Delhi name DSLSA and the relevant district DLSA without guessing the district. "

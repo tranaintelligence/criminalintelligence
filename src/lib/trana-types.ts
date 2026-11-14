@@ -51,12 +51,14 @@ export interface StructuredAnalysis {
   general_analysis?: string;
   situation_meaning?: string;
   bail_status?: string;
+  bail_options?: string;
   next_24_hours?: string[];
   rights?: string[];
+  legal_aid?: string;
   handling_authority?: string;
   legal_reasoning?: string;
   section_headings?: Partial<Record<
-    'situation_meaning' | 'bail_status' | 'next_24_hours' | 'rights' | 'handling_authority' | 'legal_reasoning',
+    'situation_meaning' | 'bail_status' | 'bail_options' | 'next_24_hours' | 'rights' | 'legal_aid' | 'handling_authority' | 'legal_reasoning',
     string
   >>;
   applicable_laws?: ApplicableLaw[];

@@ -83,6 +83,13 @@
 ---
 
 
+### Follow-up — answer the user's numbered custody questions
+- Added dedicated structured fields for offence bail classification, whether bail can be granted, and free legal aid. The compact one-call prompt maps arrest questions to separate fields and asks the model for question-style custom headings.
+- Custody responses now render as direct numbered answers even if the model leaves its generic situation summary empty. Legacy failure text (“couldn't formulate a specific legal analysis”) is removed from structured answer fields so it cannot contradict populated legal guidance.
+- The BNS 303(2) rule now activates from an exact user-cited section even if the model omitted it from `applicable_laws`. It creates a backend candidate for source resolution, gives a direct non-bailable/bail-possible answer, applies the actual reported property value, and explains how reported clean record, age, and daily-wage work may be presented without implying a guaranteed outcome.
+- Custody first aid now includes a standalone legal-aid answer and directly states the BNSS 47 duty to communicate arrest grounds. Existing rights, 24-hour production rule, and four-step family action plan are rendered under the user's questions. Custom LLM headings remain bounded and optional; question headings are fallbacks for older or incomplete outputs.
+- Considerations: normal chat still makes one LLM request; extra fields are filled offline from the existing query/source record. Exact statutory schedule and BNSS 480/478 references are retained. Python compilation, frontend production build, and diff whitespace checks passed. No tests run; not deployed.
+
 ### Follow-up implementation — custom headings and answer consistency
 - Added optional `section_headings` to the structured analysis schema and frontend type. The compact normal-chat instruction asks the model to provide concise headings for populated sections; the renderer uses them with legacy fallbacks, and accepts only known section keys with bounded labels.
 - Fixed the readability gate to recognize `legal_reasoning`, and made the frontend render it when it is the only substantive model field. This prevents a detailed legal analysis from being replaced or hidden behind the generic “couldn't formulate” fallback.
