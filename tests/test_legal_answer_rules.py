@@ -31,7 +31,7 @@ class LegalAnswerRuleTests(unittest.TestCase):
         self.assertIn("bail is prohibited", analysis.bail_options.lower())
         self.assertIn("BNSS Section 480", analysis.bail_options)
         self.assertEqual("unverified", source.quote_status)
-        self.assertIn("ScheduleBNSS.html", source.source_url)
+        self.assertIn("indiacode.nic.in", source.source_url)
 
     def test_low_value_return_exception_requires_first_conviction(self):
         analysis = theft_analysis()
@@ -82,7 +82,7 @@ class LegalAnswerRuleTests(unittest.TestCase):
         self.assertIn("\u20b935,000", analysis.bail_status)
         self.assertIn("no prior criminal record", analysis.bail_options)
         self.assertIn("daily-wage", analysis.bail_options)
-        self.assertIn("23 and therefore an adult", analysis.legal_reasoning)
+        self.assertIn("his age of 23 (he is an adult)", analysis.legal_reasoning)
         self.assertIn("do not change", analysis.legal_reasoning)
 
     def test_custody_response_fills_rights_and_action_plan(self):
@@ -119,19 +119,41 @@ class LegalAnswerRuleTests(unittest.TestCase):
     def test_custody_answer_renders_custom_heading_and_removes_fallback(self):
         analysis = StructuredAnalysis(
             general_analysis="I received your message, but couldn't formulate a specific legal analysis.",
-            section_headings={"bail_status": "Is this charge bailable?"},
         )
-        context = "My 23-year-old brother is a daily-wage worker in Delhi, arrested; laptop worth \u20b935,000; BNS 303(2); no criminal record."
+        context = (
+            "My 23-year-old brother, a daily-wage worker in Delhi, has been arrested for allegedly stealing "
+            "a laptop worth \u20b935,000. Police registered an FIR under Section 303(2) BNS. He has no criminal record. "
+            "Please explain: 1. Is the offence bailable? 2. Can he get bail? 3. What are his rights after arrest? "
+            "4. Can he get free legal aid, and where in Delhi? 5. What should our family do in the next 24 hours?"
+        )
         _apply_bns_303_bail_rule(analysis, context)
         _ensure_custody_first_aid(analysis, context)
-        _compose_custody_answer(analysis)
+        _compose_custody_answer(analysis, context)
 
-        self.assertIn("### Is this charge bailable?", analysis.general_analysis)
+        self.assertEqual(5, analysis.general_analysis.count("### "))
+        self.assertIn("### 1. Is the offence bailable?", analysis.general_analysis)
+        self.assertIn("### 2. Can he get bail?", analysis.general_analysis)
+        self.assertIn("### 3. What are his rights after arrest?", analysis.general_analysis)
+        self.assertIn("### 4. Can he get free legal aid, and where in Delhi?", analysis.general_analysis)
+        self.assertIn("### 5. What should our family do in the next 24 hours?", analysis.general_analysis)
         self.assertIn("Non-bailable", analysis.general_analysis)
+        self.assertIn("Yes. Non-bailable does not mean bail is prohibited", analysis.general_analysis)
         self.assertIn("BNSS Section 480", analysis.general_analysis)
         self.assertIn("\u20b935,000", analysis.general_analysis)
         self.assertIn("1516", analysis.general_analysis)
+        self.assertIn("Section 12(g)", analysis.general_analysis)
+        self.assertNotIn("family reports the family reports", analysis.general_analysis.lower())
+        self.assertEqual(1, analysis.general_analysis.count("DSLSA 1516"))
+        self.assertIn("Case application:", analysis.bail_options)
+        self.assertEqual("", analysis.legal_reasoning)
+        self.assertEqual("Can he get bail?", analysis.section_headings["bail_options"])
         self.assertNotIn("couldn't formulate", analysis.general_analysis)
+
+    def test_schedule_citation_label_is_well_formed_and_officially_linked(self):
+        source = _apply_bns_303_bail_rule(theft_analysis(), "BNS 303(2), laptop value \u20b935,000")
+        self.assertEqual("First Schedule, Part I — BNS 303(2)", source.section)
+        self.assertNotIn("?", source.section)
+        self.assertIn("indiacode.nic.in", source.source_url)
 
     def test_negated_arrest_does_not_trigger_custody_playbook(self):
         analysis = StructuredAnalysis()

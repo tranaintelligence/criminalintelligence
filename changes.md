@@ -1,5 +1,25 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-14] - Preserve question-by-question custody answers in backend output
+
+### Changes
+- Backend custody composition now receives the original query and writes each detected question as its own heading, paired with the matching structured answer. The matching question text is also copied into known `section_headings` fields for older chat clients.
+- Explicitly states that bail is possible under BNSS Section 480 even though BNS 303(2) is ordinarily non-bailable; bail reasoning and case facts appear with that answer. Custody answers retain a dedicated legal-aid answer under Section 12(g).
+- Fixed section matching for both “BNS 303(2)” and “Section 303(2) BNS”, including a section-citation boundary check so `303(2)` is not parsed as a numbered question.
+- Removed repeated legal-aid district-routing instructions and corrected the duplicated “family reports” phrasing.
+- Replaced the malformed Schedule citation label and linked the Schedule and Legal Services Authorities Act source cards to India Code. DSLSA 1516 and NALSA 15100 now link to their official contact sources.
+- Source cards now prefer an approved provision-specific official URL over a generic Act URL, and Schedule entries display as “First Schedule …” instead of “Section First Schedule …”.
+- No additional LLM call or prompt tokens are used; the changes run after the existing generation.
+
+### Verification
+- `python -m unittest discover -s tests -p "test_*.py"` passed (35 tests).
+- Focused exact-prompt regression confirms all five original questions appear as headings with answers, including bail under BNSS 480 and legal aid under Section 12(g); duplicate wording is absent.
+- `python -m py_compile llm/chain.py`, frontend tests (2 files, 4 tests), and `npm run build` passed. Vite emitted its existing chunk-size and plugin-timing notices.
+
+### Future-agent notes
+- Keep `_compose_custody_answer` query-aware and preserve `section_headings` mappings so API text and older clients agree on question wording.
+- Schedule and legal-aid summary source cards are still marked unverified where they do not quote the exact official provision. Do not upgrade their verification status based only on the presence of an official URL.
+
 ## [2026-11-14] - Render answers under each explicit user question
 
 ### Changes

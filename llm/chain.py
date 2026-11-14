@@ -1027,7 +1027,12 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
         (law.code or law.act).upper() == "BNS"
         and re.match(r"^303(?:\(2\))?$", str(law.section).strip())
         for law in analysis.applicable_laws
-    ) or bool(re.search(r"\bBNS\s*(?:Section\s*)?303\s*\(\s*2\s*\)", context_text or "", re.I))
+    ) or bool(re.search(
+        r"\bBNS\s*(?:Section\s*)?303\s*\(\s*2\s*\)"
+        r"|\bSection\s*303\s*\(\s*2\s*\)\s*(?:of\s*)?BNS\b",
+        context_text or "",
+        re.I,
+    ))
     if not alleges_theft:
         return None
 
@@ -1094,9 +1099,9 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
         bail_factors = []
         lowered = context.lower()
         if re.search(r"\bno (?:prior |previous )?(?:criminal )?record\b|\bno criminal record\b", lowered):
-            bail_factors.append("the family reports no prior criminal record")
+            bail_factors.append("no prior criminal record")
         if re.search(r"daily[- ]wage|daily[- ]wager", lowered):
-            bail_factors.append("the person's reported daily-wage work and financial circumstances")
+            bail_factors.append("daily-wage work and financial circumstances")
         factors = (
             " The lawyer can present " + " and ".join(bail_factors)
             + " with reliable supporting details; these factors do not guarantee release."
@@ -1118,11 +1123,11 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
     lowered = context.lower()
     personal_factors = []
     if re.search(r"\bno (?:prior |previous )?(?:criminal )?record\b|\bno criminal record\b", lowered):
-        personal_factors.append("the family reports no criminal record")
+        personal_factors.append("the absence of any prior criminal record")
     if re.search(r"daily[- ]wage|daily[- ]wager", lowered):
-        personal_factors.append("the person is a daily-wage worker")
+        personal_factors.append("daily-wage employment")
     if re.search(r"\b23[- ]year[- ]old\b|\b23 years? old\b", lowered):
-        personal_factors.append("the person is 23 and therefore an adult")
+        personal_factors.append("his age of 23 (he is an adult)")
     if personal_factors:
         application.append(
             "The family reports " + ", ".join(personal_factors)
@@ -1148,11 +1153,11 @@ def _apply_bns_303_bail_rule(analysis: StructuredAnalysis, context_text: str) ->
         document_name="BNSS First Schedule",
         act="Bharatiya Nagarik Suraksha Sanhita, 2023",
         code="BNSS",
-        section="First Schedule, Part I ? BNS 303(2)",
+        section="First Schedule, Part I — BNS 303(2)",
         quote="",
         verified=False,
-        source_url="https://www.ncrb.mha.gov.in/uploads/SankalanPortal/ScheduleBNSS.html",
-        source_version="NCRB BNSS First Schedule, reviewed 2026-11-14",
+        source_url="https://www.indiacode.nic.in/bitstream/123456789/20340/1/bnss%2C_2023.pdf",
+        source_version="India Code BNSS First Schedule, reviewed 2026-11-14",
         quote_status="unverified",
     )
 
@@ -1193,22 +1198,22 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
     if re.search(r"\bdelhi\b", text):
         analysis.legal_aid = (
             "Yes. A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987. "
-            "In Delhi, call DSLSA at 1516 or NALSA at 15100 and ask for the DLSA covering the police station or court district; the family can also request a legal-aid lawyer from the Magistrate or jail legal-aid clinic."
+            "In Delhi, call [DSLSA 1516](https://dslsa.org/wp-content/uploads/2024/12/AO-final-directory-with-cover.pdf) "
+            "or [NALSA 15100](https://nalsa.gov.in/faqs/) and ask for the DLSA covering the police station or court district; "
+            "the family can also request a legal-aid lawyer from the Magistrate or jail legal-aid clinic."
         )
     else:
         analysis.legal_aid = (
             "Yes. A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987. "
-            "Ask the Magistrate, jail legal-aid clinic, or district DLSA for a lawyer; NALSA helpline: 15100."
+            "Ask the Magistrate, jail legal-aid clinic, or district DLSA for a lawyer; call [NALSA 15100](https://nalsa.gov.in/faqs/)."
         )
 
     required_steps = [
         "Call the police station now. Confirm the FIR number, arrest time, officer in charge and current location. Ask the officer to communicate the full arrest grounds, and write down the answers.",
         "Ask whether and when the arrested person will be produced before a Magistrate. Get the court name and production time; if 24 hours from arrest (excluding necessary travel) may pass, contact the Magistrate's court and legal-aid lawyer urgently.",
-        "Request a legal-aid lawyer immediately through the station or Magistrate. In Delhi call DSLSA 1516 or NALSA 15100 and ask to be connected to the DLSA for the court/police-station district.",
+        "Request a legal-aid lawyer immediately through the station or Magistrate. Use the contacts in the legal-aid section and give them the police-station or court location so they can direct you to the right district DLSA.",
         "Ask the lawyer to obtain/review the FIR and arrest papers and request bail from the competent court. Share proof of his address, work, family ties, and no prior record if available; do not assume recovery facts.",
     ]
-    if re.search(r"\bdelhi\b", text):
-        required_steps[2] += " Ask DSLSA (1516) to connect you with the district DLSA; use the police station or court location to identify the district."
     analysis.next_24_hours = required_steps
     aid_text = (
         "NALSA states that persons in custody are eligible for free legal services under Section 12(g) "
@@ -1216,30 +1221,116 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
     )
     return SourceChunk(
         content=aid_text,
-        document_name="National Legal Services Authority — Legal Aid",
+        document_name="Legal Services Authorities Act, 1987",
         act="Legal Services Authorities Act, 1987",
         code="LSA",
         section="12(g)",
         quote="",
         verified=False,
-        source_url="https://nalsa.gov.in/legal-aid/",
-        source_version="NALSA Legal Aid page, reviewed 2026-11-14",
+        source_url="https://upload.indiacode.nic.in/showfile?actid=AC_DH_62_1290_00001_00001_1562745383931&filename=the_legal_service_authorities_act%2C_1987.pdf&type=actfile",
+        source_version="India Code Legal Services Authorities Act, reviewed 2026-11-14",
         quote_status="unverified",
     )
 
 
-def _compose_custody_answer(analysis: StructuredAnalysis) -> None:
-    """Render validated custody fields as the user-facing answer, not hidden metadata."""
+def _extract_custody_questions(query: str) -> list[str]:
+    """Extract the user's numbered questions, avoiding section citations like 303(2)."""
+    markers = list(re.finditer(r"(?<!\S)(\d{1,2})[.)]\s+", query or ""))
+    if markers:
+        questions = []
+        for index, marker in enumerate(markers):
+            start = marker.end()
+            end = markers[index + 1].start() if index + 1 < len(markers) else len(query)
+            segment = query[start:end]
+            if "?" in segment:
+                segment = segment[: segment.index("?") + 1]
+            question = re.sub(r"\s+", " ", segment).strip()
+            if question:
+                questions.append(question)
+        return questions[:10]
+
+    direct_questions = []
+    for question in re.findall(r"([^?]+)\?", query or "")[:10]:
+        sentences = re.split(r"(?<=[.!])\s+", question.strip())
+        candidate = sentences[-1].strip()
+        direct_questions.append(candidate + "?")
+    return [question for question in direct_questions if question != "?"]
+
+
+def _compose_custody_answer(analysis: StructuredAnalysis, query: str = "") -> None:
+    """Render each explicit user question above its corresponding custody answer."""
     headings = analysis.section_headings or {}
-    sections = [
-        ("situation_meaning", headings.get("situation_meaning") or "What does the FIR allegation mean?", analysis.situation_meaning),
-        ("bail_status", headings.get("bail_status") or "Is the offence bailable?", analysis.bail_status),
-        ("bail_options", headings.get("bail_options") or "Can bail still be granted?", analysis.bail_options),
-        ("rights", headings.get("rights") or "What rights apply after arrest?", analysis.rights),
-        ("legal_aid", headings.get("legal_aid") or "Can he get free legal aid?", analysis.legal_aid),
-        ("next_24_hours", headings.get("next_24_hours") or "What should the family do now?", analysis.next_24_hours),
-        ("legal_reasoning", headings.get("legal_reasoning") or "How do these rules apply to the facts?", analysis.legal_reasoning),
-    ]
+    if analysis.bail_options and analysis.legal_reasoning:
+        reasoning = analysis.legal_reasoning.strip()
+        if reasoning and reasoning not in analysis.bail_options:
+            analysis.bail_options = f"{analysis.bail_options.strip()}\n\n{reasoning}"
+        # Keep case application inside the answer to the bail question, avoiding
+        # a duplicate generic legal-reasoning section in clients using the fields.
+        analysis.legal_reasoning = ""
+    questions = _extract_custody_questions(query)
+    fields = {
+        "situation_meaning": analysis.situation_meaning,
+        "bail_status": analysis.bail_status,
+        "bail_options": analysis.bail_options,
+        "rights": analysis.rights,
+        "legal_aid": analysis.legal_aid,
+        "next_24_hours": analysis.next_24_hours,
+        "legal_reasoning": analysis.legal_reasoning,
+    }
+    sections = []
+    if questions:
+        for question in questions:
+            lowered = question.lower()
+            requested_keys = []
+            if re.search(r"\bbail(?:able)?\b", lowered):
+                asks_bail_possibility = bool(re.search(r"\b(can|could|may|will|how|get|obtain|apply|grant)\b", lowered))
+                requested_keys.append("bail_options" if asks_bail_possibility else "bail_status")
+                if re.search(r"\bwhat should\b|\bwhat can (?:we|i|the family) do\b|\bstep[s]?\b|\baction plan\b", lowered):
+                    requested_keys.extend(["bail_options", "legal_aid", "next_24_hours"])
+            if re.search(r"\blegal aid\b|\bfree (?:legal )?(?:aid|lawyer|advocate|representation)\b|\bdlsa\b|\bnalsa\b", lowered):
+                requested_keys.append("legal_aid")
+            if re.search(r"\bright|arrest|detain|custody|police", lowered):
+                requested_keys.append("rights")
+            if re.search(r"\b24\s*hours?\b|\bnext\s*\d*\s*hours?\b|\bwhat should\b|\bwhat can (?:we|i|the family) do\b|\bstep[s]?\b|\baction plan\b", lowered):
+                requested_keys.append("next_24_hours")
+            if re.search(r"\bmeaning\b|\bsituation\b|\bwhat does\b|\bexplain\b", lowered):
+                requested_keys.append("situation_meaning")
+            if not requested_keys:
+                requested_keys.append("legal_reasoning" if analysis.legal_reasoning else "situation_meaning")
+
+            ordered_keys = list(dict.fromkeys(requested_keys))
+            key = ordered_keys[0]
+            bodies = []
+            for answer_key in ordered_keys:
+                answer = fields.get(answer_key)
+                if isinstance(answer, list):
+                    answer_body = "\n".join(f"{index}. {item}" for index, item in enumerate(answer, 1))
+                else:
+                    answer_body = str(answer or "").strip()
+                if answer_body and answer_body not in bodies:
+                    bodies.append(answer_body)
+            body = "\n\n".join(bodies)
+            if len(ordered_keys) == 1:
+                headings[key] = question[:80]
+            if "bail_options" in ordered_keys and analysis.legal_reasoning:
+                if analysis.legal_reasoning.strip() not in body:
+                    body = f"{body}\n\n{analysis.legal_reasoning.strip()}".strip()
+            if not body:
+                body = "The available analysis does not contain a specific answer to this question. Ask the legal-aid lawyer to confirm it from the FIR and court record."
+
+            heading = f"{len(sections) + 1}. {question}"
+            sections.append((key, heading, body))
+        analysis.section_headings = headings
+    else:
+        sections = [
+            ("situation_meaning", headings.get("situation_meaning") or "What does the FIR allegation mean?", analysis.situation_meaning),
+            ("bail_status", headings.get("bail_status") or "Is the offence bailable?", analysis.bail_status),
+            ("bail_options", headings.get("bail_options") or "Can bail still be granted?", analysis.bail_options),
+            ("rights", headings.get("rights") or "What rights apply after arrest?", analysis.rights),
+            ("legal_aid", headings.get("legal_aid") or "Can he get free legal aid?", analysis.legal_aid),
+            ("next_24_hours", headings.get("next_24_hours") or "What should the family do now?", analysis.next_24_hours),
+            ("legal_reasoning", headings.get("legal_reasoning") or "How do these rules apply to the facts?", analysis.legal_reasoning),
+        ]
     rendered = []
     for _, heading, content in sections:
         if not content:
@@ -1359,7 +1450,7 @@ async def run_analysis_pipeline(
             source_chunks.append(schedule_source)
         if aid_source:
             source_chunks.append(aid_source)
-            _compose_custody_answer(structured_analysis)
+            _compose_custody_answer(structured_analysis, query)
         elapsed = round(time.time() - start_time, 2)
         return AnalysisResponse(
             query=query,
@@ -1469,7 +1560,7 @@ async def run_analysis_pipeline(
         source_chunks.append(schedule_source)
     if aid_source:
         source_chunks.append(aid_source)
-        _compose_custody_answer(structured_analysis)
+        _compose_custody_answer(structured_analysis, query)
     elapsed = round(time.time() - start_time, 2)
     logger.info(
         "Direct analysis complete — %d verified sources, %.2fs elapsed.",

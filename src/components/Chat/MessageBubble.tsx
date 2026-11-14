@@ -90,12 +90,6 @@ const getConciseExplanation = (source: SourceChunk): string | null => {
 
 const getOfficialActUrl = (source: SourceChunk): string | null => {
   const identity = [source.act, source.code, source.document_name].filter(Boolean).join(' ').toLowerCase();
-  // Always use the reachable official MHA copy for BNS/BNSS/BSA.
-  if (identity.includes('bharatiya nyaya') || /\bbns\b/.test(identity)) return OFFICIAL_ACT_URLS.bns;
-  if (identity.includes('bharatiya nagarik') || /\bbnss\b/.test(identity)) return OFFICIAL_ACT_URLS.bnss;
-  if (identity.includes('bharatiya sakshya') || /\bbsa\b/.test(identity)) return OFFICIAL_ACT_URLS.bsa;
-  if (identity.includes('motor vehicle') || /\bmva\b/.test(identity)) return 'https://www.indiacode.nic.in/handle/123456789/1798';
-
   const suppliedUrl = source.source_url?.trim();
   if (suppliedUrl) {
     try {
@@ -107,6 +101,13 @@ const getOfficialActUrl = (source: SourceChunk): string | null => {
       // No safe official URL was supplied.
     }
   }
+
+  // Keep a provision-specific official URL when the source provides one;
+  // otherwise fall back to the official Act document.
+  if (identity.includes('bharatiya nyaya') || /\bbns\b/.test(identity)) return OFFICIAL_ACT_URLS.bns;
+  if (identity.includes('bharatiya nagarik') || /\bbnss\b/.test(identity)) return OFFICIAL_ACT_URLS.bnss;
+  if (identity.includes('bharatiya sakshya') || /\bbsa\b/.test(identity)) return OFFICIAL_ACT_URLS.bsa;
+  if (identity.includes('motor vehicle') || /\bmva\b/.test(identity)) return 'https://www.indiacode.nic.in/handle/123456789/1798';
 
   return 'https://www.indiacode.nic.in';
 };
@@ -281,7 +282,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                           )}
 
                           <h4 className="text-xs font-semibold text-white group-hover:text-amber-100 transition-colors">
-                            Section {formatSectionLabel(source)}
+                            {/^(?:first|second) schedule\b/i.test(formatSectionLabel(source))
+                              ? formatSectionLabel(source)
+                              : `Section ${formatSectionLabel(source)}`}
                           </h4>
 
                           {explanation && (
