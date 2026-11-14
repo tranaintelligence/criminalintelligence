@@ -1,6 +1,93 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-14] - Legal-answer reliability implementation plan
+
+### Follow-up implementation — custom headings and answer consistency
+- Added optional `section_headings` to the structured analysis schema and frontend type. The compact normal-chat instruction asks the model to provide concise headings for populated sections; the renderer uses them with legacy fallbacks, and accepts only known section keys with bounded labels.
+- Fixed the readability gate to recognize `legal_reasoning`, and made the frontend render it when it is the only substantive model field. This prevents a detailed legal analysis from being replaced or hidden behind the generic “couldn't formulate” fallback.
+- Tightened the short prompt to answer every distinct question, apply stated case facts (amount, prior record, employment/family circumstances) without inventing facts, and avoid claiming analysis failed when content exists. Existing deterministic BNS 303(2) bail and custody safeguards remain in force.
+- Custody guidance now names DSLSA for Delhi and points to the district DLSA based on the police station/court location without guessing. DSLSA helpline 1516 and NALSA 15100 are included. Normalized section labels in chat and source cards to avoid duplicated “Section” text, and stored the LSA source section as `12(g)`.
+- Considerations: headings are optional for older saved responses; fixed fallback labels preserve their display. The normal chat path remains one LLM call, and this adds only a small schema field and concise prompt direction. Python compilation, frontend production build, and diff whitespace checks passed. No tests were added or run. Not deployed.
+
+### Runtime implementation progress
+- `llm/chain.py`: normal chat now uses a compact task-specific prompt (the dedicated Complaint Analyser prompt remains intact), one selected provider route, one generation request, Google SDK `retries=1` (one total attempt), no application retries/key/provider fallback, and a 1,200-token OpenAI-compatible output ceiling. Timeouts are no longer mislabeled as quota errors. Normal chat includes only the last four user turns, clipped to 1,200 characters each. Logs provider-reported prompt/completion usage where compatible responses return it.
+- Retrieval no longer automatically attaches BNS 305 to ordinary theft; it selects 305 only with specific dwelling/transport/place-of-worship/cargo/warehouse context. Custody prompts include BNSS 35, 38, 47, 48, 57, 58 and 480 text. Explicitly named provisions remain in the evidence set even if the model omits them. Normal FIR chat no longer inherits the long generic redirection prompt.
+- Added rule-backed BNS 303(2) bail output based on the NCRB BNSS First Schedule, preserving the under-₹5,000 return/restoration exception and separate first-conviction condition for community service; it explains that BNSS 480 bail remains possible. Custody coverage fills arrest safeguards, counsel access, family notice, 24-hour Magistrate production, free legal aid, and concrete family steps. Legal-aid and Schedule sources appear with official URLs.
+- `MessageBubble.tsx` now labels matched text “Source text matched” and explains that source matching alone does not establish case applicability.
+- Added eleven focused `unittest` cases for bail branches, custody rights/action steps, unrelated-property return, negative/hypothetical arrest, and section 305 retrieval. These passed. Python compilation and `git diff --check` passed. `npm run build` passed with existing Vite plugin/chunk-size warnings.
+- Source summaries for the BNSS Schedule and NALSA now remain unverified references (their hashes are not misrepresented as source verification); statutory corpus excerpts retain backend verification. The low-value bail exception only activates when the same stolen item/value and its return/restoration appear together in a clear statement. Custody coverage uses affirmative arrest signals and replaces incomplete generated rights/action items with reviewed fixed guidance.
+- Remaining: no custom shared rolling TPM reservation or provider-independent cost telemetry; the configured provider enforces its account TPM quota and TRANA sends no retries. Token logging currently covers OpenAI-compatible responses only when usage is returned. The optional extraction call is not used; the normal path minimizes calls with one focused legal-analysis request. Hindi/Hinglish urgency detection, legal counsel review, full evaluation, and staged rollout remain. Nothing was deployed.
+
+- Added `plans/legal-answer-reliability.md`, a phased, repository-grounded plan for exact offence matching, custody urgency/coverage, reviewed bail/procedure/legal-aid evidence, fact application, claim-level checks, safe fallbacks and accurate source labels.
+- Confirmed current failure mechanisms: generic bail override inserts robbery/snatching/extortion; theft retrieval nominates 303 and 305; verification pads toward four sources; source-text integrity does not validate case reasoning.
+- Initial interpretations of the AI limit were incomplete; the latest user constraint clarification below governs: up to two calls, shared 8k TPM ceiling, and small offline logic.
+- Considerations: ordinary theft and the qualifying low-value branch need separate reviewed conditions; cross-check official schedule summaries against Act/Gazette text. Preserve dedicated Complaint Analyser behavior, existing deployment/authentication and legacy saved-response compatibility. The plan requires offline tests, legal review, staged rollout and privacy-conscious metrics.
+- Validation: inspected current registry, chain, schemas, source UI, provider handling and repository scripts; independent read-only discovery corroborated control-flow and budget gaps. Consulted official India Code/NCRB/NALSA sources. Documentation only; runtime fixes and their tests have not been implemented.
+- Further cost clarification: 8,000 TPM is a hard shared throughput ceiling, never a target. Minimize measured tokens/cost per successful answer; use one answer call normally and add a tiny extraction call only when complexity warrants it. Compile a focused prompt from relevant facts/rules/sources, then track median and p95 token use. Legal reasoning must still apply rules to facts and expose uncertainty. Keep offline additions under 500 Python runtime lines and under 20 KB of rule data.
+
 This document tracks all changes made to the TRANA codebase, the context/reasoning behind them, and technical considerations for future agents working on this project. Always read this file before starting tasks.
+
+---
+
+## [2026-11-14] - Fix Conversational Greetings & PascalCase Normalization (`EmptyAnalysisError`)
+
+### 1. Root Cause for "I received the attached document..." on Text Greetings
+- **Problem**: When a user sent a simple greeting like `"Hii"` without attachments, Groq responded with `{"message": "I am TRANA..."}` or formatted keys like `{"DocumentOverview": "..."}`.
+- **Why it failed**:
+  1. `_normalize_analysis_payload` only checked snake_case keys and did not recognize `message`, `reply`, `response` or PascalCase keys (`DocumentOverview`, `ImmediatePracticalSteps`, `RightsAndLegalRemedies`).
+  2. Because all target fields remained blank, `_require_readable_analysis` threw `EmptyAnalysisError`.
+  3. The error handler at line 581 of `llm/chain.py` had a static text string: `"I received the attached document, but couldn't produce an analysis..."`, which confused the user into thinking TRANA believed an image was uploaded.
+- **Fixes Applied**:
+  - `llm/chain.py`:
+    - Added comprehensive PascalCase / camelCase to snake_case normalization (`to_snake_case`) at the entry of `_normalize_analysis_payload`.
+    - Added direct mapping for conversational top-level keys (`message`, `response`, `reply`, `greeting`, `answer`) into `conversational_reply`, `situation_meaning`, and `general_analysis`.
+    - Flagged `is_conversational = True` automatically when conversational greeting text is detected.
+    - Updated fallback message in `_run_quick_provider_pipeline` so that the message only mentions attached documents if `has_media` is actually True.
+
+---
+
+## [2026-11-14] - Fix Groq JSON Validation 400 Bug & Erroneous 429 Rate-Limit Masquerading
+
+### 1. Root Cause Identified & Resolved
+- **Why Groq returned Rate Limit: 0 with 0 tokens**:
+  - Groq's API strictly requires the word `"json"` (case-insensitive) to be present anywhere inside the `messages` payload whenever `response_format: {"type": "json_object"}` is passed.
+  - When non-complaint direct queries (e.g. `"What is bail under BNSS?"`) were sent, TRANA's `SYSTEM_PROMPT` and `DIRECT_ANALYSIS_PROMPT` lacked the word `"json"`.
+  - Groq immediately rejected the request at the HTTP gateway with `HTTP 400: "'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'."`.
+  - Because it was rejected before tokenization, Groq registered `API Calls: 2`, `Rate Limit: 0`, `Input Tokens: 0`, `Output Tokens: 0`.
+- **Why TRANA claimed it was "rate-limited"**:
+  - `_run_quick_provider_pipeline` in `llm/chain.py` unconditionally called `mark_quick_temporarily_unavailable()` and raised `QuickModelUnavailableError` whenever all pool routes failed, even on HTTP 400/404 errors.
+  - `main.py` mapped `QuickModelUnavailableError` to `HTTP 429 (QUICK_MODEL_UNAVAILABLE)`, and the frontend displayed `⚠️ Quick Thinking rate-limited`.
+- **Fixes Applied**:
+  - `llm/chain.py`:
+    - In `_invoke_openai_compatible`, explicitly verified that the word `"json"` is present in `raw_messages`. If missing, automatically injects `"CRITICAL: Respond exclusively as a valid JSON object matching the required schema."` into the system prompt.
+    - Updated `_run_quick_provider_pipeline` so that `mark_quick_temporarily_unavailable()` and `QuickModelUnavailableError` are only raised when a genuine `quota_error_seen` occurs. Non-quota failures raise standard `RuntimeError`.
+  - `key_manager.py` & `src/routes/founders.admin.tsx`: Retained `openai/gpt-oss-120b` as the default model for Groq.
+  - Verified end-to-end execution: `run_analysis_pipeline` successfully generates structured legal analysis using `quick:groq:openai/gpt-oss-120b`.
+
+---
+
+## [2026-11-14] - Fix Groq Model Defaults & Clear Sticky Rate Limit UI State
+
+### 1. Elimination of False Rate-Limit / Quota Lockout Caused by Invalid Groq Model ID
+- **Root Cause Identified**:
+  - The Admin Key Pool form had default model configured as `openai/gpt-oss-120b` for Groq (`key_manager.py` and `src/routes/founders.admin.tsx`).
+  - Groq does not have any model called `openai/gpt-oss-120b`.
+  - When queries were routed to Groq, Groq immediately threw `400 / 404 Model Not Found`.
+  - Because all configured Groq keys failed on this invalid model, the pipeline triggered `mark_quick_temporarily_unavailable()`, which placed a global 5-minute (300-second) in-memory block on all Quick Thinking requests and returned HTTP 429 (`QUICK_MODEL_UNAVAILABLE`).
+  - To the user, this appeared as being "ratemaxed" even when zero valid API calls completed.
+- **Fixes**:
+  - `key_manager.py`: Updated `PROVIDER_ENV_DEFAULT_MODELS["groq"]` to `"llama-3.3-70b-versatile"` and Cerebras to `"llama3.3-70b"`.
+  - `src/routes/founders.admin.tsx`:
+    - Updated default model from `'openai/gpt-oss-120b'` to `'llama-3.3-70b-versatile'`.
+    - Added reactive model auto-population when selecting providers in the dropdown (Groq -> `llama-3.3-70b-versatile`, Google -> `gemini-2.5-flash`, Cerebras -> `llama3.3-70b`).
+    - Updated input placeholder to `llama-3.3-70b-versatile`.
+
+### 2. Reset Sticky Rate-Limit State in Chat UI (`src/routes/_authenticated/dashboard.chat.tsx`)
+- **Root Cause Identified**:
+  - Once `quickUnavailable` state was set to `true` following a 429 response, neither `handleNewChat` nor switching chat sessions via `routeChatId` ever reset `quickUnavailable(false)`.
+  - As a result, opening a new chat session where no messages had been sent still displayed `⚠️ Quick Thinking rate-limited`.
+- **Fixes**:
+  - Added `setQuickUnavailable(false)` in `handleNewChat` and in `loadChat` when switching to a different chat session.
 
 ---
 
@@ -612,5 +699,16 @@ This document tracks all changes made to the TRANA codebase, the context/reasoni
   - Updated `find_relevant_statutes`:
     - Tracks explicit citation spans so that `_SECTION_ONLY_RE` and `_NUMBER_RE` do not re-process section numbers that are already part of explicit `<Act> <Section>` citations.
     - Honors `preferred_code` from the query and short-circuits `by_number()` on the first valid match, eliminating duplicate cross-Act pollution.
+
+---
+
+## [2026-11-14] - Merge Conflict Resolution & Branch Synchronization
+
+### 1. Git Merge Conflict Resolution (`legal_sources/registry.py` & `llm/prompts.py`)
+- **Problem**: When integrating remote `origin/main` commits with local branch enhancements, a merge conflict stopped git operations with `Git: Committing is not possible because you have unmerged files`.
+- **Resolutions**:
+  - `legal_sources/registry.py`: Reconciled theft concept rules. Retained Hindi keyword additions (`"चोरी"`) alongside the separated statutory targeting for general theft (`BNS 303`) versus aggravated theft in dwelling house/worship/transportation (`BNS 305`), ensuring strict statutory grounding without unwarranted aggravated additions.
+  - `llm/prompts.py`: Preserved authoritative `TRANA — MASTER SYSTEM PROMPT V2.1` in `SYSTEM_PROMPT` for general assistance, and preserved the separate `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT` for dedicated FIR/complaint analysis.
+  - Cleaned all conflict markers and verified working tree integrity.
 
 

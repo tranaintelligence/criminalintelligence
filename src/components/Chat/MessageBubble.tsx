@@ -61,7 +61,8 @@ const formatDocName = (name?: string) => {
 
 const formatSection = (section?: string, subsection?: string | null): string => {
   if (!section) return subsection ? `(${subsection})` : '';
-  return subsection ? `${section}(${subsection})` : section;
+  const cleanSection = section.trim().replace(/^section\s+/i, '');
+  return subsection ? `${cleanSection}(${subsection})` : cleanSection;
 };
 
 const formatActName = (source: SourceChunk): string =>
@@ -269,9 +270,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                                   : 'bg-neutral-800 text-neutral-400 border-neutral-700'
                               }`}
                             >
-                              {verified ? '✓ Verified Statute' : 'Statute Ref'}
+                              {verified ? 'Source text matched' : 'Statute Ref'}
                             </span>
                           </div>
+
+                          {verified && (
+                            <p className="text-[10px] text-neutral-500 mb-1.5 leading-relaxed">
+                              This confirms the source text only; it does not verify that the provision applies to these facts.
+                            </p>
+                          )}
 
                           <h4 className="text-xs font-semibold text-white group-hover:text-amber-100 transition-colors">
                             Section {formatSectionLabel(source)}

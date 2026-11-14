@@ -2003,7 +2003,20 @@ export function AdminView() {
                 <span>Provider</span>
                 <select
                   value={form.provider}
-                  onChange={(event) => setForm((current) => ({ ...current, provider: event.target.value }))}
+                  onChange={(event) => {
+                    const nextProvider = event.target.value as KeyFormState['provider'];
+                    const defaultModels: Record<string, string> = {
+                      groq: 'openai/gpt-oss-120b',
+                      google: 'gemini-2.5-flash',
+                      cerebras: 'llama3.3-70b',
+                      llama: 'openai/gpt-oss-120b',
+                    };
+                    setForm((current) => ({
+                      ...current,
+                      provider: nextProvider,
+                      model: defaultModels[nextProvider] || current.model,
+                    }));
+                  }}
                   className="bg-[#1a1a1a] border border-[#2c2c2c] rounded-lg px-3 py-2 text-xs text-neutral-100 focus:outline-none focus:border-amber-400"
                 >
                   <option value="groq">Groq</option>

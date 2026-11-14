@@ -327,6 +327,10 @@ class StructuredAnalysis(BaseModel):
     rights: list[str] = Field(default_factory=list, description="4. Your Rights")
     handling_authority: str = Field(default="", description="5. Which Authority handles this?")
     legal_reasoning: str = Field(default="", description="6. Legal reasoning at the end")
+    section_headings: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional concise custom headings for populated sections. Keys: situation_meaning, bail_status, next_24_hours, rights, handling_authority, legal_reasoning.",
+    )
     applicable_laws: list[ApplicableLaw] = Field(default_factory=list, description="List of applicable laws")
     relevant_source_indices: list[int] = Field(default_factory=list, description="Deprecated legacy chunk indices.")
 
