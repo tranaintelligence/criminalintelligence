@@ -86,6 +86,7 @@ def _require_readable_analysis(analysis: StructuredAnalysis) -> StructuredAnalys
         analysis.situation_meaning,
         analysis.bail_status,
         analysis.handling_authority,
+        analysis.legal_reasoning,
         *(analysis.next_24_hours or []),
         *(analysis.rights or []),
     ]
@@ -290,6 +291,8 @@ def _normalize_analysis_payload(payload: object) -> dict:
             or normalized.get("legal_analysis")
             or ""
         )
+    if not isinstance(normalized.get("section_headings"), dict):
+        normalized["section_headings"] = {}
     if not normalized.get("next_24_hours"):
         normalized["next_24_hours"] = (
             normalized.get("immediate_steps")
@@ -319,6 +322,7 @@ def _normalize_analysis_payload(payload: object) -> dict:
         "situation_meaning",
         "bail_status",
         "handling_authority",
+        "legal_reasoning",
     ):
         normalized[field_name] = as_text(normalized.get(field_name))
     for field_name in ("is_conversational", "requires_sources", "suggest_lawyer"):
@@ -329,6 +333,15 @@ def _normalize_analysis_payload(payload: object) -> dict:
     )
     normalized["next_24_hours"] = as_text_list(normalized.get("next_24_hours"))
     normalized["rights"] = as_text_list(normalized.get("rights"))
+    allowed_heading_keys = {
+        "situation_meaning", "bail_status", "next_24_hours", "rights",
+        "handling_authority", "legal_reasoning",
+    }
+    normalized["section_headings"] = {
+        key: as_text(value).strip()[:80]
+        for key, value in normalized["section_headings"].items()
+        if isinstance(key, str) and key in allowed_heading_keys and value is not None
+    }
     source_indices = normalized.get("relevant_source_indices") or []
     if not isinstance(source_indices, list):
         source_indices = [source_indices]
@@ -952,6 +965,8 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
         "A person in custody is eligible for free legal services under Section 12(g) of the Legal Services Authorities Act, 1987; ask the Magistrate or jail legal aid clinic for a DLSA lawyer, or call NALSA 15100.",
     ]
     analysis.rights = required_rights
+    if re.search(r"\bdelhi\b", text):
+        analysis.rights[-1] += " In Delhi, contact DSLSA or the DLSA for the district where the police station/court is located; call DSLSA at 1516 or NALSA at 15100."
 
     required_steps = [
         "Call the police station; confirm the FIR number, arrest time, officer in charge, and where the person is being held.",
@@ -959,6 +974,8 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
         "Request a DLSA lawyer through the police station or Magistrate now; call NALSA 15100 if needed.",
         "Ask the legal aid lawyer to review the FIR and seek bail before the competent court. Non-bailable means bail is discretionary, not barred.",
     ]
+    if re.search(r"\bdelhi\b", text):
+        required_steps[2] += " Ask DSLSA (1516) to connect you with the district DLSA; use the police station or court location to identify the district."
     analysis.next_24_hours = required_steps
     aid_text = (
         "NALSA states that persons in custody are eligible for free legal services under Section 12(g) "
@@ -969,7 +986,7 @@ def _ensure_custody_first_aid(analysis: StructuredAnalysis, context_text: str) -
         document_name="National Legal Services Authority — Legal Aid",
         act="Legal Services Authorities Act, 1987",
         code="LSA",
-        section="Section 12(g)",
+        section="12(g)",
         quote="",
         verified=False,
         source_url="https://nalsa.gov.in/legal-aid/",
@@ -1236,9 +1253,11 @@ def _build_prompt_messages(
     else:
         prompt = (
             "Answer the Indian-law question directly and concisely. Apply relevant rules to stated facts; treat allegations as allegations, "
-            "identify missing facts, answer every question, and give practical steps when requested. Use supplied source text for legal claims, "
+            "answer each distinct question explicitly, apply each stated case fact (including amount, prior record, and work/family circumstances when given), identify missing facts, and give practical steps when requested. "
+            "Choose concise headings for populated sections and return them in section_headings using the matching section keys. "
+            "Do not claim a specific analysis could not be formulated if any analysis is present. Use supplied source text for legal claims, "
             "cite Act and section, and state when support is missing. Do not introduce an alternative offence unless facts support it and label it conditional. "
-            "For custody, prioritize free legal aid: request a DLSA lawyer through the Magistrate/police station and give NALSA 15100. "
+            "For custody, prioritize free legal aid: request a DLSA lawyer through the Magistrate/police station and give NALSA 15100; for Delhi name DSLSA and the relevant district DLSA without guessing the district. "
             "Explain arrest grounds, family notice, and production within 24 hours excluding travel; do not imply automatic release. "
             "Non-bailable does not mean bail impossible. Distinguish alleged offence from procedure and never invent sections. "
             "Return the required JSON schema.\n\n"

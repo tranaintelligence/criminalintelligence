@@ -61,7 +61,8 @@ const formatDocName = (name?: string) => {
 
 const formatSection = (section?: string, subsection?: string | null): string => {
   if (!section) return subsection ? `(${subsection})` : '';
-  return subsection ? `${section}(${subsection})` : section;
+  const cleanSection = section.trim().replace(/^section\s+/i, '');
+  return subsection ? `${cleanSection}(${subsection})` : cleanSection;
 };
 
 const formatActName = (source: SourceChunk): string =>

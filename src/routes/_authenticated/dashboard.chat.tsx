@@ -121,8 +121,22 @@ const isLawyerIntent = (text?: string | null): boolean => {
 };
 
 const formatSection = (section?: string | null, subsection?: string | null): string => {
-  if (!section) return subsection ? `(${subsection})` : '';
-  return subsection ? `${section}(${subsection})` : section;
+  const cleanSection = section?.trim().replace(/^section\s+/i, '') || '';
+  if (!cleanSection) return subsection ? `(${subsection})` : '';
+  return subsection ? `${cleanSection}(${subsection})` : cleanSection;
+};
+
+type AnalysisHeadingKey = 'situation_meaning' | 'bail_status' | 'next_24_hours' | 'rights' | 'handling_authority' | 'legal_reasoning';
+
+const sectionHeading = (
+  analysis: StructuredAnalysis,
+  key: AnalysisHeadingKey,
+  fallback: string,
+): string => {
+  const custom = analysis.section_headings?.[key]?.trim();
+  if (!custom) return fallback;
+  const safe = custom.replace(/^#+\s*/, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').slice(0, 72).trim();
+  return safe || fallback;
 };
 
 const formatLegalLaw = (law: ApplicableLaw): string => {
@@ -162,14 +176,14 @@ const formatAnalysis = (
   if (hasSituationMeaning) {
     // 1. Meaning (easy terms - flowing paragraph)
     const meaning = result.situation_meaning.trim();
-    sections.push(meaning.startsWith('#') ? meaning : `### Meaning\n\n${meaning}`);
+    sections.push(meaning.startsWith('#') ? meaning : `### ${sectionHeading(result, 'situation_meaning', 'Meaning')}\n\n${meaning}`);
 
     // 2. Bail Status (Bailable or Non-Bailable)
     if (result.bail_status?.trim()) {
       const bail = result.bail_status.trim();
       const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
       if (isApplicable) {
-        sections.push(bail.startsWith('#') ? bail : `### Bail Status (Bailable / Non-Bailable)\n\n${bail}`);
+        sections.push(bail.startsWith('#') ? bail : `### ${sectionHeading(result, 'bail_status', 'Bail Status (Bailable / Non-Bailable)')}\n\n${bail}`);
       }
     }
 
@@ -177,7 +191,7 @@ const formatAnalysis = (
     if (result.next_24_hours?.length) {
       const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
       if (validSteps.length > 0) {
-        sections.push(`### Immediate Steps (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+        sections.push(`### ${sectionHeading(result, 'next_24_hours', 'Immediate Steps (Next 24 Hours)')}\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
       }
     }
 
@@ -185,23 +199,23 @@ const formatAnalysis = (
     if (result.rights?.length) {
       const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
       if (validRights.length > 0) {
-        sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+        sections.push(`### ${sectionHeading(result, 'rights', 'Your Legal Rights')}\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
       }
     }
 
     // 5. Court or Authority
     if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
       const auth = result.handling_authority.trim();
-      sections.push(auth.startsWith('#') ? auth : `### Competent Court & Authority\n\n${auth}`);
+      sections.push(auth.startsWith('#') ? auth : `### ${sectionHeading(result, 'handling_authority', 'Competent Court & Authority')}\n\n${auth}`);
     }
 
     // 6. Legal Reasoning (at the end)
     if (hasLegalReasoning) {
       const reasoning = result.legal_reasoning.trim();
-      sections.push(reasoning.startsWith('#') ? reasoning : `### Legal Reasoning\n\n${reasoning}`);
+      sections.push(reasoning.startsWith('#') ? reasoning : `### ${sectionHeading(result, 'legal_reasoning', 'Legal Reasoning')}\n\n${reasoning}`);
     } else if (hasGeneralAnalysis && !result.general_analysis?.includes(result.situation_meaning.trim())) {
       const general = result.general_analysis.trim();
-      sections.push(general.startsWith('#') ? general : `### Legal Reasoning\n\n${general}`);
+      sections.push(general.startsWith('#') ? general : `### ${sectionHeading(result, 'legal_reasoning', 'Legal Reasoning')}\n\n${general}`);
     }
   } else if (hasGeneralAnalysis) {
     // Normal / general informational questions: Answer directly without unnecessary crisis steps
@@ -211,30 +225,33 @@ const formatAnalysis = (
       const bail = result.bail_status.trim();
       const isApplicable = !/^(?:not applicable|none|n\/?a|unclear|no arrest|not arrested|not an arrest)$/i.test(bail);
       if (isApplicable && !result.general_analysis?.includes(bail)) {
-        sections.push(bail.startsWith('#') ? bail : `### Bail Status\n\n${bail}`);
+        sections.push(bail.startsWith('#') ? bail : `### ${sectionHeading(result, 'bail_status', 'Bail Status')}\n\n${bail}`);
       }
     }
 
     if (result.next_24_hours?.length) {
       const validSteps = result.next_24_hours.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
       if (validSteps.length > 0 && !result.general_analysis?.includes(validSteps[0].trim())) {
-        sections.push(`### Immediate Steps (Next 24 Hours)\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
+        sections.push(`### ${sectionHeading(result, 'next_24_hours', 'Immediate Steps (Next 24 Hours)')}\n\n${validSteps.map((item) => `- ${item.trim()}`).join('\n')}`);
       }
     }
 
     if (result.rights?.length) {
       const validRights = result.rights.filter((item) => item?.trim() && !/^(?:not applicable|none|n\/?a)$/i.test(item.trim()));
       if (validRights.length > 0 && !result.general_analysis?.includes(validRights[0].trim())) {
-        sections.push(`### Your Legal Rights\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
+        sections.push(`### ${sectionHeading(result, 'rights', 'Your Legal Rights')}\n\n${validRights.map((item) => `- ${item.trim()}`).join('\n')}`);
       }
     }
 
     if (result.handling_authority?.trim() && !/^(?:none|not applicable|n\/?a|unclear)$/i.test(result.handling_authority.trim())) {
       const auth = result.handling_authority.trim();
       if (!result.general_analysis?.includes(auth)) {
-        sections.push(auth.startsWith('#') ? auth : `### Competent Authority & Jurisdiction\n\n${auth}`);
+        sections.push(auth.startsWith('#') ? auth : `### ${sectionHeading(result, 'handling_authority', 'Competent Authority & Jurisdiction')}\n\n${auth}`);
       }
     }
+  } else if (hasLegalReasoning) {
+    const reasoning = result.legal_reasoning!.trim();
+    sections.push(reasoning.startsWith('#') ? reasoning : `### ${sectionHeading(result, 'legal_reasoning', 'Legal Reasoning')}\n\n${reasoning}`);
   }
 
   // 7. Legacy Law Summary fallback (only if no interactive sources available)

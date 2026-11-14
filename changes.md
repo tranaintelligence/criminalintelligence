@@ -2,6 +2,13 @@
 
 ## [2026-11-14] - Legal-answer reliability implementation plan
 
+### Follow-up implementation — custom headings and answer consistency
+- Added optional `section_headings` to the structured analysis schema and frontend type. The compact normal-chat instruction asks the model to provide concise headings for populated sections; the renderer uses them with legacy fallbacks, and accepts only known section keys with bounded labels.
+- Fixed the readability gate to recognize `legal_reasoning`, and made the frontend render it when it is the only substantive model field. This prevents a detailed legal analysis from being replaced or hidden behind the generic “couldn't formulate” fallback.
+- Tightened the short prompt to answer every distinct question, apply stated case facts (amount, prior record, employment/family circumstances) without inventing facts, and avoid claiming analysis failed when content exists. Existing deterministic BNS 303(2) bail and custody safeguards remain in force.
+- Custody guidance now names DSLSA for Delhi and points to the district DLSA based on the police station/court location without guessing. DSLSA helpline 1516 and NALSA 15100 are included. Normalized section labels in chat and source cards to avoid duplicated “Section” text, and stored the LSA source section as `12(g)`.
+- Considerations: headings are optional for older saved responses; fixed fallback labels preserve their display. The normal chat path remains one LLM call, and this adds only a small schema field and concise prompt direction. Python compilation, frontend production build, and diff whitespace checks passed. No tests were added or run. Not deployed.
+
 ### Runtime implementation progress
 - `llm/chain.py`: normal chat now uses a compact task-specific prompt (the dedicated Complaint Analyser prompt remains intact), one selected provider route, one generation request, Google SDK `retries=1` (one total attempt), no application retries/key/provider fallback, and a 1,200-token OpenAI-compatible output ceiling. Timeouts are no longer mislabeled as quota errors. Normal chat includes only the last four user turns, clipped to 1,200 characters each. Logs provider-reported prompt/completion usage where compatible responses return it.
 - Retrieval no longer automatically attaches BNS 305 to ordinary theft; it selects 305 only with specific dwelling/transport/place-of-worship/cargo/warehouse context. Custody prompts include BNSS 35, 38, 47, 48, 57, 58 and 480 text. Explicitly named provisions remain in the evidence set even if the model omits them. Normal FIR chat no longer inherits the long generic redirection prompt.

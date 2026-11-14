@@ -55,6 +55,10 @@ export interface StructuredAnalysis {
   rights?: string[];
   handling_authority?: string;
   legal_reasoning?: string;
+  section_headings?: Partial<Record<
+    'situation_meaning' | 'bail_status' | 'next_24_hours' | 'rights' | 'handling_authority' | 'legal_reasoning',
+    string
+  >>;
   applicable_laws?: ApplicableLaw[];
 }
 
