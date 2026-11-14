@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, LargeBinary
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from datetime import datetime
 import uuid
@@ -196,6 +196,24 @@ class ProviderAPIKeyUsage(Base):
             "bucket_type",
             "bucket_start",
         ),
+    )
+
+
+class LLMTokenReservation(Base):
+    """Shared rolling-window token reservations for provider admission."""
+
+    __tablename__ = "llm_token_reservations"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    reserved_tokens = Column(Integer, nullable=False)
+    actual_tokens = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    settled_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        CheckConstraint("reserved_tokens >= 0", name="ck_llm_token_reservation_nonnegative_reserved"),
+        CheckConstraint("actual_tokens IS NULL OR actual_tokens >= 0", name="ck_llm_token_reservation_nonnegative_actual"),
+        Index("ix_llm_token_reservations_window", "settled_at", "created_at"),
     )
 
 

@@ -1,5 +1,30 @@
 # Changelog & Architecture Notes for Future Agents
 
+
+## [2026-11-14] - Reviewed theft/custody answer reliability and shared LLM token budget
+
+### Changes
+- Fixed the duplicate opening brace in `legal_sources/registry.py` that broke module import.
+- Added `llm/legal_intake.py` to retain exact code, section, subsection and source span; `llm/chain.py` now resolves explicit references by exact code/section before any legacy concordance fallback.
+- Reworked the reviewed BNS 303(2) rule: explicit non-bailable answer, bail may still be considered under BNSS Section 480, first-offence/low-value/return conditions are not guessed, unrelated property values cannot trigger the exception, and stated value, age, work and record facts are applied to the bail discussion.
+- Corrected arrest-right wording for BNSS Sections 35, 38, 47, 48, 57 and 58; attached BNSS Sections 35, 38, 47, 48, 57, 58 and 480 as source candidates for custody answers.
+- The visible `general_analysis` now renders all applicable custody answers under LLM-provided `section_headings` (with concise fallback labels), replacing a generic model fallback that previously hid the structured fields.
+- Added a compact JSON output contract/schema and shorter source excerpts/application notes to keep prompts bounded. The supported normal path uses one provider generation; HTTP 429 is no longer retried.
+- Added `llm/token_budget.py` and `LLMTokenReservation`: shared rolling 60-second 8,000-token admission across Render workers, PostgreSQL advisory transaction lock, short DB transactions, provider-usage settlement, and fail-closed admission. Supabase RLS is enabled and anon/authenticated table access revoked. Startup `Base.metadata.create_all` creates the table without a hand-written migration.
+- Added offline tests for exact references, theft/custody rules, low-value exceptions, visible headings/fallback removal, shared token admission and the no-retry request path.
+
+### Verification
+- `python -m unittest discover -s tests -p "test_*.py"` passed (34 tests); `npm test -- --run` passed (1 frontend test); `npm run build` passed. `python -m py_compile` also passed for changed backend modules.
+- No LLM provider call or live PostgreSQL request was used in tests.
+
+### Future-agent notes
+- Scope is the reviewed theft/custody slice; do not treat general criminal-law outputs as validated by these rules.
+- Token estimation is deliberately lightweight (UTF-8 byte heuristic plus schema/framing/output/media allowances), not provider-exact. It reserves before calls and reconciles reported usage; usage from outside this application/provider account is not tracked. Keep database admission fail-closed.
+- First Schedule and NALSA summary source cards remain `unverified`; a stored summary/hash is not an exact authoritative quotation. Preserve the UI label Source text matched for exact registry text only.
+- Re-check current official sources and get independent Indian criminal-law review before adding offence branches or changing bail/arrest rules. The 30-case reviewer evaluation and staged rollout in `plans/legal-answer-reliability.md` remain open.
+- Complaint Analyser and existing front-end routes were not redesigned.
+
+
 ## [2026-11-14] - Contact Channels, Unmasked Privacy Relay, Written Opinion Fee Removal, Sensitive Cases, Leave Confirmations & Law Student Internships
 
 ### 1. Citizen Dashboard Help & Support Contact Info

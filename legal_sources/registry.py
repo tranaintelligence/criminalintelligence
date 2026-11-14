@@ -412,7 +412,6 @@ CONCEPT_RULES: list[dict[str, Any]] = [
         "targets": [("BNS", "318"), ("BNS", "316")],
     },
     {
-    {
         "keywords": ["theft", "stole", "stolen", "stealing", "thief", "chori", "chura", "चोरी"],
         "targets": [("BNS", "303")],
     },

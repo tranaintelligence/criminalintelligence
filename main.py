@@ -369,6 +369,7 @@ def _migrate_db_schema():
                 "founder_emails",
                 "gemini_api_key_usage",
                 "gemini_api_keys",
+                "llm_token_reservations",
                 "notification_providers",
                 "provider_api_key_usage",
                 "provider_api_keys",
