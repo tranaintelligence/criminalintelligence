@@ -1371,12 +1371,12 @@ async def run_analysis_pipeline(
 
     start_time = time.time()
     registry = source_registry if source_registry is not None else get_registry()
-    recent_user_context = "\n".join(
+    recent_context = "\n".join(
         str(item.get("content") or "").strip()[:600]
-        for item in (conversation_history or [])[-2:]
-        if item.get("role") == "user" and str(item.get("content") or "").strip()
+        for item in (conversation_history or [])[-4:]
+        if str(item.get("content") or "").strip()
     )
-    scan_text = f"{recent_user_context}\n{query or ''}\n{ephemeral_context or ''}".strip()
+    scan_text = f"{recent_context}\n{query or ''}\n{ephemeral_context or ''}".strip()
     requested_law = _requested_law_record(query, registry)
     relevant_statutes = _select_relevant_statutes(query or "", scan_text, registry)
     fallback_records = [rec for rec, _, _ in relevant_statutes]
@@ -1632,7 +1632,11 @@ def _build_prompt_messages(
         )
     else:
         prompt = (
-            "Answer each question in plain language, applying the stated facts. Treat FIR sections as allegations; do not substitute offences, invent law, or guarantee bail/release. For custody, answer bailability, bail availability, arrest safeguards, free legal aid and immediate steps separately. Use custom question-style section_headings. Explain uncertainty and identify missing facts.\n"
+            "Answer the user's exact question in plain language, applying stated facts.\n"
+            "1. STATUTORY SECTION IDENTIFICATION: For every legal question, identify and mention the exact applicable Act, section and subsection wherever relevant. Explain what each provision states and how it applies to the facts presented. Never omit relevant statutory sections. Distinguish principal offence, applicable exceptions, procedural provisions (BNSS) and evidentiary provisions (BSA). Verify section number, subsection, ingredients and punishment before citing; never cite unrelated sections. End the legal analysis with a short list of key statutory provisions relied upon.\n"
+            "2. FOLLOW-UP CONSISTENCY: When the user asks follow-up questions, preserve original facts and correctly identified offences from previous turns. Do not replace the applicable offence with another provision merely because the user asks about bail, punishment, arrest or procedure. Re-verify the original offence and BNSS First Schedule classification; never infer bail classification solely from maximum punishment. If a previous section was incorrect, correct it expressly.\n"
+            "3. QUESTION RELEVANCE: Directly address the user's exact question and legal issue. Do not substitute generic legal rights or boilerplate. If the question concerns only one Act, remain within that Act unless another statute is essential.\n"
+            "For custody, answer bailability, bail availability, arrest safeguards, free legal aid and immediate steps separately. Use custom question-style section_headings. Explain uncertainty and identify missing facts.\n"
             "Return one JSON object with keys: general_analysis, situation_meaning, bail_status, bail_options, rights (string array), legal_aid, next_24_hours (string array), legal_reasoning, section_headings (object), applicable_laws (array), is_conversational (boolean), conversational_reply (string), requires_sources (boolean), suggest_lawyer (boolean).\n\n"
             f"QUESTION: {query}\n\nFACTS / CONTEXT: {ephemeral_context or '(none)'}"
         )
@@ -1697,17 +1701,23 @@ def _build_prompt_messages(
             )
 
     active_system_prompt = COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT if is_complaint_fir else (
-        "You are TRANA, an Indian legal information assistant. Apply supplied legal sources to facts, explain uncertainty, "
-        "avoid inventing law or guaranteeing outcomes, and return valid JSON matching the analysis schema."
+        "You are TRANA, an Indian criminal-law intelligence and assistance platform under BNS, BNSS, BSA, and related laws.\n"
+        "MANDATORY PROTOCOLS:\n"
+        "1. MANDATORY STATUTORY SECTION IDENTIFICATION: For every legal question, identify and cite the exact applicable Act, section, and subsection wherever relevant. Explain statutory ingredients and application to facts. Never omit relevant statutory sections. Distinguish principal offence provisions, applicable exceptions, procedural provisions (BNSS), and evidentiary provisions (BSA). Verify section, subsection, and punishment; never cite unrelated sections. End the legal analysis with a short list of key statutory provisions relied upon.\n"
+        "2. FOLLOW-UP LEGAL CONTEXT CONSISTENCY: In multi-turn follow-ups, preserve original facts and correctly identified offences. Do not replace the applicable offence merely because user asks about bail, punishment, arrest or procedure. Check BNSS First Schedule independently for bailability; never infer bail classification solely from maximum punishment.\n"
+        "3. MANDATORY QUESTION RELEVANCE CHECK: Identify the user's exact question and legal issue. Every substantive part must directly answer it without substituting generic boilerplate. If question concerns only one Act, stay within that Act unless another is strictly essential.\n"
+        "Return a valid JSON object matching the requested schema."
     )
     messages = [SystemMessage(content=active_system_prompt)]
-    for item in (conversation_history or [])[-2:]:
+    for item in (conversation_history or [])[-4:]:
         role = item.get("role")
         content = str(item.get("content") or "").strip()[:600]
         if not content:
             continue
         if role == "user":
             messages.append(HumanMessage(content=content))
+        elif role == "assistant":
+            messages.append(AIMessage(content=content))
     content = prompt
     if media_attachments:
         blocks = []

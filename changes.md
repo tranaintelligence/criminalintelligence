@@ -1,5 +1,29 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Embed Mandatory Statutory Section Identification, Follow-Up Consistency & Question Relevance
+
+### Changes
+- **`llm/prompts.py`**:
+  - Embedded sections 20, 21, and 22 into `SYSTEM_PROMPT` (Master System Prompt V2.1):
+    - `20. MANDATORY STATUTORY SECTION IDENTIFICATION`: Exact Act, section, and subsection identification; explanation of statutory ingredients and fact application; strict distinction between principal offence provisions, exceptions, procedural provisions (BNSS), and evidentiary provisions (BSA); verification against authoritative sources; ending analysis with a short list of key statutory provisions relied upon.
+    - `21. FOLLOW-UP LEGAL CONTEXT CONSISTENCY`: Preserving original facts and identified offence across conversational follow-ups; preventing offence substitution on bail/punishment/procedure queries; independent BNSS First Schedule verification without inferring bail from max punishment; express error correction.
+    - `22. MANDATORY QUESTION RELEVANCE CHECK`: Exact question identification; strict direct answering without generic rights/arrest boilerplate substitution; single-Act confinement unless cross-statute is essential.
+  - Updated `DIRECT_ANALYSIS_PROMPT`, `COMPLAINT_FIR_ANALYSIS_SYSTEM_PROMPT`, `COMPLAINT_FIR_ANALYSIS_PROMPT`, and `ANALYSIS_PROMPT` to enforce these three protocols across both dedicated analyser and direct chat.
+- **`llm/chain.py`**:
+  - Updated normal chat prompt and `active_system_prompt` to embed the 3 mandatory protocols directly into prompt payloads.
+  - Expanded conversation history message assembly to retain both `user` and `assistant` prior turns (up to 4 turns, clipped to 600 chars), ensuring multi-turn context preserves previously identified offences and factual determinations during follow-ups.
+  - Expanded statutory scan text (`scan_text`) to include recent context across turns so statutory retrieval matches offences established in prior conversational turns.
+
+### Verification
+- `python -m unittest discover -s tests -p "test_*.py"`: All 35 tests passed in 0.78s.
+- `_estimate_message_tokens`: Verified prompt token estimate (6,568 tokens) comfortably respects the shared 8,000 TPM limit.
+- `bun test`: All 4 frontend tests across 2 files passed cleanly in 17.59s.
+- `bun x vite build`: Production client and SSR build passed with 0 errors in 7.96s.
+
+### Future-agent notes
+- Preserve multi-turn `assistant` message inclusion in `conversation_history` so follow-ups retain context without requiring the user to restate the offence.
+- Keep prompt modifications dense and concise to remain within the 8,000 TPM reservation ceiling.
+
 ## [2026-11-15] - Improve custody answer readability and safeguard coverage
 
 ### Changes
