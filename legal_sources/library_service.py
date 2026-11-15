@@ -667,7 +667,7 @@ def get_act_by_id(act_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def get_sections_for_act(act_code: str, query: Optional[str] = None, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+def get_sections_for_act(act_code: str, query: Optional[str] = None, limit: int = 600, offset: int = 0) -> Dict[str, Any]:
     """Retrieve sections for an act with search and pagination."""
     _init_corpus()
     code = act_code.upper().strip()

@@ -446,7 +446,7 @@ export async function fetchActDetails(actId: string): Promise<Act | null> {
 export async function fetchActSections(
   actId: string,
   query?: string,
-  limit: number = 50,
+  limit: number = 600,
   offset: number = 0
 ): Promise<{ total: number; sections: any[] }> {
   try {

@@ -4262,7 +4262,7 @@ def get_legal_act_details(act_id: str):
 def get_legal_act_sections(
     act_id: str,
     q: Optional[str] = Query(None, description="Search term or section number"),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(600, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     """List sections for an Act with pagination and filtering."""

@@ -1,5 +1,24 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Courtroom Visual Polish, Law Library Bookshelf Theme & Whole Act Reader
+
+### Changes
+1. **Whole Act Navigation & Complete Statutory Reader (`student.library.tsx` & `student.converters.tsx`)**:
+   - Updated "View Act" link in Law Converters to pass `act` and `section` query parameters to `/student/library`.
+   - Added `validateSearch` to `student.library.tsx` with a reactive effect that automatically opens the selected Act and scrolls smoothly to the target section with visual highlight.
+   - Raised section query limit in `main.py`, `legal_sources/library_service.py`, and `student-legal-library.ts` from 200 to 600/1000 so that all provisions of major statutes (e.g. BNS's 358 sections, BNSS's 531 sections) load completely without truncation.
+   - Added Chapter filter tabs ("All Chapters", "Ch. I", "Ch. II", etc.), in-Act live section search, and a "Continuous Reader" mode allowing users to read the entire Bare Act sequentially like a printed statute.
+
+2. **Realistic Law Library Bookshelves Theme (`student.library.tsx`)**:
+   - Implemented realistic mahogany wooden library shelves in the background with leather-bound legal reporter volumes (AIR, SCC, SCR, Gazette of India) featuring gold-leaf spine bands and warm library reading lamp ambient glows.
+   - Restyled Act cards as physical hardbound leather volumes with embossed lettering and silk ribbon bookmarks resting on wooden shelf ledges.
+
+3. **Immersive Courtroom Chamber Simulator (`student.simulator.tsx`)**:
+   - Transformed the Case Simulator into a lively, authentic courtroom chamber with warm mahogany wood panelling, velvet carpet tones, and polished brass judicial plaques.
+   - Added an elevated Judicial Bench with the Scales of Justice brass seal, Presiding Judicial Magistrate avatar, gavel on soundblock with interactive "Order in the Court" strike animation.
+   - Added Defence Bar and Opposing Public Prosecutor (State of NCT) tables with microphones, case dockets, and interactive objection / counter-argument stream.
+   - Included quick statutory submission pills ("Cite Satender Antil", "Argue Sec 479 BNSS", "Raise Sec 63 BSA Objection") and live courtroom transcript recording.
+
 ## [2026-11-15] - Expand TRANA Student Workspace: Legal Library, Law Converters, Case Simulator & Study Centre
 
 ### Changes

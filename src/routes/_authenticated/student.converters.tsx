@@ -294,7 +294,15 @@ function StudentConvertersPage() {
                   </button>
                   <Link
                     to="/student/library"
-                    className="apple-glass-pill px-2.5 py-1 text-xs text-purple-300 hover:text-white flex items-center gap-1"
+                    search={{
+                      act: item.tgt_act.toLowerCase().includes("bnss")
+                        ? "bnss-2023"
+                        : item.tgt_act.toLowerCase().includes("bsa")
+                        ? "bsa-2023"
+                        : "bns-2023",
+                      section: item.tgt_sec,
+                    }}
+                    className="apple-glass-pill px-2.5 py-1 text-xs text-purple-300 hover:text-white flex items-center gap-1 cursor-pointer"
                   >
                     <span>View Act</span>
                     <ChevronRight className="h-3 w-3" />
