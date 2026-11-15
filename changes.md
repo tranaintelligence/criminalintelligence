@@ -1,5 +1,22 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Fix Find a Professional Directory Page Loading & ReferenceErrors
+
+### Changes
+- **`src/routes/_authenticated/dashboard.lawyers.tsx`**:
+  - Fixed runtime `ReferenceError: User is not defined` and `ReferenceError: FileText is not defined` by adding `User` and `FileText` to the `lucide-react` import statement.
+  - Added null-safe guards for `initialMessages[0]?.text` and `user?.id` in local referrals and consultation locking logic to prevent runtime exceptions when rendering without active sessions.
+  - Resolved TypeScript strict typecheck error on consultation insertion.
+
+### Verification
+- `bun x tsc --noEmit | Select-String "dashboard.lawyers.tsx"`: 0 errors returned.
+- `bun test`: All 4 frontend tests passed.
+- `bun x vite build`: Production build succeeded in 6.12s with 0 errors.
+- `python -m unittest discover -s tests -p "test_*.py"`: All 35 backend tests passed in 0.83s.
+
+### Future-agent notes
+- Ensure any icon from `lucide-react` used in JSX is explicitly declared in the module's top-level imports.
+
 ## [2026-11-15] - Embed Mandatory Statutory Section Identification, Follow-Up Consistency & Question Relevance
 
 ### Changes

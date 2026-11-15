@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Phone, MessageSquare, Lock, X, ShieldCheck, Scale, Award, MapPin } from "lucide-react";
+import { Phone, MessageSquare, Lock, X, ShieldCheck, Scale, Award, MapPin, User, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranaCredential } from "@/lib/trana-auth";
@@ -400,7 +400,7 @@ function Lawyers() {
           status: "confirmed",
           note: JSON.stringify(initialMessages),
           intake_brief: brief.fullBriefMarkdown,
-        })
+        } as any)
         .select()
         .maybeSingle();
 
@@ -420,7 +420,7 @@ function Lawyers() {
           lawyerName: l.full_name,
           consultationType: chosenMode === "call" ? "Call" : "Chat",
           status: "Confirmed",
-          lastMessage: initialMessages[0].text,
+          lastMessage: initialMessages[0]?.text || "Consultation requested",
           lastUpdated: new Date().toISOString(),
         };
         localStorage.setItem("trana_all_consultation_chats_index", JSON.stringify(chatIndex));
@@ -435,16 +435,17 @@ function Lawyers() {
           status: "Confirmed",
           date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
           intakeBrief: brief.fullBriefMarkdown,
-          summary: initialMessages[0].text,
+          summary: initialMessages[0]?.text || "Consultation requested",
         });
         localStorage.setItem("trana_client_referrals", JSON.stringify(localReferrals));
       } catch {}
 
       // Lock state
       try {
-        const stored = JSON.parse(localStorage.getItem(`trana_requested_lawyers_${user.id}`) || "[]");
+        const uId = user?.id ? String(user.id) : "anonymous";
+        const stored = JSON.parse(localStorage.getItem(`trana_requested_lawyers_${uId}`) || "[]");
         stored.push({ id: l.id, name: l.full_name });
-        localStorage.setItem(`trana_requested_lawyers_${user.id}`, JSON.stringify(stored));
+        localStorage.setItem(`trana_requested_lawyers_${uId}`, JSON.stringify(stored));
       } catch {}
 
       setRequested((r) => ({ ...r, [l.id]: true }));
