@@ -1,5 +1,25 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Format and Optimize Space in Find a Professional Directory
+
+### Changes
+- **`src/routes/_authenticated/dashboard.lawyers.tsx`**:
+  - Re-architected grid layout from a cramped 3-column setup (`lg:grid-cols-3`) to a spacious 2-column layout (`md:grid-cols-2 lg:gap-8 max-w-6xl mx-auto`), giving advocate cards generous horizontal breathing room.
+  - Enhanced card typography and internal hierarchy: added `rounded-2xl` corners, subtle dark gradients (`from-[#16161a] to-[#111114]`), generous padding (`p-6 sm:p-7`), and hover elevation shadows.
+  - Formatted Practice Description with dedicated rounded containers (`p-3.5 bg-white/[0.03] border border-white/[0.07] rounded-xl`) to eliminate visual clutter.
+  - Modernized search input and dropdown filter selects with rounded corners, subtle borders, and smooth focus states.
+  - Refined consultation mode tags (Direct Call, Confidential Chat) into clean pill badges.
+  - Added modern `rounded-xl` action buttons with clear contrast and hover feedback.
+
+### Verification
+- `bun x tsc --noEmit | Select-String "dashboard.lawyers.tsx"`: 0 errors returned.
+- `bun test`: All 4 frontend tests passed.
+- `bun x vite build`: Production client and SSR build passed with 0 errors in 6.54s.
+- `python -m unittest discover -s tests -p "test_*.py"`: All 35 backend tests passed in 1.09s.
+
+### Future-agent notes
+- Keep lawyer profile cards in a 2-column grid on desktop screens to preserve readability of practice descriptions and Bar particulars.
+
 ## [2026-11-15] - Fix Find a Professional Directory Page Loading & ReferenceErrors
 
 ### Changes

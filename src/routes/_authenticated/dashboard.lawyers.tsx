@@ -58,7 +58,7 @@ function getLawyerPhoto(l: Lawyer): string | null {
         const byBar = localStorage.getItem(`trana_lawyer_avatar_${l.bar_reg_no.trim().toUpperCase()}`);
         if (byBar) return byBar;
       }
-    } catch {}
+    } catch { }
   }
   return null;
 }
@@ -331,7 +331,7 @@ function Lawyers() {
           (r: any) => (r.lawyerId && r.lawyerId === l.id) || (r.lawyerName && r.lawyerName.toLowerCase().replace(/^adv\.?\s*/i, "").trim() === normName)
         );
         if (found) targetId = found.id;
-      } catch {}
+      } catch { }
     }
 
     if (!targetId) targetId = `REF-${l.id}`;
@@ -356,7 +356,7 @@ function Lawyers() {
           (r: any) => (r.lawyerId && r.lawyerId === l.id) || (r.lawyerName && r.lawyerName.toLowerCase().replace(/^adv\.?\s*/i, "").trim() === normName)
         );
         if (found) existingChatId = found.id;
-      } catch {}
+      } catch { }
     }
 
     if (existingChatId) {
@@ -438,7 +438,7 @@ function Lawyers() {
           summary: initialMessages[0]?.text || "Consultation requested",
         });
         localStorage.setItem("trana_client_referrals", JSON.stringify(localReferrals));
-      } catch {}
+      } catch { }
 
       // Lock state
       try {
@@ -446,7 +446,7 @@ function Lawyers() {
         const stored = JSON.parse(localStorage.getItem(`trana_requested_lawyers_${uId}`) || "[]");
         stored.push({ id: l.id, name: l.full_name });
         localStorage.setItem(`trana_requested_lawyers_${uId}`, JSON.stringify(stored));
-      } catch {}
+      } catch { }
 
       setRequested((r) => ({ ...r, [l.id]: true }));
       qc.invalidateQueries({ queryKey: ["consultations"] });
@@ -470,25 +470,25 @@ function Lawyers() {
     }
   }
 
-  const sel = "border border-[#333333] bg-[#111111] px-3.5 py-2 text-xs text-white focus:border-white focus:outline-none";
+  const sel = "border border-white/10 bg-[#141417] px-4 py-2.5 text-xs text-neutral-200 rounded-xl focus:border-white/30 focus:outline-none transition-colors cursor-pointer";
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#222222] pb-6">
+    <div className="max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
           <h1 className="font-display text-4xl md:text-5xl font-medium text-white">Find a Professional</h1>
-          <p className="mt-2 text-sm text-[#999999]">
+          <p className="mt-2 text-sm text-neutral-400">
             Connect with verified advocates enrolled with State Bar Councils across India. Arrange a privileged consultation by call or chat.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-1.5 text-xs text-emerald-400 self-start sm:self-auto">
+        <div className="inline-flex items-center gap-2 border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 rounded-xl text-xs text-emerald-400 self-start sm:self-auto shrink-0 shadow-sm">
           <ShieldCheck className="h-4 w-4" />
           <span>Bar Sanad Verified Advocates</span>
         </div>
       </div>
 
       {/* Consent to Share Details Notice */}
-      <div className="mt-5 rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div className="mt-5 rounded-2xl border border-white/10 bg-[#121215]/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
         <div className="flex items-start gap-3">
           <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
@@ -506,14 +506,17 @@ function Lawyers() {
         </Link>
       </div>
 
-      <div className="mt-8">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by advocate name, Bar Council, court, specialisation, or city..."
-          className="w-full border border-white/20 bg-[#111111] px-5 py-3.5 text-sm text-white placeholder:text-[#666666] focus:border-white focus:outline-none"
-        />
-        <div className="mt-3 flex flex-wrap gap-3">
+      {/* Search & Filter Controls */}
+      <div className="mt-8 space-y-3">
+        <div className="relative">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by advocate name, Bar Council, court, specialisation, or city..."
+            className="w-full rounded-2xl border border-white/15 bg-[#121215] px-5 py-3.5 text-sm text-white placeholder:text-neutral-500 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 focus:outline-none transition-all shadow-inner"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2.5">
           <select className={sel} value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area of law">
             <option value="">All areas of law</option>
             {areas.map((a) => <option key={a} value={a}>{a}</option>)}
@@ -531,22 +534,22 @@ function Lawyers() {
       </div>
 
       {isLoading ? (
-        <div className="mt-12 text-center text-sm text-[#777777]">Loading verified advocate directory...</div>
+        <div className="mt-16 text-center text-sm text-neutral-400">Loading verified advocate directory...</div>
       ) : lawyers.length === 0 ? (
-        <div className="mt-10 border border-[#2E2E2E] bg-[#141414] p-8 text-center space-y-3">
-          <Scale className="h-8 w-8 text-[#777777] mx-auto mb-2" />
+        <div className="mt-10 border border-white/10 bg-[#121215] rounded-2xl p-10 text-center space-y-3">
+          <Scale className="h-8 w-8 text-neutral-500 mx-auto mb-2" />
           <p className="font-display text-2xl text-white">No Verified Advocates Listed Yet</p>
-          <p className="text-sm text-[#888888] max-w-lg mx-auto">
+          <p className="text-sm text-neutral-400 max-w-lg mx-auto">
             Our verification desk authenticates advocate Sanads directly against State Bar Council rolls before granting public listing. If you are an advocate, verify your credentials via the Legal Professional Workspace.
           </p>
         </div>
       ) : list.length === 0 ? (
-        <div className="mt-10 border border-[#2E2E2E] bg-[#141414] p-8 text-center space-y-2">
+        <div className="mt-10 border border-white/10 bg-[#121215] rounded-2xl p-10 text-center space-y-2">
           <p className="font-display text-xl text-white">No advocates match these filters</p>
-          <p className="text-xs text-[#888888]">Try resetting the city or specialisation filters above.</p>
+          <p className="text-xs text-neutral-400">Try resetting the city or specialisation filters above.</p>
         </div>
       ) : (
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-6 lg:gap-8 md:grid-cols-2">
           {list.map((l) => {
             const isLocked = Boolean(
               requested[l.id] ||
@@ -559,33 +562,35 @@ function Lawyers() {
               <div
                 key={l.id}
                 onClick={() => setSelectedLawyerProfile(l)}
-                className={`flex flex-col justify-between border p-6 transition-all relative cursor-pointer group hover:scale-[1.01] ${
+                className={`flex flex-col justify-between rounded-2xl border p-6 sm:p-7 transition-all relative cursor-pointer group hover:scale-[1.01] hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)] ${
                   isLocked
-                    ? "border-emerald-500/60 bg-emerald-950/10 shadow-sm"
-                    : "border-white/15 bg-[#141414] hover:border-white/40"
+                    ? "border-emerald-500/40 bg-gradient-to-b from-[#131b17] to-[#0f1412] shadow-sm"
+                    : "border-white/[0.1] bg-gradient-to-b from-[#16161a] to-[#111114] hover:border-white/30"
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2 border-b border-[#222222] pb-3 mb-3">
-                    <span className="inline-flex items-center gap-1.5 text-[0.65rem] uppercase tracking-[0.15em] text-emerald-400 font-semibold">
+                  <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] pb-3.5 mb-4">
+                    <span className="inline-flex items-center gap-1.5 text-[0.65rem] uppercase tracking-[0.16em] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
                       <ShieldCheck className="h-3 w-3" />
                       <span>Verified Sanad</span>
                     </span>
-                    {l.bar_reg_no && (
-                      <span className="font-mono text-[10px] text-[#888888] bg-[#1A1A1A] px-2 py-0.5 border border-[#333333]">
-                        {l.bar_reg_no}
-                      </span>
-                    )}
-                    {isLocked && (
-                      <span className="flex items-center gap-1 text-[0.65rem] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded">
-                        <Lock className="h-3 w-3" /> In Touch
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {l.bar_reg_no && (
+                        <span className="font-mono text-[10px] text-neutral-400 bg-white/[0.06] px-2.5 py-0.5 rounded-md border border-white/10">
+                          {l.bar_reg_no}
+                        </span>
+                      )}
+                      {isLocked && (
+                        <span className="flex items-center gap-1 text-[0.65rem] font-mono uppercase tracking-wider text-emerald-300 bg-emerald-950/90 border border-emerald-500/50 px-2.5 py-0.5 rounded-full shadow-sm">
+                          <Lock className="h-3 w-3" /> In Touch
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Lawyer Picture & Name Header */}
-                  <div className="flex items-start gap-4 my-2">
-                    <div className="relative h-16 w-16 rounded-2xl border-2 border-white/20 bg-[#121216] overflow-hidden shrink-0 flex items-center justify-center shadow-lg group-hover:border-emerald-500/50 transition-colors">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="relative h-16 w-16 sm:h-18 sm:w-18 rounded-2xl border-2 border-white/15 bg-[#0e0e12] overflow-hidden shrink-0 flex items-center justify-center shadow-lg group-hover:border-emerald-500/50 transition-colors">
                       {photoUrl ? (
                         <img src={photoUrl} alt={l.full_name} className="h-full w-full object-cover" />
                       ) : (
@@ -603,12 +608,12 @@ function Lawyers() {
                         {l.full_name}
                       </h2>
                       {l.state_bar_council && (
-                        <p className="text-xs text-[#888888] mt-0.5 flex items-center gap-1 truncate">
-                          <Award className="h-3 w-3 text-neutral-400 shrink-0" />
+                        <p className="text-xs text-neutral-400 mt-1 flex items-center gap-1.5 truncate">
+                          <Award className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
                           <span className="truncate">{l.state_bar_council}</span>
                         </p>
                       )}
-                      <p className="mt-1 text-xs text-emerald-400/90 font-mono flex items-center gap-1">
+                      <p className="mt-1 text-xs text-emerald-400 font-mono flex items-center gap-1">
                         <ShieldCheck className="h-3 w-3 text-emerald-400" />
                         <span>Bar Enrolled Counsel</span>
                       </p>
@@ -616,7 +621,7 @@ function Lawyers() {
                   </div>
 
                   {/* Proper Practice Description */}
-                  <div className="mt-3.5 space-y-1.5 bg-[#18181c]/80 border border-white/10 rounded-xl p-3">
+                  <div className="my-4 space-y-1.5 bg-white/[0.03] border border-white/[0.07] rounded-xl p-3.5">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
                       <FileText className="h-3 w-3" /> Practice Description
                     </span>
@@ -625,36 +630,47 @@ function Lawyers() {
                     </p>
                   </div>
 
-                  <p className="mt-2.5 text-xs text-neutral-400 font-medium line-clamp-1">
-                    <span className="text-neutral-500 font-mono uppercase text-[10px]">Specialisation: </span>
-                    <span className="text-neutral-200">{l.specialisation}</span>
-                  </p>
-                  
-                  {l.courts && (
-                    <p className="mt-1 text-xs text-[#888888] line-clamp-1">
-                      Courts: <span className="text-neutral-300">{l.courts}</span>
+                  <div className="space-y-2 mt-3.5 text-xs">
+                    <p className="text-neutral-400 font-medium line-clamp-1 flex items-baseline gap-1.5">
+                      <span className="text-neutral-500 font-mono uppercase text-[10px] shrink-0">Specialisation:</span>
+                      <span className="text-neutral-200 truncate">{l.specialisation}</span>
                     </p>
-                  )}
+                    
+                    {l.courts && (
+                      <p className="text-neutral-400 line-clamp-1 flex items-baseline gap-1.5">
+                        <span className="text-neutral-500 font-mono uppercase text-[10px] shrink-0">Courts:</span>
+                        <span className="text-neutral-300 truncate">{l.courts}</span>
+                      </p>
+                    )}
+                  </div>
 
-                  <div className="mt-3 flex items-center justify-between text-xs text-[#777777] border-t border-[#222222] pt-3">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5 text-neutral-400" />
+                  <div className="mt-4 pt-3.5 flex items-center justify-between text-xs text-neutral-400 border-t border-white/[0.06]">
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
                       <span>{l.city}, {l.state || "India"}</span>
                     </span>
                     {l.experience_years ? (
-                      <span className="text-[11px] text-neutral-400 font-mono">
+                      <span className="text-[11px] text-neutral-300 font-mono bg-white/[0.05] px-2 py-0.5 rounded border border-white/10">
                         {l.experience_years}+ Yrs Practice
                       </span>
                     ) : null}
                   </div>
 
-                  <div className="mt-4 flex gap-4 text-xs text-[#888888]">
-                    {l.offers_call && <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-white" />Direct Call</span>}
-                    {l.offers_chat && <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5 text-white" />Confidential Chat</span>}
+                  <div className="mt-3.5 flex items-center gap-2.5 text-xs">
+                    {l.offers_call && (
+                      <span className="inline-flex items-center gap-1.5 bg-white/[0.04] border border-white/10 px-2.5 py-1 rounded-md text-[11px] text-neutral-200">
+                        <Phone className="h-3 w-3 text-emerald-400" /> Direct Call
+                      </span>
+                    )}
+                    {l.offers_chat && (
+                      <span className="inline-flex items-center gap-1.5 bg-white/[0.04] border border-white/10 px-2.5 py-1 rounded-md text-[11px] text-neutral-200">
+                        <MessageSquare className="h-3 w-3 text-sky-400" /> Confidential Chat
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-[#222222]">
+                <div className="mt-6 pt-4 border-t border-white/[0.08]">
                   {isLocked ? (
                     <button
                       type="button"
@@ -662,7 +678,7 @@ function Lawyers() {
                         e.stopPropagation();
                         handleOpenExistingChat(l);
                       }}
-                      className="w-full bg-[#1A1A1A] border border-emerald-500/50 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-emerald-400 hover:bg-emerald-950/40 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full bg-[#1A1A1E] border border-emerald-500/50 py-3 rounded-xl text-xs font-semibold uppercase tracking-[0.15em] text-emerald-400 hover:bg-emerald-950/40 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                     >
                       <MessageSquare className="h-4 w-4" />
                       <span>Open Consultation Channel</span>
@@ -675,13 +691,13 @@ function Lawyers() {
                         handleInitiateRequest(l);
                       }}
                       disabled={loadingLawyerId === l.id}
-                      className="w-full bg-white py-3 text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full bg-white py-3 rounded-xl text-xs font-semibold uppercase tracking-[0.15em] text-black hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md"
                     >
                       {loadingLawyerId === l.id ? (
                         <span>Routing Request...</span>
                       ) : (
                         <>
-                          <ShieldCheck className="h-4 w-4" />
+                          <ShieldCheck className="h-4 w-4 text-emerald-700" />
                           <span>Request Consultation</span>
                         </>
                       )}
@@ -721,9 +737,8 @@ function Lawyers() {
               {consultingLawyer.offers_call && (
                 <label
                   onClick={() => setSelectedMode("call")}
-                  className={`flex items-center justify-between p-3.5 border cursor-pointer transition-colors ${
-                    selectedMode === "call" ? "border-white bg-[#222222]" : "border-[#333333] bg-[#0E0E0E]"
-                  }`}
+                  className={`flex items-center justify-between p-3.5 border cursor-pointer transition-colors ${selectedMode === "call" ? "border-white bg-[#222222]" : "border-[#333333] bg-[#0E0E0E]"
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-white" />
@@ -732,16 +747,15 @@ function Lawyers() {
                       <p className="text-[11px] text-[#777777]">Direct briefing call with advocate</p>
                     </div>
                   </div>
-                  <input type="radio" checked={selectedMode === "call"} onChange={() => {}} className="accent-white" />
+                  <input type="radio" checked={selectedMode === "call"} onChange={() => { }} className="accent-white" />
                 </label>
               )}
 
               {consultingLawyer.offers_chat && (
                 <label
                   onClick={() => setSelectedMode("chat")}
-                  className={`flex items-center justify-between p-3.5 border cursor-pointer transition-colors ${
-                    selectedMode === "chat" ? "border-white bg-[#222222]" : "border-[#333333] bg-[#0E0E0E]"
-                  }`}
+                  className={`flex items-center justify-between p-3.5 border cursor-pointer transition-colors ${selectedMode === "chat" ? "border-white bg-[#222222]" : "border-[#333333] bg-[#0E0E0E]"
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <MessageSquare className="h-4 w-4 text-white" />
@@ -750,7 +764,7 @@ function Lawyers() {
                       <p className="text-[11px] text-[#777777]">Instant secure messaging channel</p>
                     </div>
                   </div>
-                  <input type="radio" checked={selectedMode === "chat"} onChange={() => {}} className="accent-white" />
+                  <input type="radio" checked={selectedMode === "chat"} onChange={() => { }} className="accent-white" />
                 </label>
               )}
             </div>
