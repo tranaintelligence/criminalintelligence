@@ -299,8 +299,13 @@ function StudentSimulatorPage() {
             courtTitle={activeTemplate.court}
             isGavelStriking={isGavelStriking}
             onTriggerGavel={triggerGavel}
-            lastTurnSender={turns.length > 0 ? (turns[turns.length - 1].sender as any) : "judge"}
-            proceedingsCount={turns.length}
+            latestTurn={turns.length > 0 ? turns[turns.length - 1] : null}
+            allTurns={turns}
+            inputArgument={inputArgument}
+            onInputChange={setInputArgument}
+            onSubmitArgument={handleSendArgument}
+            isSubmittingTurn={isSubmittingTurn}
+            onQuickSubmission={(text) => handleSendArgument(text)}
           />
 
           {/* ══════════════════════════════════════════════════════════════════
@@ -491,28 +496,17 @@ function StudentSimulatorPage() {
                 <div ref={transcriptEndRef} />
               </div>
 
-              {/* Courtroom Speaking Podium Input Box */}
-              <form onSubmit={(e) => { e.preventDefault(); handleSendArgument(); }} className="mt-4 pt-3 border-t border-amber-500/30 flex gap-2">
-                <div className="relative flex-1">
-                  <Mic className="absolute left-3.5 top-3 h-4 w-4 text-amber-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Step to the podium: State your submission, cite provisions or answer the Bench..."
-                    value={inputArgument}
-                    onChange={(e) => setInputArgument(e.target.value)}
-                    disabled={isSubmittingTurn}
-                    className="w-full pl-10 pr-4 py-2.5 text-xs md:text-sm text-white placeholder-neutral-400 bg-black/75 border border-amber-500/40 focus:border-amber-300 rounded-xl outline-none shadow-inner"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isSubmittingTurn || !inputArgument.trim()}
-                  className="bg-amber-400 hover:bg-amber-300 text-black font-bold disabled:opacity-40 px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-lg transition-transform hover:scale-105"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  <span>Submit to Court</span>
-                </button>
-              </form>
+              {/* Transcript Recording Footer */}
+              <div className="mt-4 pt-3 border-t border-amber-500/20 flex flex-wrap items-center justify-between text-[11px] font-mono text-neutral-400 gap-2">
+                <span className="flex items-center gap-1.5 text-amber-300">
+                  <Mic className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Submissions are entered via the Courtroom Podium above</span>
+                </span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Official Shorthand Log</span>
+                </span>
+              </div>
             </div>
           </div>
 

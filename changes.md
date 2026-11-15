@@ -1,5 +1,24 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Live Dialogue Speech Bubbles in 16-Bit Court Arena & Integrated Advocate Podium
+
+### Changes
+1. **Live Spoken Dialogue in the 16-Bit Court Arena (`src/components/CourtroomPixelScene.tsx`)**:
+   - Wired the official courtroom transcript and proceedings directly into the 16-bit visual stage.
+   - Added character-anchored live retro speech bubbles:
+     - **Judge**: Mahogany & gold speech bubble pointing directly to the Judge on the Dais displaying their inquiries, observations, and rulings with timestamp.
+     - **Opposition Prosecutor**: Crimson/rose objection speech bubble anchored above the Opposition Bar displaying the State's objections and counter-arguments.
+     - **Defense Counsel (User)**: Royal purple advocate speech bubble anchored above the Defense Bar displaying user submissions.
+   - Added a statement stepper (`Turn X of Y`) to browse recent courtroom dialogue exchanges without leaving the arena.
+
+2. **Advocate's Speaking Podium Relocated Near the Courtroom (`src/components/CourtroomPixelScene.tsx` & `src/routes/_authenticated/student.simulator.tsx`)**:
+   - Relocated the argument input box from the bottom of the long transcript column directly to the base of the 16-Bit Courtroom Arena.
+   - Designed an authentic **Advocate's Speaking Podium**:
+     - High-visibility submission input field with microphone icon and keyboard enter submit.
+     - One-click quick statutory submission pills: *"Cite Satender Antil & Category A"*, *"Argue Section 479 BNSS Release"*, and *"Raise Section 63 BSA Objection"*.
+     - Instant visual reaction: submitting an argument immediately shows the user's speech bubble, triggers the opposition's objection or the judge's gavel strike and inquiry right before the user's eyes.
+   - Streamlined the transcript column below into a dedicated, clean official shorthand log for permanent record review.
+
 ## [2026-11-15] - Pixelated Judge, Opposition Counsel & Courtroom Crowd in Case Simulator
 
 ### Changes
