@@ -562,11 +562,10 @@ function Lawyers() {
               <div
                 key={l.id}
                 onClick={() => setSelectedLawyerProfile(l)}
-                className={`flex flex-col justify-between rounded-2xl border p-6 sm:p-7 transition-all relative cursor-pointer group hover:scale-[1.01] hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)] ${
-                  isLocked
-                    ? "border-emerald-500/40 bg-gradient-to-b from-[#131b17] to-[#0f1412] shadow-sm"
-                    : "border-white/[0.1] bg-gradient-to-b from-[#16161a] to-[#111114] hover:border-white/30"
-                }`}
+                className={`flex flex-col justify-between rounded-2xl border p-6 sm:p-7 transition-all relative cursor-pointer group hover:scale-[1.01] hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)] ${isLocked
+                  ? "border-emerald-500/40 bg-gradient-to-b from-[#131b17] to-[#0f1412] shadow-sm"
+                  : "border-white/[0.1] bg-gradient-to-b from-[#16161a] to-[#111114] hover:border-white/30"
+                  }`}
               >
                 <div>
                   <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] pb-3.5 mb-4">
@@ -635,7 +634,7 @@ function Lawyers() {
                       <span className="text-neutral-500 font-mono uppercase text-[10px] shrink-0">Specialisation:</span>
                       <span className="text-neutral-200 truncate">{l.specialisation}</span>
                     </p>
-                    
+
                     {l.courts && (
                       <p className="text-neutral-400 line-clamp-1 flex items-baseline gap-1.5">
                         <span className="text-neutral-500 font-mono uppercase text-[10px] shrink-0">Courts:</span>
