@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { 
   GraduationCap, BookOpen, Scale, Search, FileText, 
   Sparkles, Users, ArrowUpRight, LogOut, ChevronRight, Menu, X, Landmark, ShieldCheck, User, Hash, Compass,
-  Award, Upload, Image as ImageIcon, CheckCircle2, Lock, Trash2, ShieldAlert, Clock, AlertCircle
+  Award, Upload, Image as ImageIcon, CheckCircle2, Lock, Trash2, ShieldAlert, Clock, AlertCircle,
+  Library, ArrowLeftRight, Gavel
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,35 +34,64 @@ function StudentLayout() {
     (typeof window !== "undefined" && localStorage.getItem("trana_is_intern") === "true")
   );
 
-  // Dynamic Navigation based on Intern status
-  const navItems = useMemo(() => {
+  // Grouped Navigation structure per specification:
+  // OVERVIEW, LEARNING, RESEARCH & WORK, NETWORK
+  const navSections = useMemo(() => {
     return [
-      { to: "/student", label: "Overview", icon: BookOpen, exact: true },
-      { to: "/student/drafter", label: "AI Drafter", icon: Sparkles },
-      ...(isIntern ? [{ to: "/student/cases", label: "Case Tracker", icon: Scale }] : []),
-      { to: "/student/publications", label: "Research & Achievements", icon: Award },
-      { to: "/student/citations", label: "Citation Finder", icon: Search },
-      { to: "/student/research", label: "Case Research", icon: Landmark },
-      { to: "/student/documents", label: "My Documents", icon: FileText },
-      { to: "/student/network", label: "Professional Network", icon: Users },
-      { to: "/student/profile", label: "My Profile", icon: User },
+      {
+        group: "OVERVIEW",
+        items: [
+          { to: "/student", label: "Overview", icon: BookOpen, exact: true },
+        ],
+      },
+      {
+        group: "LEARNING",
+        items: [
+          { to: "/student/library", label: "Legal Library", icon: Library },
+          { to: "/student/converters", label: "Law Converters", icon: ArrowLeftRight },
+          { to: "/student/simulator", label: "Case Simulator", icon: Gavel },
+          { to: "/student/study", label: "Study Centre", icon: GraduationCap },
+        ],
+      },
+      {
+        group: "RESEARCH & WORK",
+        items: [
+          { to: "/student/drafter", label: "AI Drafter", icon: Sparkles },
+          { to: "/student/publications", label: "Research & Achievements", icon: Award },
+          { to: "/student/citations", label: "Citation Finder", icon: Search },
+          { to: "/student/research", label: "Case Research", icon: Landmark },
+          { to: "/student/documents", label: "My Documents", icon: FileText },
+          ...(isIntern ? [{ to: "/student/cases", label: "Case Tracker", icon: Scale }] : []),
+        ],
+      },
+      {
+        group: "NETWORK",
+        items: [
+          { to: "/student/network", label: "Professional Network", icon: Users },
+          { to: "/student/profile", label: "My Profile", icon: User },
+        ],
+      },
     ];
   }, [isIntern]);
 
+  const allNavItems = useMemo(() => {
+    return navSections.flatMap((s) => s.items);
+  }, [navSections]);
+
   // Filter items by search query if user types in search
   const filteredNav = searchQuery.trim()
-    ? navItems.filter((item) =>
+    ? allNavItems.filter((item) =>
         item.label.toLowerCase().includes(searchQuery.toLowerCase().trim())
       )
-    : navItems;
+    : null;
 
-  // Find active route index
-  const activeRouteIndex = filteredNav.findIndex((item) => {
+  // Check active route
+  function isRouteActive(item: { to: string; exact?: boolean }) {
     if (item.exact) {
       return location.pathname === item.to || location.pathname === `${item.to}/`;
     }
     return location.pathname.startsWith(item.to);
-  });
+  }
 
   // Student Enrollment Form states
   const [fullName, setFullName] = useState(
@@ -657,32 +687,74 @@ function StudentLayout() {
 
       {/* Navigation Area */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3">
-        <nav className="relative select-none space-y-0.5">
-          {filteredNav.map((item, idx) => {
-            const Icon = item.icon;
-            const isActive = idx === activeRouteIndex;
+        <nav className="relative select-none space-y-3">
+          {filteredNav ? (
+            /* Flat list when user is filtering by search query */
+            <div className="space-y-0.5">
+              <div className="px-3 pb-1 text-[9px] font-mono tracking-widest uppercase text-neutral-400 font-semibold select-none">
+                Matching Tools ({filteredNav.length})
+              </div>
+              {filteredNav.map((item) => {
+                const Icon = item.icon;
+                const isActive = isRouteActive(item);
 
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
-                  isActive
-                    ? "text-white font-semibold border border-purple-500/30 bg-purple-500/10 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
-                    : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? "text-purple-300" : "text-neutral-400"}`} />
-                  <span className="tracking-normal truncate">{item.label}</span>
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
+                      isActive
+                        ? "text-white font-semibold border border-purple-500/30 bg-purple-500/10 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                        : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? "text-purple-300" : "text-neutral-400"}`} />
+                      <span className="tracking-normal truncate">{item.label}</span>
+                    </div>
+                    {isActive && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            /* Grouped layout: OVERVIEW, LEARNING, RESEARCH & WORK, NETWORK */
+            navSections.map((section) => (
+              <div key={section.group} className="space-y-0.5">
+                <div className="px-3 pt-2.5 pb-1 text-[9px] font-mono tracking-[0.16em] uppercase text-neutral-400/90 font-semibold select-none flex items-center justify-between">
+                  <span>{section.group}</span>
                 </div>
-                {isActive && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
-                )}
-              </Link>
-            );
-          })}
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = isRouteActive(item);
+
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center justify-between px-3.5 py-2 my-0.5 rounded-full text-xs font-sans transition-all relative cursor-pointer ${
+                        isActive
+                          ? "text-white font-semibold border border-purple-500/30 bg-purple-500/10 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                          : "text-neutral-300 hover:text-white hover:font-semibold hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? "text-purple-300" : "text-neutral-400"}`} />
+                        <span className="tracking-normal truncate">{item.label}</span>
+                      </div>
+                      {isActive && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))
+          )}
         </nav>
       </div>
 

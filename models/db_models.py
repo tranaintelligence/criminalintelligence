@@ -376,3 +376,146 @@ class PeerConnection(Base):
     note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class Act(Base):
+    """Statutory Acts in the TRANA Legal Library."""
+
+    __tablename__ = "acts"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    short_name = Column(String(64), unique=True, index=True, nullable=False)  # e.g. "BNS 2023", "POCSO 2012"
+    full_name = Column(String(255), nullable=False)
+    year = Column(Integer, nullable=False)
+    category = Column(String(64), nullable=False, default="core_criminal")  # core_criminal or special_criminal
+    status = Column(String(32), nullable=False, default="active")  # active, repealed, amended
+    commencement_date = Column(String(64), nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ActVersion(Base):
+    """Historical or amended versions of legislation."""
+
+    __tablename__ = "act_versions"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    act_id = Column(String, ForeignKey("acts.id", ondelete="CASCADE"), nullable=False, index=True)
+    version_label = Column(String(120), nullable=False)
+    effective_date = Column(String(64), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class LegalSection(Base):
+    """Statutory provisions with official text, AI explanations, and legal ingredients."""
+
+    __tablename__ = "legal_sections"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    act_id = Column(String, ForeignKey("acts.id", ondelete="CASCADE"), nullable=False, index=True)
+    act_short_name = Column(String(64), index=True, nullable=True)
+    section_number = Column(String(32), index=True, nullable=False)  # e.g. "303", "303(2)", "479"
+    title = Column(String(255), nullable=True)
+    chapter = Column(String(120), nullable=True)
+    bare_text = Column(Text, nullable=False)  # Official statutory Gazette text
+    simple_explanation = Column(Text, nullable=True)  # Plain language AI explanation
+    ingredients = Column(Text, nullable=True)  # JSON-encoded array of essential elements
+    punishment = Column(Text, nullable=True)
+    illustrations = Column(Text, nullable=True)  # JSON-encoded illustrations
+    commencement_date = Column(String(64), nullable=True)
+    applicability_notes = Column(Text, nullable=True)
+    source_url = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_legal_sections_act_sec", "act_id", "section_number"),
+    )
+
+
+class SectionJudgment(Base):
+    """Connected Supreme Court and High Court precedents for statutory sections."""
+
+    __tablename__ = "section_judgments"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    section_id = Column(String, ForeignKey("legal_sections.id", ondelete="CASCADE"), nullable=False, index=True)
+    case_name = Column(String(255), nullable=False)
+    court = Column(String(120), nullable=True)  # Supreme Court, Delhi High Court, etc.
+    year = Column(Integer, nullable=True)
+    citation = Column(String(120), nullable=True)
+    key_principle = Column(Text, nullable=False)
+    full_url = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SectionMapping(Base):
+    """Concordance mappings between old and new criminal laws."""
+
+    __tablename__ = "section_mappings"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    source_act = Column(String(64), nullable=False, index=True)  # "IPC 1860", "CrPC 1973", etc.
+    source_section = Column(String(32), nullable=False, index=True)
+    target_act = Column(String(64), nullable=False, index=True)  # "BNS 2023", "BNSS 2023", etc.
+    target_section = Column(String(32), nullable=False, index=True)
+    mapping_type = Column(String(32), nullable=False, default="equivalent")  # equivalent, partial, no_equivalent
+    title = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_mapping_src_tgt", "source_act", "source_section", "target_act", "target_section"),
+    )
+
+
+class StudentBookmark(Base):
+    """Student bookmarked provisions and personal study notes."""
+
+    __tablename__ = "student_bookmarks"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, index=True, nullable=False)
+    user_email = Column(String, index=True, nullable=True)
+    section_id = Column(String, index=True, nullable=False)
+    act_short_name = Column(String(64), nullable=False)
+    section_number = Column(String(32), nullable=False)
+    section_title = Column(String(255), nullable=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SimulationTemplate(Base):
+    """Interactive trial and hearing templates for law students."""
+
+    __tablename__ = "simulation_templates"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String(255), nullable=False)
+    difficulty = Column(String(32), nullable=False, default="beginner")  # beginner, intermediate, advanced
+    category = Column(String(64), nullable=False, default="criminal_trial")  # bail_hearing, trial, cross_exam
+    scenario_text = Column(Text, nullable=False)
+    role = Column(String(64), nullable=False, default="defense_counsel")  # defense_counsel, prosecutor, magistrate
+    facts_json = Column(Text, nullable=True)  # JSON array of case facts
+    evidence_json = Column(Text, nullable=True)  # JSON array of exhibits
+    witnesses_json = Column(Text, nullable=True)  # JSON array of witnesses
+    evaluation_rubric_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SimulationSession(Base):
+    """Individual student simulation session."""
+
+    __tablename__ = "simulation_sessions"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, index=True, nullable=False)
+    user_email = Column(String, index=True, nullable=True)
+    template_id = Column(String, ForeignKey("simulation_templates.id"), nullable=False, index=True)
+    status = Column(String(32), default="active", nullable=False)  # active, completed, evaluated
+    score = Column(Integer, nullable=True)
+    feedback = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+

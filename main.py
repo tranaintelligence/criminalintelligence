@@ -4236,6 +4236,189 @@ async def get_indian_legal_news(limit: int = 8):
     return {"items": (items or _news_cache["items"])[:limit]}
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# TRANA Legal Library, Law Converters, Study Centre & Case Simulator
+# ═══════════════════════════════════════════════════════════════════════════
+
+from legal_sources import library_service as lib_svc
+
+
+@app.get("/api/legal/acts", tags=["Legal Library"])
+def get_legal_acts(category: Optional[str] = None):
+    """Retrieve all legislation cataloged in TRANA Legal Library."""
+    return {"acts": lib_svc.get_all_acts(category=category)}
+
+
+@app.get("/api/legal/acts/{act_id}", tags=["Legal Library"])
+def get_legal_act_details(act_id: str):
+    """Retrieve Act overview, chapters, and table of contents."""
+    act = lib_svc.get_act_by_id(act_id)
+    if not act:
+        raise HTTPException(status_code=404, detail="Act not found in legal library.")
+    return {"act": act}
+
+
+@app.get("/api/legal/acts/{act_id}/sections", tags=["Legal Library"])
+def get_legal_act_sections(
+    act_id: str,
+    q: Optional[str] = Query(None, description="Search term or section number"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """List sections for an Act with pagination and filtering."""
+    act = lib_svc.get_act_by_id(act_id)
+    if not act:
+        raise HTTPException(status_code=404, detail="Act not found in legal library.")
+    return lib_svc.get_sections_for_act(act["code"], query=q, limit=limit, offset=offset)
+
+
+@app.get("/api/legal/sections/{act_code}/{section_num}", tags=["Legal Library"])
+def get_legal_section_detail(act_code: str, section_num: str):
+    """Retrieve full section breakdown: Bare Act text, AI simple explanation, ingredients, case laws, and related sections."""
+    detail = lib_svc.get_section_detail(act_code, section_num)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Statutory section not found.")
+    return {"section": detail}
+
+
+@app.get("/api/legal/search", tags=["Legal Library"])
+def search_legal_library(
+    q: str = Query(..., min_length=1, description="Keyword, section number, or legal concept"),
+    act: Optional[str] = Query(None, description="Optional Act code filter (e.g. BNS, BNSS, BSA)"),
+    limit: int = Query(25, ge=1, le=100),
+):
+    """Search across Acts, provisions, and legal concepts."""
+    results = lib_svc.search_legal_library(query=q, act_filter=act, limit=limit)
+    return {"query": q, "total": len(results), "results": results}
+
+
+@app.get("/api/converter/search", tags=["Law Converters"])
+def search_law_converter(
+    source_act: str = Query(..., description="Source code e.g. IPC, CrPC, IEA, BNS, BNSS, BSA"),
+    q: Optional[str] = Query(None, description="Optional section number or keyword"),
+):
+    """Bidirectional law converter for identifying corresponding old and new criminal provisions."""
+    mappings = lib_svc.get_law_concordance_mappings(source_act=source_act, query=q)
+    return {
+        "source_act": source_act,
+        "query": q,
+        "total": len(mappings),
+        "mappings": mappings,
+    }
+
+
+@app.get("/api/study/daily-question", tags=["Study Centre"])
+def get_daily_legal_question():
+    """Retrieve featured daily legal problem scenario with explanation and statutory reference."""
+    return {"question": lib_svc.get_daily_question()}
+
+
+@app.get("/api/study/judgment-of-day", tags=["Study Centre"])
+def get_judgment_of_the_day():
+    """Retrieve handpicked landmark judgment of the day with ratio decidendi."""
+    return {"judgment": lib_svc.get_judgment_of_the_day()}
+
+
+@app.get("/api/study/mcq", tags=["Study Centre"])
+def get_study_mcqs(
+    act: Optional[str] = Query(None, description="Filter by Act (e.g. BNS, BNSS, BSA, POCSO, NDPS)"),
+):
+    """Retrieve practice multiple-choice questions for law students."""
+    return {"questions": lib_svc.get_study_mcqs(act=act)}
+
+
+@app.get("/api/simulator/templates", tags=["Case Simulator"])
+def get_simulation_templates(
+    difficulty: Optional[str] = Query(None, description="Filter by difficulty (Beginner, Intermediate, Advanced)"),
+):
+    """Retrieve interactive courtroom trial and bail hearing templates."""
+    return {"templates": lib_svc.get_simulation_templates(difficulty=difficulty)}
+
+
+@app.get("/api/legal/bookmarks", tags=["Legal Library"])
+def get_student_bookmarks(
+    user_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Retrieve user's bookmarked statutory sections."""
+    if not user_id:
+        return {"bookmarks": []}
+    records = db.query(db_models.StudentBookmark).filter(db_models.StudentBookmark.user_id == user_id).all()
+    return {
+        "bookmarks": [
+            {
+                "id": r.id,
+                "section_id": r.section_id,
+                "act_short_name": r.act_short_name,
+                "section_number": r.section_number,
+                "section_title": r.section_title,
+                "note": r.note,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in records
+        ]
+    }
+
+
+class BookmarkCreate(BaseModel):
+    user_id: str
+    user_email: Optional[str] = None
+    section_id: str
+    act_short_name: str
+    section_number: str
+    section_title: Optional[str] = None
+    note: Optional[str] = None
+
+
+@app.post("/api/legal/bookmarks", tags=["Legal Library"])
+def save_student_bookmark(
+    payload: BookmarkCreate,
+    db: Session = Depends(get_db),
+):
+    """Save or update a statutory bookmark with personal note."""
+    existing = (
+        db.query(db_models.StudentBookmark)
+        .filter(
+            db_models.StudentBookmark.user_id == payload.user_id,
+            db_models.StudentBookmark.section_id == payload.section_id,
+        )
+        .first()
+    )
+    if existing:
+        existing.note = payload.note
+        existing.section_title = payload.section_title or existing.section_title
+        db.commit()
+        db.refresh(existing)
+        return {"ok": True, "bookmark_id": existing.id, "updated": True}
+
+    bm = db_models.StudentBookmark(
+        user_id=payload.user_id,
+        user_email=payload.user_email,
+        section_id=payload.section_id,
+        act_short_name=payload.act_short_name,
+        section_number=payload.section_number,
+        section_title=payload.section_title,
+        note=payload.note,
+    )
+    db.add(bm)
+    db.commit()
+    db.refresh(bm)
+    return {"ok": True, "bookmark_id": bm.id, "created": True}
+
+
+@app.delete("/api/legal/bookmarks/{bookmark_id}", tags=["Legal Library"])
+def delete_student_bookmark(
+    bookmark_id: str,
+    db: Session = Depends(get_db),
+):
+    """Delete a saved bookmark."""
+    bm = db.query(db_models.StudentBookmark).filter(db_models.StudentBookmark.id == bookmark_id).first()
+    if bm:
+        db.delete(bm)
+        db.commit()
+    return {"ok": True, "message": "Bookmark removed."}
+
+
 # Error Handlers
 # ═══════════════════════════════════════════════════════════════════════════
 

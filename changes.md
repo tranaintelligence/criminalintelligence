@@ -1,6 +1,78 @@
 # Changelog & Architecture Notes for Future Agents
 
-## [2026-11-15] - Format and Optimize Space in Find a Professional Directory
+## [2026-11-15] - Expand TRANA Student Workspace: Legal Library, Law Converters, Case Simulator & Study Centre
+
+### Changes
+1. **Sidebar Restructure (`src/routes/_authenticated/student.tsx`)**:
+   - Replaced flat navigation list with the specified 4-group hierarchical layout:
+     - **OVERVIEW**: Overview (`/student`)
+     - **LEARNING**: Legal Library (`/student/library`), Law Converters (`/student/converters`), Case Simulator (`/student/simulator`), Study Centre (`/student/study`)
+     - **RESEARCH & WORK**: AI Drafter (`/student/drafter`), Research & Achievements (`/student/publications`), Citation Finder (`/student/citations`), Case Research (`/student/research`), My Documents (`/student/documents`), plus Case Tracker (`/student/cases`) for legal interns
+     - **NETWORK**: Professional Network (`/student/network`), My Profile (`/student/profile`)
+   - Added clean uppercase group headers, preserved active route highlights, ambient glows, and search filter across all groups.
+
+2. **Module 1: Criminal Law Library (`src/routes/_authenticated/student.library.tsx`)**:
+   - Built comprehensive legislation catalog covering 13 Acts (6 Core Criminal: BNS 2023, BNSS 2023, BSA 2023, IPC 1860, CrPC 1973, IEA 1872; 7 Special Criminal: POCSO 2012, SC/ST 1989, NDPS 1985, JJ Act 2015, IT Act 2000, PMLA 2002, Arms Act 1959).
+   - Universal search with instant autocomplete across Acts, provisions, and legal concepts.
+   - Act Overview view with chapter arrangement, table of contents, and section lists.
+   - Full Section Details view with all 5 mandatory tabs:
+     - **Bare Act Text**: Official Gazette statutory text (monospaced, verified source badge, India Code link).
+     - **Simple Explanation**: AI-generated conceptual breakdown (clearly marked with disclaimer badge).
+     - **Essential Ingredients**: Structured checklist of statutory ingredients, actus reus, and mens rea.
+     - **Case Laws**: Connected landmark Supreme Court & High Court judgments with year, citation, and ratio decidendi.
+     - **Related Sections & Transition**: Direct cross-references between former colonial codes and 2023 criminal enactments.
+   - Provision bookmarking with personal notes caching in localStorage and backend sync.
+
+3. **Module 2: Law Converters (`src/routes/_authenticated/student.converters.tsx`)**:
+   - Dedicated bidirectional concordance interface for IPC ↔ BNS, CrPC ↔ BNSS, and IEA ↔ BSA.
+   - Searchable from both directions by old section, new section, or offence keyword.
+   - Side-by-side comparison cards with Transition Status, official BPRD/NCRB concordance mapping, and copy citation shortcut.
+
+4. **Module 3: Interactive Case Simulator (`src/routes/_authenticated/student.simulator.tsx`)**:
+   - Simulation template catalog filterable by difficulty (Beginner, Intermediate, Advanced) and forum (Bail Hearing, Criminal Trial, Framing of Charges).
+   - High-fidelity pre-built scenarios:
+     - Bail Hearing under BNSS 480 & 479 (Theft & Recovery)
+     - Cross-Examination of IO on Electronic Evidence (BSA Sec 63 & IT Act 66)
+     - Arguments on Framing of Charges (Cheating vs Criminal Breach of Trust BNS 316 vs 318)
+   - Split-screen courtroom arena: left panel for case record, material facts, and key statutory points; right panel for turn-based judicial arguments with real-time simulated interventions.
+   - Objective evaluation rubric modal with scoring breakdown (Statutory accuracy, Precedents, Persuasiveness, Decorum) and judicial feedback.
+
+5. **Module 4: Study Centre (`src/routes/_authenticated/student.study.tsx`)**:
+   - 5 academic learning sub-tabs:
+     - **MCQ Practice Quiz**: Timed, scored multiple-choice questions on BNS, BNSS, BSA, POCSO, and NDPS with instant feedback and statutory explanation for every option.
+     - **Bare Act Explainer**: Enter any Act and section number for an instant AI-powered conceptual breakdown and ingredients checklist.
+     - **Daily Legal Problem**: Daily scenario-based legal challenge with options and statutory reference.
+     - **Judgment of the Day**: Landmark ruling of the day with facts, ratio decidendi, and linked provisions.
+     - **Exam Revision Guides**: Curated revision cheat-sheets comparing old vs new criminal law shifts.
+
+6. **Database Models (`models/db_models.py`)**:
+   - Added SQLAlchemy models: `Act`, `ActVersion`, `LegalSection`, `SectionJudgment`, `SectionMapping`, `StudentBookmark`, `SimulationTemplate`, `SimulationSession`.
+
+7. **Backend Service & Endpoints (`main.py` & `legal_sources/library_service.py`)**:
+   - Implemented `legal_sources/library_service.py` indexing 1,062 authoritative sections from `legal_sources/corpus.json` and 118+ concordance mappings from `legal_sources/registry.py`.
+   - Added REST endpoints in `main.py`:
+     - `GET /api/legal/acts`, `GET /api/legal/acts/{act_id}`, `GET /api/legal/acts/{act_id}/sections`
+     - `GET /api/legal/sections/{act_code}/{section_num}`
+     - `GET /api/legal/search`
+     - `GET /api/converter/search`
+     - `GET /api/study/daily-question`, `GET /api/study/judgment-of-day`, `GET /api/study/mcq`
+     - `GET /api/simulator/templates`
+     - `GET /api/legal/bookmarks`, `POST /api/legal/bookmarks`, `DELETE /api/legal/bookmarks/{id}`
+
+8. **Frontend Client Library (`src/lib/student-legal-library.ts`)**:
+   - Strongly typed TypeScript client library with seed datasets, API synchronization, and offline fallback.
+
+### Verification
+- `bun test`: All 4 frontend tests passed.
+- `bun x vite build`: Production client, SSR bundle, and Nitro output built with 0 errors in 18.80s + 13.69s + 10.44s.
+- `python -m unittest discover -s tests -p "test_*.py"`: All 44 backend unit tests passed in 0.73s (including 9 new tests in `tests/test_legal_library_service.py`).
+- TanStack Router: Automatically generated route tree in `src/routeTree.gen.ts`.
+
+### Future-agent notes
+- All new student workspace routes reside under `src/routes/_authenticated/student.*.tsx` and are registered in the grouped sidebar inside `student.tsx`.
+- Keep official statutory Bare Act text visually separated and distinguished from AI-generated explanations using the `is_official_gazette` badge and distinct styling.
+
+---
 
 ### Changes
 - **`src/routes/_authenticated/dashboard.lawyers.tsx`**:
