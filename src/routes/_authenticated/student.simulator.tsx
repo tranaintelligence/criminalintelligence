@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Landmark,
   ShieldCheck,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -60,6 +61,15 @@ interface ChatTurn {
   type?: "submission" | "question" | "ruling" | "objection";
 }
 
+interface AdjournedSession {
+  template: SimulationTemplate;
+  turns: ChatTurn[];
+  inputArgument: string;
+  timestamp: string;
+}
+
+const ADJOURNED_STORAGE_KEY = "trana_case_simulator_adjourned_session";
+
 function StudentSimulatorPage() {
   const [templates, setTemplates] = useState<SimulationTemplate[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
@@ -68,13 +78,14 @@ function StudentSimulatorPage() {
   const [inputArgument, setInputArgument] = useState("");
   const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
   const [isGavelStriking, setIsGavelStriking] = useState(false);
+  const [adjournedSession, setAdjournedSession] = useState<AdjournedSession | null>(null);
   const [evaluationResult, setEvaluationResult] = useState<{
     score: number;
     breakdown: Record<string, number>;
     feedback: string;
   } | null>(null);
 
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadTemplates() {
@@ -82,10 +93,20 @@ function StudentSimulatorPage() {
       setTemplates(data);
     }
     loadTemplates();
+
+    try {
+      const raw = localStorage.getItem(ADJOURNED_STORAGE_KEY);
+      if (raw) {
+        setAdjournedSession(JSON.parse(raw));
+      }
+    } catch {}
   }, []);
 
+  // Scroll ONLY the internal transcript container, NEVER the window!
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (transcriptContainerRef.current) {
+      transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+    }
   }, [turns]);
 
   function triggerGavel() {
@@ -109,16 +130,67 @@ function StudentSimulatorPage() {
     ]);
   }
 
-  function handleExitSimulation() {
+  // 1. Step Down: completely resets the case and closes normally
+  function handleStepDown() {
     setActiveTemplate(null);
     setTurns([]);
     setInputArgument("");
     setEvaluationResult(null);
+    setIsSubmittingTurn(false);
+    toast.info("Stepped down from the podium. Case closed and reset.");
+  }
+
+  // 2. Adjourn Session: saves progress so user can resume at their convenience
+  function handleAdjournSession() {
+    if (!activeTemplate) return;
+    const sessionData: AdjournedSession = {
+      template: activeTemplate,
+      turns,
+      inputArgument,
+      timestamp: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(ADJOURNED_STORAGE_KEY, JSON.stringify(sessionData));
+      setAdjournedSession(sessionData);
+    } catch (err) {
+      console.warn("Failed to persist adjourned session:", err);
+    }
+
+    setActiveTemplate(null);
+    setTurns([]);
+    setInputArgument("");
+    setEvaluationResult(null);
+    setIsSubmittingTurn(false);
+    toast.success(
+      "Court adjourned! Proceedings saved. You can take your time and resume from where you left off at your convenience."
+    );
+  }
+
+  function handleResumeAdjournedTrial() {
+    if (!adjournedSession) return;
+    setActiveTemplate(adjournedSession.template);
+    setTurns(adjournedSession.turns);
+    setInputArgument(adjournedSession.inputArgument || "");
+    setEvaluationResult(null);
+    setIsSubmittingTurn(false);
+    triggerGavel();
+    toast.success(`Resumed trial for "${adjournedSession.template.title}" from where you left off.`);
+  }
+
+  function handleDiscardAdjournedSession() {
+    try {
+      localStorage.removeItem(ADJOURNED_STORAGE_KEY);
+      setAdjournedSession(null);
+      toast.info("Adjourned trial record removed.");
+    } catch {}
   }
 
   async function handleSendArgument(customText?: string) {
     const userText = (customText || inputArgument).trim();
     if (!userText || isSubmittingTurn || !activeTemplate) return;
+
+    // Record window scroll position to lock it in place — never let page go down!
+    const currentScrollY = typeof window !== "undefined" ? window.scrollY : 0;
 
     setInputArgument("");
     const newTurns: ChatTurn[] = [
@@ -128,12 +200,18 @@ function StudentSimulatorPage() {
         name: "Advocate (You)",
         roleTitle: "Defense Counsel",
         text: userText,
-        timestamp: "10:32 AM",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         type: "submission",
       },
     ];
     setTurns(newTurns);
     setIsSubmittingTurn(true);
+
+    if (typeof window !== "undefined") {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: currentScrollY, behavior: "instant" });
+      });
+    }
 
     // Dynamic simulated courtroom interactions (Judge and opposing Public Prosecutor)
     setTimeout(() => {
@@ -174,7 +252,7 @@ function StudentSimulatorPage() {
           name: "Adv. Alok Verma",
           roleTitle: "Public Prosecutor (State)",
           text: prosReply,
-          timestamp: "10:33 AM",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           type: "objection",
         });
       }
@@ -183,12 +261,19 @@ function StudentSimulatorPage() {
         name: "Hon'ble Presiding Magistrate",
         roleTitle: "Bench (Presiding Officer)",
         text: judgeReply,
-        timestamp: "10:34 AM",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         type: "question",
       });
 
       setTurns((prev) => [...prev, ...additions]);
       setIsSubmittingTurn(false);
+
+      // Keep user at the courtroom podium & arena without page jump
+      if (typeof window !== "undefined") {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: currentScrollY, behavior: "instant" });
+        });
+      }
     }, 1100);
   }
 
@@ -263,18 +348,35 @@ function StudentSimulatorPage() {
            ══════════════════════════════════════════════════════════════════ */
         <div className="space-y-6">
           {/* Courtroom Top Header Bar */}
-          <div className="flex items-center justify-between bg-black/75 backdrop-blur-xl p-3.5 px-5 rounded-2xl border border-amber-500/30 shadow-lg">
-            <button
-              onClick={handleExitSimulation}
-              className="text-xs font-mono text-amber-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Step Down / Adjourn Session</span>
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-black/75 backdrop-blur-xl p-3.5 px-5 rounded-2xl border border-amber-500/30 shadow-lg">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* 1. Step Down Button: completely resets the case and closes normally */}
+              <button
+                type="button"
+                onClick={handleStepDown}
+                className="apple-glass-pill px-3.5 py-1.5 text-xs text-rose-300 hover:text-white border-rose-500/40 hover:bg-rose-950/50 flex items-center gap-1.5 transition-all cursor-pointer font-medium"
+                title="Step down from the speaking podium, reset the whole case and close normally"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-rose-400" />
+                <span>Step Down (Reset & Close)</span>
+              </button>
+
+              {/* 2. Adjourn Session Button: gives user time and saves progress to resume at convenience */}
+              <button
+                type="button"
+                onClick={handleAdjournSession}
+                className="apple-glass-pill px-3.5 py-1.5 text-xs text-amber-300 hover:text-white border-amber-500/40 hover:bg-amber-950/50 flex items-center gap-1.5 transition-all cursor-pointer font-medium"
+                title="Adjourn session and save proceedings to resume from where you left off at your convenience"
+              >
+                <Clock className="h-3.5 w-3.5 text-amber-400" />
+                <span>Adjourn Session (Resume Later)</span>
+              </button>
+            </div>
 
             <div className="flex items-center gap-3">
               {/* Gavel Strike Action Trigger */}
               <button
+                type="button"
                 onClick={triggerGavel}
                 className="apple-glass-pill px-3 py-1 text-xs text-amber-300 hover:text-amber-200 border-amber-500/40 flex items-center gap-1.5 cursor-pointer bg-black/50"
                 title="Strike Gavel"
@@ -284,6 +386,7 @@ function StudentSimulatorPage() {
               </button>
 
               <button
+                type="button"
                 onClick={handleConcludeSimulation}
                 className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-1.5 rounded-full text-xs font-bold cursor-pointer shadow-md transition-all hover:scale-105"
               >
@@ -388,32 +491,38 @@ function StudentSimulatorPage() {
                 </span>
                 <div className="flex flex-wrap gap-2">
                   <button
+                    type="button"
+                    disabled={isSubmittingTurn}
                     onClick={() =>
                       handleSendArgument(
                         "Hon'ble Bench, under Satender Kumar Antil v. CBI, this matter falls strictly within Category A. Recovery of the property is already effected and the accused has clean police antecedents."
                       )
                     }
-                    className="apple-glass-pill px-3 py-1.5 text-[11px] text-amber-300 hover:text-white border-amber-500/30 cursor-pointer"
+                    className="apple-glass-pill px-3 py-1.5 text-[11px] text-amber-300 hover:text-white border-amber-500/30 cursor-pointer disabled:opacity-40"
                   >
                     Cite Satender Antil & Category A
                   </button>
                   <button
+                    type="button"
+                    disabled={isSubmittingTurn}
                     onClick={() =>
                       handleSendArgument(
                         "The accused is an indigent first-time offender entitled to statutory release under Section 479(1) Proviso of BNSS, 2023 having undergone requisite detention."
                       )
                     }
-                    className="apple-glass-pill px-3 py-1.5 text-[11px] text-amber-300 hover:text-white border-amber-500/30 cursor-pointer"
+                    className="apple-glass-pill px-3 py-1.5 text-[11px] text-amber-300 hover:text-white border-amber-500/30 cursor-pointer disabled:opacity-40"
                   >
                     Argue Section 479 BNSS Undertrial Release
                   </button>
                   <button
+                    type="button"
+                    disabled={isSubmittingTurn}
                     onClick={() =>
                       handleSendArgument(
                         "I object to the admissibility of the electronic printouts under Section 63 BSA, 2023. The investigating agency failed to produce a valid certificate."
                       )
                     }
-                    className="apple-glass-pill px-3 py-1.5 text-[11px] text-amber-300 hover:text-white border-amber-500/30 cursor-pointer"
+                    className="apple-glass-pill px-3 py-1.5 text-[11px] text-amber-300 hover:text-white border-amber-500/30 cursor-pointer disabled:opacity-40"
                   >
                     Raise Section 63 BSA Objection
                   </button>
@@ -437,7 +546,7 @@ function StudentSimulatorPage() {
               </div>
 
               {/* Dialogue Transcript Stream */}
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+              <div ref={transcriptContainerRef} className="flex-1 overflow-y-auto space-y-4 pr-2">
                 {turns.map((t, i) => {
                   const isAdvocate = t.sender === "advocate";
                   const isJudge = t.sender === "judge";
@@ -493,7 +602,6 @@ function StudentSimulatorPage() {
                     <span>The Bench is deliberating upon counsel's submission...</span>
                   </div>
                 )}
-                <div ref={transcriptEndRef} />
               </div>
 
               {/* Transcript Recording Footer */}
@@ -554,6 +662,47 @@ function StudentSimulatorPage() {
            COURTROOM TRIAL CATALOG VIEW
            ══════════════════════════════════════════════════════════════════ */
         <div className="space-y-6">
+          {/* Adjourned Trial Recovery Card */}
+          {adjournedSession && (
+            <div className="rounded-3xl bg-gradient-to-r from-[#2c1808] via-[#1a0e05] to-[#100702] border-2 border-amber-400 p-5 md:p-6 shadow-[0_12px_35px_rgba(245,158,11,0.25)] flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative overflow-hidden">
+              <div className="space-y-2 max-w-xl z-10">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/25 text-amber-200 border border-amber-400/50 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="h-3 w-3 text-amber-300" />
+                    <span>Adjourned Court Proceedings</span>
+                  </span>
+                  <span className="text-xs font-mono text-neutral-400">
+                    Saved {new Date(adjournedSession.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <h3 className="font-serif text-lg md:text-xl font-bold text-white">
+                  {adjournedSession.template.title}
+                </h3>
+                <p className="text-xs text-neutral-300 leading-relaxed font-sans">
+                  You adjourned this session with <strong>{adjournedSession.turns.length} courtroom statements</strong> recorded. You can take your time and resume hearing arguments from where you left off at your convenience.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 z-10">
+                <button
+                  type="button"
+                  onClick={handleResumeAdjournedTrial}
+                  className="bg-amber-400 hover:bg-amber-300 text-black px-5 py-2.5 rounded-full text-xs font-extrabold flex items-center gap-2 shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                >
+                  <Play className="h-3.5 w-3.5 fill-black" />
+                  <span>Resume Trial</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDiscardAdjournedSession}
+                  className="apple-glass-pill px-3.5 py-2 text-xs text-rose-300 hover:text-white border-rose-500/40 hover:bg-rose-950/40 cursor-pointer transition-colors"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Retro Pixel Courtroom Banner Preview */}
           <div className="rounded-3xl bg-gradient-to-r from-[#211107] via-[#140a04] to-[#0d0502] border-2 border-amber-500/40 p-5 md:p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
             <div className="space-y-2 max-w-xl z-10">

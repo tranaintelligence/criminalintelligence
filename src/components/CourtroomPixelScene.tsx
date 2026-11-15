@@ -432,6 +432,7 @@ export function CourtroomPixelScene({
 
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
+    e.stopPropagation();
     if (onSubmitArgument && inputArgument.trim() && !isSubmittingTurn) {
       onSubmitArgument(inputArgument);
     }
@@ -458,6 +459,7 @@ export function CourtroomPixelScene({
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg bg-black/60 p-0.5 border border-amber-500/30 text-[11px] font-mono">
             <button
+              type="button"
               onClick={() => setActiveCam("arena")}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 activeCam === "arena"
@@ -468,6 +470,7 @@ export function CourtroomPixelScene({
               Arena View
             </button>
             <button
+              type="button"
               onClick={() => setActiveCam("bench")}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 activeCam === "bench"
@@ -478,6 +481,7 @@ export function CourtroomPixelScene({
               Bench
             </button>
             <button
+              type="button"
               onClick={() => setActiveCam("bar")}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 activeCam === "bar"
@@ -491,6 +495,7 @@ export function CourtroomPixelScene({
 
           {onTriggerGavel && (
             <button
+              type="button"
               onClick={onTriggerGavel}
               className="apple-glass-pill px-3 py-1 text-xs text-amber-300 hover:text-white border-amber-500/40 bg-black/70 flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-md"
               title="Strike Gavel"
@@ -790,6 +795,13 @@ export function CourtroomPixelScene({
               placeholder="Step to the podium: State your submission, cite provisions or answer the Bench..."
               value={inputArgument}
               onChange={(e) => onInputChange && onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleFormSubmit(e);
+                }
+              }}
               disabled={isSubmittingTurn}
               className="w-full px-4 py-3 text-xs md:text-sm text-white placeholder-neutral-400 bg-black/80 border-2 border-amber-500/50 focus:border-amber-300 rounded-xl outline-none shadow-inner transition-all"
             />

@@ -1,5 +1,24 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Courtroom Case Simulator: Clean Step Down, Adjourned Session Recovery & Scroll Lock Fix
+
+### Changes
+1. **Dedicated Step Down & Clean Case Reset (`src/routes/_authenticated/student.simulator.tsx`)**:
+   - Replaced ambiguous exit flow with an explicit **"Step Down (Reset & Close)"** button (`handleStepDown`).
+   - Cleanly resets all transient simulation state (`activeTemplate = null`, `turns = []`, `inputArgument = ""`, `evaluationResult = null`, `isSubmittingTurn = false`) and returns the advocate to the courtroom catalog without leftover state.
+
+2. **Session Adjournment & Resumption at User Convenience (`src/routes/_authenticated/student.simulator.tsx`)**:
+   - Added an **"Adjourn Session (Resume Later)"** button (`handleAdjournSession`) that snapshots the active case template, full transcript history, pending podium input, and timestamp into `localStorage` (`trana_case_simulator_adjourned_session`).
+   - Added an **"Adjourned Court Proceedings"** recovery banner on the simulator home catalog view showing the matter title, number of recorded statements, and timestamp.
+   - Provides one-click **"Resume Trial"** (restoring exact transcript and template state) or **"Discard"** (removing saved session), giving students complete flexibility to pause and resume hearings at their convenience.
+
+3. **Viewport Scroll Locking & Elimination of Page Drop on Typing / Submitting (`src/components/CourtroomPixelScene.tsx` & `src/routes/_authenticated/student.simulator.tsx`)**:
+   - **Root Cause Eliminated**: Removed `transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" })` which had previously hijacked the browser's viewport and forcibly dragged the whole page down ~1000px whenever statements were submitted or received.
+   - **Container-Scoped Transcript Scroll**: Scoped auto-scrolling strictly to `transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight`, ensuring the dialogue transcript updates smoothly without affecting window scroll.
+   - **Instant Viewport Lock**: Added `window.scrollTo({ top: currentScrollY, behavior: "instant" })` both immediately upon user submission and when the Bench/Prosecutor responds, ensuring the student's viewpoint stays anchored firmly at the speaking podium and 16-bit court arena.
+   - **Keydown & Event Isolation**: Added `e.stopPropagation()` and `e.preventDefault()` on Enter keydown in the podium input, added `type="button"` and `disabled={isSubmittingTurn}` attributes across all camera, gavel strike, and quick submission buttons, preventing any unwanted browser scroll or form resets while typing or interacting.
+
+
 ## [2026-11-15] - Vibrant Color & Visual Architecture Upgrade for Law Converters & Study Centre
 
 ### Changes
