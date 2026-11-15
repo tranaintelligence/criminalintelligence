@@ -30,6 +30,12 @@ import {
   SimulationTemplate,
   fetchSimulationTemplates,
 } from "@/lib/student-legal-library";
+import {
+  CourtroomPixelScene,
+  PixelJudgeAvatar,
+  PixelOppositionAvatar,
+  PixelDefenseAvatar,
+} from "@/components/CourtroomPixelScene";
 
 export const Route = createFileRoute("/_authenticated/student/simulator")({
   head: () => ({
@@ -287,58 +293,15 @@ function StudentSimulatorPage() {
           </div>
 
           {/* ══════════════════════════════════════════════════════════════════
-              ELEVATED JUDICIAL BENCH (THE HIGH DAIS)
+              RETRO PIXEL COURTROOM ARENA (JUDGE, OPPOSITION & CROWD)
               ══════════════════════════════════════════════════════════════════ */}
-          <div className="relative rounded-3xl bg-gradient-to-b from-[#2e180d] via-[#1c0e07] to-[#120804] border-2 border-amber-500/50 p-6 md:p-7 shadow-[0_15px_40px_rgba(0,0,0,0.9)] overflow-hidden">
-            {/* Gold trim border visual */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-amber-300 to-amber-600 opacity-80" />
-
-            <div className="flex flex-col md:flex-row items-center justify-between gap-5 relative z-10">
-              {/* Judicial Seal & Bench Name */}
-              <div className="flex items-center gap-4 text-center md:text-left">
-                <div className="h-16 w-16 rounded-2xl bg-gradient-to-b from-amber-500/20 to-black/80 border-2 border-amber-400/50 flex items-center justify-center text-amber-300 shadow-xl shrink-0">
-                  <Scale className="h-9 w-9 text-amber-300 drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-400 font-bold block">
-                    {activeTemplate.court}
-                  </span>
-                  <h2 className="font-serif text-xl md:text-2xl font-bold text-white tracking-wide">
-                    HON'BLE PRESIDING JUDICIAL BENCH
-                  </h2>
-                  <p className="text-xs font-mono text-neutral-300 mt-0.5">
-                    Criminal Roster • Matter: {activeTemplate.title}
-                  </p>
-                </div>
-              </div>
-
-              {/* Active Presiding Judge Badge & Status */}
-              <div className="flex items-center gap-4 bg-black/60 p-3.5 px-5 rounded-2xl border border-amber-500/30 shadow-inner">
-                <div className="text-right">
-                  <span className="text-[10px] font-mono text-emerald-400 uppercase font-semibold flex items-center gap-1.5 justify-end">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Bench In Session</span>
-                  </span>
-                  <p className="text-xs font-bold text-white font-serif">
-                    Court Master Recording
-                  </p>
-                </div>
-                <div className={`p-3 rounded-2xl bg-[#361a0d] border border-amber-500/40 text-amber-300 ${isGavelStriking ? "animate-pulse scale-110 shadow-[0_0_20px_rgba(212,175,55,0.7)]" : ""}`}>
-                  <Gavel className="h-6 w-6" />
-                </div>
-              </div>
-            </div>
-
-            {/* Simulated Wooden Dais Ledge */}
-            <div className="mt-5 pt-3 border-t border-amber-500/20 flex flex-wrap items-center justify-between text-xs font-mono text-neutral-300 gap-2">
-              <span className="text-amber-200/80">
-                Judicial Temperament: <strong className="text-amber-300">Attentive, Legally Rigorous & Inquisitive</strong>
-              </span>
-              <span className="text-neutral-400">
-                Courtroom Decorum: <strong className="text-emerald-400">100% Sub judice</strong>
-              </span>
-            </div>
-          </div>
+          <CourtroomPixelScene
+            courtTitle={activeTemplate.court}
+            isGavelStriking={isGavelStriking}
+            onTriggerGavel={triggerGavel}
+            lastTurnSender={turns.length > 0 ? (turns[turns.length - 1].sender as any) : "judge"}
+            proceedingsCount={turns.length}
+          />
 
           {/* ══════════════════════════════════════════════════════════════════
               COURTROOM SPLIT FLOOR: DEFENSE DOCKET & LIVE TRANSCRIPT
@@ -483,6 +446,9 @@ function StudentSimulatorPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1 px-1">
+                        {isJudge && <PixelJudgeAvatar isGavelStriking={isGavelStriking} />}
+                        {isProsecutor && <PixelOppositionAvatar isObjecting={true} />}
+                        {isAdvocate && <PixelDefenseAvatar />}
                         <span
                           className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
                             isJudge
@@ -496,6 +462,9 @@ function StudentSimulatorPage() {
                         </span>
                         <span className="text-[10px] font-mono text-neutral-400">
                           {t.name}
+                        </span>
+                        <span className="text-[9px] font-mono text-neutral-500 ml-auto">
+                          {t.timestamp}
                         </span>
                       </div>
 
@@ -591,6 +560,37 @@ function StudentSimulatorPage() {
            COURTROOM TRIAL CATALOG VIEW
            ══════════════════════════════════════════════════════════════════ */
         <div className="space-y-6">
+          {/* Retro Pixel Courtroom Banner Preview */}
+          <div className="rounded-3xl bg-gradient-to-r from-[#211107] via-[#140a04] to-[#0d0502] border-2 border-amber-500/40 p-5 md:p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+            <div className="space-y-2 max-w-xl z-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-mono text-amber-300 uppercase font-bold">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>16-Bit Interactive Courtroom</span>
+              </div>
+              <h2 className="text-xl md:text-2xl font-bold font-serif text-white">
+                Step to the Bar: Argue, Object & Persuade the Court
+              </h2>
+              <p className="text-xs text-neutral-300 leading-relaxed font-sans">
+                Experience an interactive virtual courtroom featuring an animated <strong>Pixel Judge</strong> on the elevated Dais, sharp <strong>Opposing State Prosecutor</strong> contesting your grounds, and a live <strong>Courtroom Spectator Gallery</strong> following every statutory citation.
+              </p>
+            </div>
+
+            <div className="flex items-end gap-3 z-10 shrink-0 bg-black/60 p-3 px-5 rounded-2xl border border-amber-500/30 shadow-inner">
+              <div className="text-center">
+                <PixelDefenseAvatar />
+                <span className="text-[9px] font-mono text-purple-300 block mt-1">Defense</span>
+              </div>
+              <div className="text-center scale-125 mx-2">
+                <PixelJudgeAvatar />
+                <span className="text-[9px] font-mono text-amber-300 block mt-1">Judge</span>
+              </div>
+              <div className="text-center">
+                <PixelOppositionAvatar isObjecting={true} />
+                <span className="text-[9px] font-mono text-rose-300 block mt-1">Opposition</span>
+              </div>
+            </div>
+          </div>
+
           {/* Difficulty Filter Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
             {["all", "Beginner", "Intermediate", "Advanced"].map((diff) => (

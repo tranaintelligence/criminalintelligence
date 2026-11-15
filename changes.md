@@ -1,5 +1,22 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Pixelated Judge, Opposition Counsel & Courtroom Crowd in Case Simulator
+
+### Changes
+1. **16-Bit Retro Courtroom Pixel Art Component (`src/components/CourtroomPixelScene.tsx`)**:
+   - Built authentic vector pixel-art sprites rendered crisply via SVG matrices (`shapeRendering="crispEdges"`, `imageRendering="pixelated"`):
+     - **Pixel Judge**: Elevated on the high mahogany Dais with judicial wig curls, wireframe spectacles, white tabs jabot, black robes, and interactive gavel strike animation with bright impact sparks and "ORDER IN THE COURT!" shockwave banner.
+     - **Pixel Opposition (Public Prosecutor)**: State Counsel at the opposing bar with sleek hair, sharp gaze, black advocate coat, red-ribboned State Case Diary docket, and an animated pointing objection stance with *"State Vehemently Contests!"* reaction balloon.
+     - **Pixel Defense Counsel**: Student advocate at the defense bar with open BNSS documents, briefcase, and purple TRANA insignia.
+     - **Pixel Courtroom Crowd (Spectator Gallery)**: 84-column panoramic gallery sitting behind mahogany spectator rails featuring a Police Constable (khaki uniform & beret), Court Stenographer/Clerk typing records, Law Students taking notes on yellow legal pads, concerned Complainant, and Legal Press Reporter. Includes reactive gallery murmurs (*"Did you hear that Section 479 argument?"*, *"The defense is citing Satender Antil..."*).
+   - Added interactive camera angle controls (Arena View, Bench View, Opposition Bar View) and manual gavel strike trigger.
+   - Created reusable compact avatar components (`PixelJudgeAvatar`, `PixelOppositionAvatar`, `PixelDefenseAvatar`).
+
+2. **Integration into Courtroom Case Simulator (`src/routes/_authenticated/student.simulator.tsx`)**:
+   - Replaced static bench header with the full interactive `CourtroomPixelScene` in the active simulation view.
+   - In the live transcript stream, replaced generic icons with reactive `PixelJudgeAvatar`, `PixelOppositionAvatar`, and `PixelDefenseAvatar` on every courtroom dialogue turn.
+   - Added an interactive pixel courtroom preview banner in the simulation catalog screen inviting students to step to the podium.
+
 ## [2026-11-15] - Courtroom Visual Polish, Law Library Bookshelf Theme & Whole Act Reader
 
 ### Changes
