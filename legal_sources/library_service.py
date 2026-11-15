@@ -538,6 +538,66 @@ STUDY_MCQS: List[Dict[str, Any]] = [
         "explanation": "Section 37 NDPS mandates that for specified commercial offences, no accused shall be released on bail unless the Public Prosecutor has been given opportunity to oppose and the Court is satisfied that reasonable grounds exist to believe the accused is not guilty and unlikely to commit offences on bail.",
         "reference_section": "NDPS Act Section 37",
     },
+    {
+        "id": "mcq-bns-2",
+        "act": "BNS 2023",
+        "topic": "Mob Lynching and Hate Crimes",
+        "question": "Under Section 103(2) of the Bharatiya Nyaya Sanhita, 2023, when a group of five or more persons acting in concert commits murder on grounds of race, caste, sex, place of birth, or religion, each person is punishable with:",
+        "options": [
+            "Imprisonment up to 7 years and fine",
+            "Death or imprisonment for life, and shall also be liable to fine",
+            "Rigorous imprisonment for 10 years without fine",
+            "Community service and fine of ₹50,000"
+        ],
+        "correct_index": 1,
+        "explanation": "Section 103(2) BNS specifically penalizes mob lynching: when a group of five or more persons acting in concert commits murder on discriminatory grounds, each member is punishable with death or life imprisonment and fine.",
+        "reference_section": "BNS Section 103(2)",
+    },
+    {
+        "id": "mcq-bnss-2",
+        "act": "BNSS 2023",
+        "topic": "Zero FIR Statutory Recognition",
+        "question": "Under Section 173(1) of the BNSS, 2023, how does the new law provide for the registration of an FIR irrespective of territorial jurisdiction?",
+        "options": [
+            "Information may be given orally or electronically irrespective of the police station's territorial area (Zero FIR), to be transferred to the jurisdictional station",
+            "Police can refuse to register until the High Court transfers jurisdiction",
+            "An FIR without territorial jurisdiction is completely invalid ab initio",
+            "Zero FIR can only be registered if the Chief Judicial Magistrate gives written consent"
+        ],
+        "correct_index": 0,
+        "explanation": "Section 173(1) BNSS gives express statutory recognition to Zero FIR, mandating that information relating to the commission of a cognizable offence may be given to an officer in charge irrespective of the territorial limits, and shall be transferred to the jurisdictional police station.",
+        "reference_section": "BNSS Section 173(1)",
+    },
+    {
+        "id": "mcq-bsa-2",
+        "act": "BSA 2023",
+        "topic": "Involuntary Confessions",
+        "question": "Under Section 22 of the Bharatiya Sakshya Adhiniyam, 2023 (corresponding to Section 24 IEA), when does a confession by an accused become irrelevant in criminal proceedings?",
+        "options": [
+            "Only when made to a magistrate without video recording",
+            "If caused by inducement, threat, or promise proceeding from a person in authority in reference to the charge",
+            "Whenever the accused retracts it before charge framing",
+            "Only if not witnessed by two independent panch witnesses"
+        ],
+        "correct_index": 1,
+        "explanation": "Section 22 BSA declares confessions irrelevant if made under inducement, threat, or promise proceeding from a person in authority sufficient to give the accused reasonable grounds for supposing they would gain an advantage or avoid evil in the proceedings.",
+        "reference_section": "BSA Section 22",
+    },
+    {
+        "id": "mcq-bns-3",
+        "act": "BNS 2023",
+        "topic": "Sedition Repeal & Sovereignty Overhaul",
+        "question": "Which former colonial offence of the Indian Penal Code, 1860 was omitted and overhauled into Section 152 of the Bharatiya Nyaya Sanhita, 2023 focusing strictly on acts endangering sovereignty, unity, and integrity of India?",
+        "options": [
+            "Section 124A (Sedition)",
+            "Section 153A (Promoting enmity)",
+            "Section 295A (Religious outrage)",
+            "Section 505 (Public mischief)"
+        ],
+        "correct_index": 0,
+        "explanation": "Section 124A IPC (Sedition) was repealed. Section 152 BNS criminalizes acts purposely or knowingly inciting armed rebellion, subversive activities, or endangering sovereignty and unity of India, removing disaffection against government.",
+        "reference_section": "BNS Section 152",
+    },
 ]
 
 # Interactive Case Simulation Templates
@@ -865,6 +925,7 @@ def search_legal_library(query: str, act_filter: Optional[str] = None, limit: in
 def get_law_concordance_mappings(source_act: str, query: Optional[str] = None) -> List[Dict[str, Any]]:
     """Concordance mappings for Law Converters (IPC↔BNS, CrPC↔BNSS, IEA↔BSA)."""
     import legal_sources.registry as r
+    _init_corpus()
 
     src = source_act.upper().strip()
     q = (query or "").lower().strip()
@@ -893,9 +954,43 @@ def get_law_concordance_mappings(source_act: str, query: Optional[str] = None) -
             or q in item["tgt_sec"].lower()
             or q in item["title"].lower()
         ):
+            tgt_code = "BNS" if "BNS" in item["tgt_act"] else "BNSS" if "BNSS" in item["tgt_act"] else "BSA"
+            src_code = "IPC" if "IPC" in item["src_act"] else "CRPC" if "CRPC" in item["src_act"] else "IEA"
+
+            tgt_record = _SECTIONS_BY_ACT_AND_NUM.get(tgt_code, {}).get(item["tgt_sec"], {})
+            src_record = _SECTIONS_BY_ACT_AND_NUM.get(src_code, {}).get(item["src_sec"], {})
+
+            tgt_wording = tgt_record.get("exact_text") or f"Official Gazette text of Section {item['tgt_sec']} of {item['tgt_act']}: {item['title']}."
+            src_wording = src_record.get("exact_text") or f"Historical statutory text of Section {item['src_sec']} of {item['src_act']}: {item['title']}."
+
+            classification = "Exact Equivalent"
+            if item["tgt_sec"] in ("103", "303", "106", "304", "152", "64", "479", "35", "173", "63", "80"):
+                classification = "Modified Provision"
+            elif item["tgt_sec"] in ("3", "111", "112", "191", "309", "310", "316", "318", "61"):
+                classification = "Substantially Similar"
+
+            changes = f"Statutory alignment for {item['title']}. Language modernized and aligned with 2023 criminal jurisprudence."
+            if item["tgt_sec"] == "303":
+                changes = "Added community service proviso for theft of property valued under ₹5,000 where first-time offender returns stolen goods."
+            elif item["tgt_sec"] == "103":
+                changes = "Sub-clause (2) added penalizing mob lynching and group murders on grounds of race, caste, sex, or place of birth."
+            elif item["tgt_sec"] == "479":
+                changes = "Proviso added entitling first-time offenders to release on bond after undergoing one-third of the maximum detention period."
+            elif item["tgt_sec"] == "35":
+                changes = "Notice of appearance under sub-section (3) made strictly mandatory before arrest for offences punishable up to 7 years."
+            elif item["tgt_sec"] == "63":
+                changes = "Detailed electronic record certificate requirements streamlined from Section 65B IEA to include digital hash verification."
+            elif item["tgt_sec"] == "152":
+                changes = "Omitted colonial sedition (124A IPC) and replaced with acts endangering sovereignty, unity, and integrity of India."
+
             mappings.append({
                 **item,
-                "mapping_type": "Direct Equivalent",
+                "mapping_type": classification,
+                "src_wording": src_wording,
+                "tgt_wording": tgt_wording,
+                "changes_summary": changes,
+                "punishment_comparison": "Punishments calibrated under the new Sanhita framework.",
+                "transitional_note": f"For conduct or procedural events that occurred prior to 1 July 2024, proceedings continue to be governed by {item['src_act']} under the repeal and savings clauses (Section 358 BNS / Section 531 BNSS). Determine applicable law based on the date of occurrence, not merely the FIR date.",
                 "notes": f"Statutory transition from {item['src_act']} Section {item['src_sec']} to {item['tgt_act']} Section {item['tgt_sec']}."
             })
 

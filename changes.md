@@ -1,6 +1,48 @@
 # Changelog & Architecture Notes for Future Agents
 
-## [2026-11-15] - Lively & Uncluttered Law Student Dashboard & Times New Roman BNS Statutory Typography
+## [2026-11-15] - Comprehensive Upgrade to Law Converters & Academic Study Centre
+
+### Changes
+1. **Interactive Statutory Concordance & Side-by-Side Comparison Drawer (`src/routes/_authenticated/student.converters.tsx`)**:
+   - **Side-by-Side Comparative Modal/Drawer**: Clicking any concordance card or "Compare" opens an in-depth comparative viewer showing colonial statutory text vs enacted 2023 Sanhitas text side-by-side in **Times New Roman** (`font-['Times_New_Roman',_Times,_serif]`).
+   - **Legal Shift Breakdown**: Displays categorized insights for each provision:
+     - *Substantive Ingredients & Scope* (e.g. community service for low-value restitution, mob lynching sub-clause).
+     - *Punishment & Procedural Shifts* (penalty calibrations, compoundability, and trial court jurisdiction).
+     - *Mapping Classification* (`Exact Equivalent`, `Substantially Similar`, `Modified Provision`).
+   - **Mandatory Statutory Transitional Safeguards**: Prominently highlights Section 358 BNS and Section 531 BNSS repeal and savings clauses, alerting students and practitioners that offences committed or procedural events occurring prior to 1 July 2024 continue to be governed by the older statutes based on commission date rather than FIR date.
+   - **High-Frequency Quick-Jump Pills**: Dynamic shortcut chips for each converter pair:
+     - IPC/BNS: `Theft (378➔303)`, `Murder (302➔103)`, `Cheating (420➔318)`, `Dowry Death (304B➔80)`, `Conspiracy (120B➔61)`, `Sedition Overhaul (124A➔152)`.
+     - CrPC/BNSS: `Undertrial Bail (436A➔479)`, `Notice of Arrest (41A➔35)`, `Zero FIR (154➔173)`, `Remand (167➔187)`.
+     - IEA/BSA: `Electronic Certificate (65B➔63)`, `Primary Digital Records (62➔57)`, `Confessions to Police (24-27➔22-24)`.
+   - **Classification Filter Tabs**: Filter concordance provisions by `All Mappings`, `Exact Equivalent`, `Substantially Similar`, or `Modified Provision`.
+
+2. **Interactive Academic Study Centre Overhaul (`src/routes/_authenticated/student.study.tsx`)**:
+   - **MCQ Practice Quiz with Exam Mode Timer**:
+     - 60-second countdown timer toggle with an animated progress bar (transitions green ➔ amber ➔ pulsing red) and auto-submit on timeout.
+     - Subject filter tabs: `All Laws`, `BNS 2023`, `BNSS 2023`, `BSA 2023`, `POCSO`, `NDPS`.
+     - Live Score & Streak Tracker with animated flame icon 🔥 tracking consecutive correct answers.
+     - In-depth statutory ratio and judicial authority explanation on submission, citing exact subsections and Supreme Court rulings.
+     - Quiz Completion Review Card displaying percentage score, performance evaluation, and instant retake option.
+   - **Bare Act Conceptual Explainer**:
+     - Quick-jump provision chips for immediate one-click analysis (`BNS 103`, `BNS 303`, `BNS 318`, `BNSS 35`, `BNSS 173`, `BNSS 479`, `BSA 63`, `NDPS 37`, `POCSO 4`).
+     - Authentic Gazette statutory text rendered in **Times New Roman**.
+     - Structured breakdown of Essential Ingredients separated into numbered elements (Actus Reus & Mens Rea), plain-language interpretation, and courtroom consequences.
+   - **Daily Legal Problem & Judgment of the Day**:
+     - Daily legal challenge formatted as an authentic moot court / bar examination problem statement in **Times New Roman** legal factum styling.
+     - Judgment of the Day styled as an official Supreme Court of India Law Report card with bench, citation, case factual matrix, and ratio decidendi.
+   - **4 Structured Exam Prep Revision Modules**:
+     - Expandable cheat-sheets with actionable exam tips and deep links into the Bare Act Library:
+       1. *BNS 2023: Substantive Offence Overhaul & Landmark Shifts* (Community service, Mob lynching 103(2), Organised crime 111, Petty organised crime 112, Sovereignty 152).
+       2. *BNSS 2023: Bail Categories & Undertrial Safeguards* (Section 479 one-third detention rule, Section 35 notice of appearance, Section 173 Zero FIR, Section 105 video recording, Section 187 remand).
+       3. *BSA 2023: Digital Evidence & Electronic Records Admissibility* (Section 63 certificate, Section 57 electronic originals, Sections 22-24 confessions, Section 104 burden of proof).
+       4. *Special Criminal Statutes: POCSO, NDPS & PMLA Rapid Matrix* (NDPS Section 37 twin conditions, PMLA Section 45 twin conditions, POCSO Section 29/30 presumptions, SC/ST Act Section 18/18A).
+
+3. **Backend & Robust Client-Side Seed Data (`legal_sources/library_service.py` & `src/lib/student-legal-library.ts`)**:
+   - `legal_sources/library_service.py`: Added 5 new high-yield MCQs and enriched `get_law_concordance_mappings` with `src_wording`, `tgt_wording`, `changes_summary`, `punishment_comparison`, and `transitional_note`.
+   - `src/lib/student-legal-library.ts`: Updated `SectionMapping` interface with comparative fields; added `SEED_CONVERTER_MAPPINGS` and `SEED_STUDY_MCQS` as robust offline fallbacks so the Law Converters and Study Centre are immediately functional even during cold starts or offline states.
+
+---
+
 
 ### Changes
 1. **Lively & Spacious Law Student Overview Dashboard (`src/routes/_authenticated/student.index.tsx`)**:
