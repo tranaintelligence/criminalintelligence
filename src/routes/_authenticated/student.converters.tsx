@@ -162,20 +162,25 @@ function StudentConvertersPage() {
             setSearchQuery("");
             setClassificationFilter("all");
           }}
-          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             activePair === "IPC_BNS"
-              ? "bg-purple-950/40 border-purple-400/70 shadow-[0_0_24px_rgba(168,85,247,0.2)]"
-              : "apple-glass-card hover:bg-white/[0.04]"
+              ? "bg-gradient-to-br from-[#2a1245]/90 via-[#190a2b]/95 to-[#0d0517]/98 border-purple-400/80 shadow-[0_0_28px_rgba(168,85,247,0.25)]"
+              : "apple-glass-card hover:bg-white/[0.04] border-white/10"
           }`}
         >
+          {activePair === "IPC_BNS" && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-fuchsia-400 to-indigo-500" />
+          )}
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold text-purple-300">Penal Code</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/10 text-neutral-300">
+            <span className={`text-xs font-mono font-bold ${activePair === "IPC_BNS" ? "text-purple-200" : "text-purple-400"}`}>
+              Penal Code
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-200 border border-purple-400/40 font-bold">
               Substantive
             </span>
           </div>
-          <h3 className="text-sm font-semibold text-white mt-1.5">IPC 1860 ↔ BNS 2023</h3>
-          <p className="text-[11px] text-neutral-400 mt-1 line-clamp-2">
+          <h3 className="text-base font-semibold text-white mt-2">IPC 1860 ↔ BNS 2023</h3>
+          <p className="text-[11px] text-neutral-300 mt-1 line-clamp-2 font-light">
             Offences, definitions, general exceptions, mob lynching & community service punishments
           </p>
         </button>
@@ -186,20 +191,25 @@ function StudentConvertersPage() {
             setSearchQuery("");
             setClassificationFilter("all");
           }}
-          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             activePair === "CRPC_BNSS"
-              ? "bg-purple-950/40 border-purple-400/70 shadow-[0_0_24px_rgba(168,85,247,0.2)]"
-              : "apple-glass-card hover:bg-white/[0.04]"
+              ? "bg-gradient-to-br from-[#0c2448]/90 via-[#071730]/95 to-[#030b18]/98 border-sky-400/80 shadow-[0_0_28px_rgba(14,165,233,0.25)]"
+              : "apple-glass-card hover:bg-white/[0.04] border-white/10"
           }`}
         >
+          {activePair === "CRPC_BNSS" && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-500" />
+          )}
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold text-purple-300">Criminal Procedure</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/10 text-neutral-300">
+            <span className={`text-xs font-mono font-bold ${activePair === "CRPC_BNSS" ? "text-sky-200" : "text-sky-400"}`}>
+              Criminal Procedure
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/25 text-sky-200 border border-sky-400/40 font-bold">
               Procedural
             </span>
           </div>
-          <h3 className="text-sm font-semibold text-white mt-1.5">CrPC 1973 ↔ BNSS 2023</h3>
-          <p className="text-[11px] text-neutral-400 mt-1 line-clamp-2">
+          <h3 className="text-base font-semibold text-white mt-2">CrPC 1973 ↔ BNSS 2023</h3>
+          <p className="text-[11px] text-neutral-300 mt-1 line-clamp-2 font-light">
             Arrests, Zero FIR, investigation, undertrial bail (Sec 479), & electronic summons
           </p>
         </button>
@@ -210,20 +220,25 @@ function StudentConvertersPage() {
             setSearchQuery("");
             setClassificationFilter("all");
           }}
-          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
             activePair === "IEA_BSA"
-              ? "bg-purple-950/40 border-purple-400/70 shadow-[0_0_24px_rgba(168,85,247,0.2)]"
-              : "apple-glass-card hover:bg-white/[0.04]"
+              ? "bg-gradient-to-br from-[#092d24]/90 via-[#051e18]/95 to-[#020e0b]/98 border-emerald-400/80 shadow-[0_0_28px_rgba(16,185,129,0.25)]"
+              : "apple-glass-card hover:bg-white/[0.04] border-white/10"
           }`}
         >
+          {activePair === "IEA_BSA" && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-emerald-300 to-emerald-500" />
+          )}
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold text-purple-300">Evidence Law</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/10 text-neutral-300">
+            <span className={`text-xs font-mono font-bold ${activePair === "IEA_BSA" ? "text-emerald-200" : "text-emerald-400"}`}>
+              Evidence Law
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-bold">
               Evidentiary
             </span>
           </div>
-          <h3 className="text-sm font-semibold text-white mt-1.5">IEA 1872 ↔ BSA 2023</h3>
-          <p className="text-[11px] text-neutral-400 mt-1 line-clamp-2">
+          <h3 className="text-base font-semibold text-white mt-2">IEA 1872 ↔ BSA 2023</h3>
+          <p className="text-[11px] text-neutral-300 mt-1 line-clamp-2 font-light">
             Electronic records admissibility, certificates (Sec 63), confessions & burden of proof
           </p>
         </button>
@@ -336,36 +351,44 @@ function StudentConvertersPage() {
               <div
                 key={idx}
                 onClick={() => setSelectedMapping(item)}
-                className="p-5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-purple-400/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group cursor-pointer shadow-sm hover:shadow-lg"
+                className="p-5 rounded-2xl bg-gradient-to-r from-white/[0.04] via-white/[0.02] to-white/[0.04] hover:from-purple-950/20 hover:via-purple-900/10 hover:to-indigo-950/20 border border-white/10 hover:border-purple-400/60 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group cursor-pointer shadow-sm hover:shadow-[0_10px_25px_rgba(168,85,247,0.15)]"
               >
                 {/* Left: Former Colonial Law */}
-                <div className="flex-1 space-y-1">
+                <div className="flex-1 space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">
+                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700 font-bold">
                       {item.src_act}
                     </span>
                     <span className="text-xs font-bold text-neutral-200">
                       Section {item.src_sec}
                     </span>
                   </div>
-                  <p className="text-xs text-neutral-400 line-clamp-1">
+                  <p className="text-xs text-neutral-400 line-clamp-1 font-light">
                     {item.src_wording || "Historical colonial provision"}
                   </p>
                 </div>
 
                 {/* Center: Transition Indicator */}
                 <div className="flex items-center gap-2.5 shrink-0 justify-center">
-                  <div className="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-300 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
+                  <div
+                    className={`h-9 w-9 rounded-full border flex items-center justify-center transition-all group-hover:scale-110 ${
+                      activePair === "IPC_BNS"
+                        ? "bg-purple-500/20 border-purple-400/50 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.3)]"
+                        : activePair === "CRPC_BNSS"
+                        ? "bg-sky-500/20 border-sky-400/50 text-sky-200 shadow-[0_0_12px_rgba(14,165,233,0.3)]"
+                        : "bg-emerald-500/20 border-emerald-400/50 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                    }`}
+                  >
                     <ArrowRight className="h-4 w-4" />
                   </div>
                   <div className="text-center">
                     <span
-                      className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border block font-medium ${
+                      className={`text-[10px] font-mono px-2.5 py-1 rounded-full border block font-bold tracking-wide ${
                         item.mapping_type.toLowerCase().includes("exact")
-                          ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                          ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/50 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
                           : item.mapping_type.toLowerCase().includes("modified")
-                          ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                          : "bg-purple-500/15 text-purple-300 border-purple-500/30"
+                          ? "bg-amber-500/20 text-amber-200 border-amber-400/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                          : "bg-purple-500/20 text-purple-200 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)]"
                       }`}
                     >
                       {item.mapping_type}
@@ -374,7 +397,7 @@ function StudentConvertersPage() {
                 </div>
 
                 {/* Right: Enacted 2023 Law */}
-                <div className="flex-1 space-y-1 md:text-right">
+                <div className="flex-1 space-y-1.5 md:text-right">
                   <div className="flex items-center gap-2 md:justify-end">
                     <span
                       className="text-xs md:text-sm font-bold text-white group-hover:text-purple-300 transition-colors font-['Times_New_Roman',_Times,_serif]"
@@ -382,7 +405,7 @@ function StudentConvertersPage() {
                     >
                       Section {item.tgt_sec}
                     </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-500/25 text-purple-200 border border-purple-400/50 font-bold shadow-sm">
                       {item.tgt_act}
                     </span>
                   </div>
@@ -401,7 +424,7 @@ function StudentConvertersPage() {
                 >
                   <button
                     onClick={() => handleCopyMapping(item, idx)}
-                    className="apple-glass-pill px-3 py-1.5 text-xs text-neutral-300 hover:text-white flex items-center gap-1.5 cursor-pointer"
+                    className="apple-glass-pill px-3 py-1.5 text-xs text-neutral-300 hover:text-white flex items-center gap-1.5 cursor-pointer hover:border-white/30"
                     title="Copy Citation"
                   >
                     {copiedIndex === idx ? (
@@ -414,7 +437,7 @@ function StudentConvertersPage() {
 
                   <button
                     onClick={() => setSelectedMapping(item)}
-                    className="apple-glass-pill px-3 py-1.5 text-xs text-purple-300 hover:text-white flex items-center gap-1.5 cursor-pointer bg-purple-500/10 border-purple-500/30"
+                    className="apple-glass-pill px-3.5 py-1.5 text-xs text-purple-200 hover:text-white flex items-center gap-1.5 cursor-pointer bg-purple-500/20 border-purple-400/50 hover:bg-purple-500/30 shadow-[0_0_12px_rgba(168,85,247,0.2)] font-semibold"
                   >
                     <span>Compare</span>
                     <ChevronRight className="h-3 w-3" />

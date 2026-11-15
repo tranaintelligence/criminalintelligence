@@ -270,10 +270,10 @@ function StudentStudyPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as StudyTab)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl font-medium transition-all whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-2xl font-medium transition-all whitespace-nowrap cursor-pointer ${
                 active
-                  ? "text-white border-b-2 border-purple-400 bg-white/[0.06] font-semibold"
-                  : "text-neutral-400 hover:text-white hover:bg-white/[0.02]"
+                  ? "text-purple-100 border-b-2 border-purple-400 bg-purple-950/30 font-semibold shadow-[0_0_18px_rgba(168,85,247,0.2)]"
+                  : "text-neutral-400 hover:text-white hover:bg-white/[0.04]"
               }`}
             >
               <Icon className={`h-3.5 w-3.5 ${active ? "text-purple-300" : "text-neutral-400"}`} />
@@ -444,12 +444,12 @@ function StudentStudyPage() {
                         onClick={() => handleOptionSelect(i)}
                         className={`p-4 rounded-2xl border text-xs md:text-sm transition-all flex items-start gap-3.5 cursor-pointer ${
                           isCorrect
-                            ? "bg-emerald-950/40 border-emerald-500/60 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                            ? "bg-gradient-to-r from-emerald-950/70 via-emerald-900/40 to-teal-950/60 border-emerald-400/80 text-emerald-100 shadow-[0_0_20px_rgba(16,185,129,0.25)]"
                             : isWrong
-                            ? "bg-rose-950/40 border-rose-500/60 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
+                            ? "bg-gradient-to-r from-rose-950/70 via-rose-900/40 to-red-950/60 border-rose-400/80 text-rose-100 shadow-[0_0_20px_rgba(244,63,94,0.25)]"
                             : isSelected
-                            ? "bg-purple-950/40 border-purple-400 text-white shadow-[0_0_15px_rgba(168,85,247,0.2)]"
-                            : "bg-white/[0.03] border-white/10 text-neutral-300 hover:bg-white/[0.07] hover:border-white/20"
+                            ? "bg-gradient-to-r from-purple-950/70 via-purple-900/40 to-indigo-950/60 border-purple-400/80 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]"
+                            : "bg-white/[0.03] hover:bg-white/[0.07] border-white/10 hover:border-purple-400/40 text-neutral-200"
                         }`}
                       >
                         <span className="h-6 w-6 rounded-full border border-current flex items-center justify-center text-xs font-mono shrink-0 mt-0.5 font-bold">
@@ -644,12 +644,12 @@ function StudentStudyPage() {
 
               {/* Official Gazette Text Box */}
               {explainerResult.bare_act_text && (
-                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2">
-                  <span className="text-[10px] uppercase font-mono text-neutral-400 font-bold block">
+                <div className="p-5 rounded-2xl bg-[#090710] border border-purple-500/20 space-y-2 shadow-inner">
+                  <span className="text-[10px] uppercase font-mono text-purple-300/80 font-bold block">
                     Bare Act Statutory Text (Gazette of India):
                   </span>
                   <p
-                    className="text-xs md:text-sm text-neutral-200 leading-relaxed font-['Times_New_Roman',_Times,_serif]"
+                    className="text-xs md:text-sm text-neutral-100 leading-relaxed font-['Times_New_Roman',_Times,_serif]"
                     style={{ fontFamily: "'Times New Roman', Times, serif" }}
                   >
                     {explainerResult.bare_act_text}
@@ -658,8 +658,8 @@ function StudentStudyPage() {
               )}
 
               {/* Plain Language Interpretation */}
-              <div className="p-5 rounded-2xl bg-purple-950/20 border border-purple-500/30 text-xs md:text-sm text-neutral-200 leading-relaxed space-y-2">
-                <span className="text-[10px] uppercase font-mono text-purple-300 font-bold block">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/40 via-purple-900/20 to-indigo-950/30 border border-purple-500/40 text-xs md:text-sm text-purple-100 leading-relaxed space-y-2 shadow-sm">
+                <span className="text-[10px] uppercase font-mono text-purple-300 font-bold block tracking-wider">
                   Plain Language Conceptual Breakdown:
                 </span>
                 <p>{explainerResult.simple_explanation}</p>
@@ -667,13 +667,13 @@ function StudentStudyPage() {
 
               {/* Essential Ingredients Breakdown */}
               <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
-                <span className="text-[10px] uppercase font-mono text-amber-300 font-bold block">
+                <span className="text-[10px] uppercase font-mono text-amber-300 font-bold block tracking-wider">
                   Essential Ingredients Required to Establish Offence / Procedure:
                 </span>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {explainerResult.ingredients.map((ing: string, i: number) => (
                     <div key={i} className="text-xs text-neutral-200 flex items-start gap-2.5">
-                      <span className="h-4 w-4 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5">
+                      <span className="h-5 w-5 rounded-full bg-purple-500/25 border border-purple-400/50 text-purple-200 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5 font-bold shadow-[0_0_8px_rgba(168,85,247,0.3)]">
                         {i + 1}
                       </span>
                       <span className="leading-relaxed">{ing}</span>
@@ -684,10 +684,10 @@ function StudentStudyPage() {
 
               {/* Punishment & Courtroom Consequences */}
               {explainerResult.punishment && (
-                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 flex items-start gap-3">
-                  <Gavel className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
+                <div className="p-4 rounded-2xl bg-amber-950/25 border border-amber-500/30 flex items-start gap-3 text-amber-100">
+                  <Gavel className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-mono text-neutral-400 font-bold block">
+                    <span className="text-[10px] uppercase font-mono text-amber-300 font-bold block tracking-wider">
                       Prescribed Punishment & Courtroom Ramifications:
                     </span>
                     <p className="text-xs text-neutral-200">{explainerResult.punishment}</p>
@@ -852,33 +852,34 @@ function StudentStudyPage() {
 
           <div className="grid grid-cols-1 gap-4">
             {/* Guide 1: BNS 2023 */}
-            <div className="apple-glass-card p-6 border-white/15 space-y-4">
+            <div className="rounded-3xl bg-gradient-to-br from-[#260f3a]/85 via-[#180927]/90 to-[#0e0417]/95 border border-purple-500/40 hover:border-purple-400/80 p-6 space-y-4 shadow-xl transition-all relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-fuchsia-400 to-indigo-500 opacity-80" />
               <div
                 className="flex items-start justify-between cursor-pointer"
                 onClick={() => setExpandedGuide((prev) => (prev === 0 ? null : 0))}
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
+                    <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-purple-500/25 text-purple-200 border border-purple-400/40 font-bold tracking-wider shadow-sm">
                       Revision Module 1 • Substantive Penal Law
                     </span>
                   </div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-white group-hover:text-purple-300">
                     BNS 2023: Substantive Offence Overhaul & Landmark Shifts
                   </h3>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-neutral-300 leading-relaxed font-light">
                     Community service as punishment, mob lynching (Sec 103(2)), organised crime (Sec 111), and replacement of colonial sedition (Sec 152).
                   </p>
                 </div>
-                <button className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-neutral-300 shrink-0">
+                <button className="h-8 w-8 rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 flex items-center justify-center text-purple-200 shrink-0 cursor-pointer">
                   {expandedGuide === 0 ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
               </div>
 
               {expandedGuide === 0 && (
-                <div className="space-y-4 pt-4 border-t border-white/10 text-xs text-neutral-200">
+                <div className="space-y-4 pt-4 border-t border-purple-500/20 text-xs text-neutral-200">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
                       <strong className="text-purple-300 block font-mono text-[11px]">
                         1. Community Service (Section 4 & 303(2))
                       </strong>
@@ -887,7 +888,7 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
                       <strong className="text-purple-300 block font-mono text-[11px]">
                         2. Mob Lynching & Hate Murders (Section 103(2))
                       </strong>
@@ -896,7 +897,7 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
                       <strong className="text-purple-300 block font-mono text-[11px]">
                         3. Organised Crime & Petty Organised Crime (Sec 111 & 112)
                       </strong>
@@ -905,7 +906,7 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
                       <strong className="text-purple-300 block font-mono text-[11px]">
                         4. Repeal of Sedition & Act Endangering Sovereignty (Sec 152)
                       </strong>
@@ -922,7 +923,7 @@ function StudentStudyPage() {
                     <Link
                       to="/student/library"
                       search={{ act: "bns-2023" }}
-                      className="apple-glass-pill px-3 py-1 text-xs text-purple-300 hover:text-white flex items-center gap-1"
+                      className="apple-glass-pill px-3 py-1.5 text-xs text-purple-300 hover:text-white flex items-center gap-1 bg-purple-500/20 border-purple-400/40"
                     >
                       <span>Study BNS Chapters</span>
                       <ChevronRight className="h-3 w-3" />
@@ -933,34 +934,35 @@ function StudentStudyPage() {
             </div>
 
             {/* Guide 2: BNSS 2023 */}
-            <div className="apple-glass-card p-6 border-white/15 space-y-4">
+            <div className="rounded-3xl bg-gradient-to-br from-[#2a1b0b]/85 via-[#1a1005]/90 to-[#0e0802]/95 border border-amber-500/40 hover:border-amber-400/80 p-6 space-y-4 shadow-xl transition-all relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600 opacity-80" />
               <div
                 className="flex items-start justify-between cursor-pointer"
                 onClick={() => setExpandedGuide((prev) => (prev === 1 ? null : 1))}
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
+                    <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-amber-500/25 text-amber-200 border border-amber-400/40 font-bold tracking-wider shadow-sm">
                       Revision Module 2 • Criminal Procedure & Bail
                     </span>
                   </div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-white group-hover:text-amber-300">
                     BNSS 2023: Bail Categories & Undertrial Safeguards
                   </h3>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-neutral-300 leading-relaxed font-light">
                     One-third detention rule for first-time undertrials (Sec 479), mandatory notice of appearance (Sec 35), and Zero FIR registration (Sec 173).
                   </p>
                 </div>
-                <button className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-neutral-300 shrink-0">
+                <button className="h-8 w-8 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 flex items-center justify-center text-amber-200 shrink-0 cursor-pointer">
                   {expandedGuide === 1 ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
               </div>
 
               {expandedGuide === 1 && (
-                <div className="space-y-4 pt-4 border-t border-white/10 text-xs text-neutral-200">
+                <div className="space-y-4 pt-4 border-t border-amber-500/20 text-xs text-neutral-200">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-amber-300 block font-mono text-[11px]">
                         1. First-Time Undertrial Bail (Section 479(1))
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -968,8 +970,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-amber-300 block font-mono text-[11px]">
                         2. Mandatory Notice of Appearance (Section 35(3))
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -977,8 +979,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-amber-300 block font-mono text-[11px]">
                         3. Zero FIR & Electronic FIR (Section 173)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -986,8 +988,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-amber-300 block font-mono text-[11px]">
                         4. Forensic Investigation & Audio-Video Recording (Sec 176(3) & 105)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1002,7 +1004,7 @@ function StudentStudyPage() {
                     </span>
                     <Link
                       to="/student/converters"
-                      className="apple-glass-pill px-3 py-1 text-xs text-purple-300 hover:text-white flex items-center gap-1"
+                      className="apple-glass-pill px-3 py-1.5 text-xs text-amber-300 hover:text-white flex items-center gap-1 bg-amber-500/20 border-amber-400/40"
                     >
                       <span>CrPC ↔ BNSS Matrix</span>
                       <ChevronRight className="h-3 w-3" />
@@ -1013,34 +1015,35 @@ function StudentStudyPage() {
             </div>
 
             {/* Guide 3: BSA 2023 */}
-            <div className="apple-glass-card p-6 border-white/15 space-y-4">
+            <div className="rounded-3xl bg-gradient-to-br from-[#0c2448]/85 via-[#071730]/90 to-[#030b18]/95 border border-sky-500/40 hover:border-sky-400/80 p-6 space-y-4 shadow-xl transition-all relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-500 opacity-80" />
               <div
                 className="flex items-start justify-between cursor-pointer"
                 onClick={() => setExpandedGuide((prev) => (prev === 2 ? null : 2))}
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
+                    <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-sky-500/25 text-sky-200 border border-sky-400/40 font-bold tracking-wider shadow-sm">
                       Revision Module 3 • Evidence Law & Digital Proof
                     </span>
                   </div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-white group-hover:text-sky-300">
                     BSA 2023: Digital Evidence & Electronic Records Admissibility
                   </h3>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-neutral-300 leading-relaxed font-light">
                     Mandatory certificate requirements (Sec 63), primary electronic records (Sec 57), and confession rules (Sec 22-24).
                   </p>
                 </div>
-                <button className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-neutral-300 shrink-0">
+                <button className="h-8 w-8 rounded-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/30 flex items-center justify-center text-sky-200 shrink-0 cursor-pointer">
                   {expandedGuide === 2 ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
               </div>
 
               {expandedGuide === 2 && (
-                <div className="space-y-4 pt-4 border-t border-white/10 text-xs text-neutral-200">
+                <div className="space-y-4 pt-4 border-t border-sky-500/20 text-xs text-neutral-200">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-sky-300 block font-mono text-[11px]">
                         1. Section 63 Certificate (Superseding 65B IEA)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1048,8 +1051,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-sky-300 block font-mono text-[11px]">
                         2. Electronic Originals as Primary Evidence (Section 57)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1057,8 +1060,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-sky-300 block font-mono text-[11px]">
                         3. Police Confessions & Involuntary Statements (Sec 22 & 23)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1066,8 +1069,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-sky-300 block font-mono text-[11px]">
                         4. Burden of Proof & Presumptions (Sec 104 & 118)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1083,7 +1086,7 @@ function StudentStudyPage() {
                     <Link
                       to="/student/library"
                       search={{ act: "bsa-2023" }}
-                      className="apple-glass-pill px-3 py-1 text-xs text-purple-300 hover:text-white flex items-center gap-1"
+                      className="apple-glass-pill px-3 py-1.5 text-xs text-sky-300 hover:text-white flex items-center gap-1 bg-sky-500/20 border-sky-400/40"
                     >
                       <span>Study BSA Sections</span>
                       <ChevronRight className="h-3 w-3" />
@@ -1094,34 +1097,35 @@ function StudentStudyPage() {
             </div>
 
             {/* Guide 4: Special Criminal Acts */}
-            <div className="apple-glass-card p-6 border-white/15 space-y-4">
+            <div className="rounded-3xl bg-gradient-to-br from-[#092d24]/85 via-[#051e18]/90 to-[#020e0b]/95 border border-emerald-500/40 hover:border-emerald-400/80 p-6 space-y-4 shadow-xl transition-all relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-emerald-300 to-emerald-500 opacity-80" />
               <div
                 className="flex items-start justify-between cursor-pointer"
                 onClick={() => setExpandedGuide((prev) => (prev === 3 ? null : 3))}
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
+                    <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-bold tracking-wider shadow-sm">
                       Revision Module 4 • Special Criminal Legislation
                     </span>
                   </div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-white group-hover:text-emerald-300">
                     Special Criminal Statutes: POCSO, NDPS & PMLA Rapid Matrix
                   </h3>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-neutral-300 leading-relaxed font-light">
                     Bail restrictions, statutory twin conditions, reverse burden of proof, and special court procedures.
                   </p>
                 </div>
-                <button className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-neutral-300 shrink-0">
+                <button className="h-8 w-8 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 flex items-center justify-center text-emerald-200 shrink-0 cursor-pointer">
                   {expandedGuide === 3 ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
               </div>
 
               {expandedGuide === 3 && (
-                <div className="space-y-4 pt-4 border-t border-white/10 text-xs text-neutral-200">
+                <div className="space-y-4 pt-4 border-t border-emerald-500/20 text-xs text-neutral-200">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-emerald-300 block font-mono text-[11px]">
                         1. NDPS Act Section 37 (Twin Conditions of Bail)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1129,8 +1133,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-emerald-300 block font-mono text-[11px]">
                         2. POCSO Act Section 29 & 30 (Statutory Presumptions)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1138,8 +1142,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-emerald-300 block font-mono text-[11px]">
                         3. PMLA Section 45 (Money Laundering Bail Bar)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1147,8 +1151,8 @@ function StudentStudyPage() {
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                      <strong className="text-purple-300 block font-mono text-[11px]">
+                    <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                      <strong className="text-emerald-300 block font-mono text-[11px]">
                         4. SC/ST Act Section 18/18A (Anticipatory Bail Bar)
                       </strong>
                       <p className="leading-relaxed text-neutral-300">
@@ -1163,7 +1167,7 @@ function StudentStudyPage() {
                     </span>
                     <Link
                       to="/student/library"
-                      className="apple-glass-pill px-3 py-1 text-xs text-purple-300 hover:text-white flex items-center gap-1"
+                      className="apple-glass-pill px-3 py-1.5 text-xs text-emerald-300 hover:text-white flex items-center gap-1 bg-emerald-500/20 border-emerald-400/40"
                     >
                       <span>Explore Special Acts in Library</span>
                       <ChevronRight className="h-3 w-3" />

@@ -1,6 +1,37 @@
 # Changelog & Architecture Notes for Future Agents
 
-## [2026-11-15] - Comprehensive Upgrade to Law Converters & Academic Study Centre
+## [2026-11-15] - Vibrant Color & Visual Architecture Upgrade for Law Converters & Study Centre
+
+### Changes
+1. **Student Dashboard Core Learning Cards (`src/routes/_authenticated/student.index.tsx`)**:
+   - **Law Converters**: Upgraded from flat glass styling to a rich Royal Violet & Amethyst gradient (`bg-gradient-to-br from-[#2a1245]/90 via-[#190a2b]/95 to-[#0d0517]/98 border border-purple-500/40 hover:border-fuchsia-400/80`), luminous top highlight bar (`from-purple-500 via-fuchsia-400 to-indigo-500`), glowing violet icon container (`shadow-[0_0_18px_rgba(168,85,247,0.35)]`), and dynamic sub-pills (`IPC ↔ BNS`, `CrPC ↔ BNSS`, `IEA ↔ BSA`).
+   - **Study Centre**: Upgraded from dull green styling to a radiant Emerald & Teal academic jewel-tone gradient (`bg-gradient-to-br from-[#0a2e22]/90 via-[#061d16]/95 to-[#020e0b]/98 border border-emerald-500/40 hover:border-emerald-300/80`), luminous teal-emerald-cyan top highlight bar, glowing emerald icon container (`shadow-[0_0_18px_rgba(16,185,129,0.35)]`), and feature pills (`Timed MCQs`, `AI Explainer`, `Revision Guides`).
+   - **Criminal Law Library**: Enhanced with a deep warm amber & gold gradient, top luminous gold bar, and glowing amber badge.
+   - **BNS Daily Provision Cross-Reference**: Converted link into a sleek, glowing purple & amber concordance pill (`shadow-[0_0_12px_rgba(168,85,247,0.2)]`).
+
+2. **Law Converters Chromatic Identity (`src/routes/_authenticated/student.converters.tsx`)**:
+   - **Three Distinct Converter Pair Themes**:
+     - *IPC 1860 ↔ BNS 2023 (Substantive)*: Royal Purple & Violet gradient with neon violet borders (`border-purple-400/80 shadow-[0_0_28px_rgba(168,85,247,0.25)]`).
+     - *CrPC 1973 ↔ BNSS 2023 (Procedural)*: Electric Sapphire & Sky Blue gradient with cyan borders (`border-sky-400/80 shadow-[0_0_28px_rgba(14,165,233,0.25)]`).
+     - *IEA 1872 ↔ BSA 2023 (Evidentiary)*: Vibrant Emerald-Teal gradient with glowing emerald borders (`border-emerald-400/80 shadow-[0_0_28px_rgba(16,185,129,0.25)]`).
+   - **Transition Matrix Enhancements**: Center transition rings dynamically styled per active pair; classification badges equipped with luminous jewel glow (`Exact Equivalent` in radiant emerald, `Substantially Similar` in electric cyan, `Modified Provision` in warm amber).
+   - **Compare Action**: Glowing violet glass pill with purple hover state.
+
+3. **Study Centre Visual & Color Elevation (`src/routes/_authenticated/student.study.tsx`)**:
+   - **Navigation Tabs**: Active tab equipped with violet underglow (`bg-purple-950/30 border-b-2 border-purple-400 shadow-[0_0_18px_rgba(168,85,247,0.2)]`).
+   - **MCQ Option Choices**: Upgraded from flat colors to rich jewel-tone gradients:
+     - *Correct*: Vibrant Emerald jewel gradient (`from-emerald-950/70 to-teal-950/60 border-emerald-400/80 text-emerald-100 shadow-[0_0_20px_rgba(16,185,129,0.25)]`).
+     - *Wrong*: Radiant Ruby/Rose gradient (`from-rose-950/70 to-red-950/60 border-rose-400/80 text-rose-100 shadow-[0_0_20px_rgba(244,63,94,0.25)]`).
+     - *Selected*: Royal Purple gradient (`from-purple-950/70 to-indigo-950/60 border-purple-400/80 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]`).
+   - **Four Themed Revision Modules**:
+     - *Module 1 (BNS)*: Royal Purple / Violet gradient with fuchsia accent.
+     - *Module 2 (BNSS)*: Warm Amber / Gold gradient with yellow accent.
+     - *Module 3 (BSA)*: Electric Sky / Cyan gradient with blue accent.
+     - *Module 4 (Special Acts)*: Radiant Emerald / Teal gradient with mint accent.
+   - **Bare Act Explainer**: Enhanced Gazette box with purple border, violet conceptual breakdown, and glowing numbered ingredient chips.
+
+---
+
 
 ### Changes
 1. **Interactive Statutory Concordance & Side-by-Side Comparison Drawer (`src/routes/_authenticated/student.converters.tsx`)**:

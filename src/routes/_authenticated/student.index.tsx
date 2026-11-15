@@ -251,90 +251,126 @@ function StudentOverviewPage() {
           {/* Module 1: Criminal Law Library */}
           <Link
             to="/student/library"
-            className="group apple-glass-card p-6 md:p-7 flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xl hover:-translate-y-1"
+            className="group rounded-3xl bg-gradient-to-br from-[#271b0b]/90 via-[#181105]/95 to-[#0d0902]/98 border border-amber-500/35 hover:border-amber-400/80 p-6 md:p-7 flex flex-col justify-between transition-all shadow-[0_12px_32px_rgba(0,0,0,0.7)] hover:shadow-[0_18px_40px_rgba(245,158,11,0.2)] hover:-translate-y-1 relative overflow-hidden"
           >
-            <div className="space-y-3">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600 opacity-70 group-hover:opacity-100 transition-opacity" />
+            <div className="space-y-3.5">
               <div className="flex items-center justify-between">
-                <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300 group-hover:scale-110 transition-transform">
+                <div className="h-11 w-11 rounded-2xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-[0_0_16px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform">
                   <Library className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-amber-500/25 text-amber-200 border border-amber-400/40 font-bold tracking-wider shadow-sm">
                   13 Acts Indexed
                 </span>
               </div>
 
-              <h3 className="font-serif text-lg font-bold text-white group-hover:text-amber-300 transition-colors">
+              <h3 className="font-serif text-xl font-bold text-white group-hover:text-amber-300 transition-colors">
                 Criminal Law Library
               </h3>
 
               <p className="text-xs text-neutral-300 leading-relaxed font-light">
                 Explore complete official Gazette Bare Act statutory text across <strong>BNS 2023</strong>, <strong>BNSS 2023</strong>, <strong>BSA 2023</strong>, POCSO, NDPS, and legacy codes with 5-tab breakdowns and continuous reader mode.
               </p>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300/90 border border-amber-500/20">
+                  Bare Act Corpus
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300/90 border border-amber-500/20">
+                  Case Precedents
+                </span>
+              </div>
             </div>
 
-            <div className="mt-6 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs font-mono text-amber-300 group-hover:text-white">
+            <div className="mt-6 pt-3.5 border-t border-amber-500/20 flex items-center justify-between text-xs font-mono font-bold text-amber-300 group-hover:text-amber-200">
               <span>Open Law Library</span>
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
 
           {/* Module 2: Law Converters */}
           <Link
             to="/student/converters"
-            className="group apple-glass-card p-6 md:p-7 flex flex-col justify-between hover:border-purple-500/40 transition-all shadow-xl hover:-translate-y-1"
+            className="group rounded-3xl bg-gradient-to-br from-[#2a1245]/90 via-[#190a2b]/95 to-[#0d0517]/98 border border-purple-500/40 hover:border-fuchsia-400/80 p-6 md:p-7 flex flex-col justify-between transition-all shadow-[0_12px_32px_rgba(0,0,0,0.7)] hover:shadow-[0_18px_40px_rgba(168,85,247,0.25)] hover:-translate-y-1 relative overflow-hidden"
           >
-            <div className="space-y-3">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-fuchsia-400 to-indigo-500 opacity-80 group-hover:opacity-100 transition-opacity" />
+            <div className="space-y-3.5">
               <div className="flex items-center justify-between">
-                <div className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-300 group-hover:scale-110 transition-transform">
+                <div className="h-11 w-11 rounded-2xl bg-purple-500/25 border border-purple-400/50 flex items-center justify-center text-purple-200 shadow-[0_0_18px_rgba(168,85,247,0.35)] group-hover:scale-110 transition-transform">
                   <ArrowLeftRight className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
-                  IPC ↔ BNS
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-purple-500/25 text-purple-200 border border-purple-400/40 font-bold tracking-wider shadow-sm">
+                  Statutory Concordance
                 </span>
               </div>
 
-              <h3 className="font-serif text-lg font-bold text-white group-hover:text-purple-300 transition-colors">
+              <h3 className="font-serif text-xl font-bold text-white group-hover:text-purple-300 transition-colors">
                 Law Converters
               </h3>
 
               <p className="text-xs text-neutral-300 leading-relaxed font-light">
-                Bidirectional statutory concordance engine mapping <strong>IPC ↔ BNS</strong>, <strong>CrPC ↔ BNSS</strong>, and <strong>IEA ↔ BSA</strong> with BPRD/NCRB classifications, punishment shifts, and procedural changes.
+                Bidirectional statutory concordance engine mapping <strong>IPC ↔ BNS</strong>, <strong>CrPC ↔ BNSS</strong>, and <strong>IEA ↔ BSA</strong> with side-by-side Bare Act text, classification shifts, and transitional safeguards.
               </p>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/25">
+                  IPC ↔ BNS
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/25">
+                  CrPC ↔ BNSS
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/25">
+                  IEA ↔ BSA
+                </span>
+              </div>
             </div>
 
-            <div className="mt-6 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs font-mono text-purple-300 group-hover:text-white">
-              <span>Open Concordance</span>
-              <ChevronRight className="h-4 w-4" />
+            <div className="mt-6 pt-3.5 border-t border-purple-500/20 flex items-center justify-between text-xs font-mono font-bold text-purple-300 group-hover:text-purple-200">
+              <span>Open Concordance Engine</span>
+              <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
 
           {/* Module 3: Study Centre */}
           <Link
             to="/student/study"
-            className="group apple-glass-card p-6 md:p-7 flex flex-col justify-between hover:border-emerald-500/40 transition-all shadow-xl hover:-translate-y-1"
+            className="group rounded-3xl bg-gradient-to-br from-[#0a2e22]/90 via-[#061d16]/95 to-[#020e0b]/98 border border-emerald-500/40 hover:border-emerald-300/80 p-6 md:p-7 flex flex-col justify-between transition-all shadow-[0_12px_32px_rgba(0,0,0,0.7)] hover:shadow-[0_18px_40px_rgba(16,185,129,0.25)] hover:-translate-y-1 relative overflow-hidden"
           >
-            <div className="space-y-3">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-emerald-400 to-cyan-400 opacity-80 group-hover:opacity-100 transition-opacity" />
+            <div className="space-y-3.5">
               <div className="flex items-center justify-between">
-                <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-300 group-hover:scale-110 transition-transform">
+                <div className="h-11 w-11 rounded-2xl bg-emerald-500/25 border border-emerald-400/50 flex items-center justify-center text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.35)] group-hover:scale-110 transition-transform">
                   <GraduationCap className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                  Daily MCQ & Quiz
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-bold tracking-wider shadow-sm">
+                  Academic Hub
                 </span>
               </div>
 
-              <h3 className="font-serif text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
+              <h3 className="font-serif text-xl font-bold text-white group-hover:text-emerald-300 transition-colors">
                 Study Centre
               </h3>
 
               <p className="text-xs text-neutral-300 leading-relaxed font-light">
-                Master criminal jurisprudence with timed MCQ drills on BNS/BNSS, AI Bare Act explainer for instant ingredients, daily legal problems, and exam revision guides.
+                Master criminal jurisprudence with 60-second timed MCQ drills, Bare Act AI conceptual explainer, daily moot court challenges, and 4 structured exam revision cheat-sheets.
               </p>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                  Timed MCQs
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                  AI Explainer
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                  Revision Guides
+                </span>
+              </div>
             </div>
 
-            <div className="mt-6 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs font-mono text-emerald-300 group-hover:text-white">
+            <div className="mt-6 pt-3.5 border-t border-emerald-500/20 flex items-center justify-between text-xs font-mono font-bold text-emerald-300 group-hover:text-emerald-200">
               <span>Open Study Centre</span>
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
         </div>
@@ -375,10 +411,10 @@ function StudentOverviewPage() {
           </span>
           <Link
             to="/student/converters"
-            className="text-amber-400 hover:text-white flex items-center gap-1 font-mono text-xs"
+            className="apple-glass-pill px-3.5 py-1.5 text-purple-200 hover:text-white flex items-center gap-1.5 font-mono text-xs bg-purple-950/40 border border-purple-500/40 hover:border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.2)] transition-all cursor-pointer"
           >
-            <span>Compare IPC 379 ↔ BNS 303(2) in Converters</span>
-            <ArrowRight className="h-3 w-3" />
+            <span>Compare IPC 379 ➔ BNS 303(2) in Converters</span>
+            <ArrowRight className="h-3.5 w-3.5 text-amber-400" />
           </Link>
         </div>
       </div>
