@@ -400,7 +400,10 @@ function StudentStudyPage() {
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-sm md:text-base text-neutral-200 leading-relaxed font-sans">
+          <div
+            className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 text-base md:text-lg text-amber-50 leading-relaxed font-['Times_New_Roman',_Times,_serif]"
+            style={{ fontFamily: "'Times New Roman', Times, serif" }}
+          >
             {dailyQ.scenario}
           </div>
 

@@ -1,5 +1,21 @@
 # Changelog & Architecture Notes for Future Agents
 
+## [2026-11-15] - Lively & Uncluttered Law Student Dashboard & Times New Roman BNS Statutory Typography
+
+### Changes
+1. **Lively & Spacious Law Student Overview Dashboard (`src/routes/_authenticated/student.index.tsx`)**:
+   - Elevated the workspace with ambient radial lighting (rich purple & warm amber gold) and generous breathing room (`space-y-10 md:space-y-12`, `p-6 md:p-8` rounded-3xl cards) so nothing appears cramped or cluttered.
+   - Added **Hero Spotlight: Virtual Courtroom Case Simulator**: An interactive showcase card featuring the 16-bit pixel Judge, Opposition Prosecutor, and Defense avatars with instant arena launch action.
+   - Added **Core Criminal Law Learning Suite**: 3 spacious, distinct cards for the Criminal Law Library (13 Acts), Law Converters (IPC ↔ BNS, CrPC ↔ BNSS, IEA ↔ BSA), and Study Centre (daily drills & MCQs).
+   - Added **Featured Daily BNS Provision**: Highlighting Section 303(2) BNS 2023 with direct cross-references to IPC 379 in Law Converters and the Bare Act reader in Legal Library.
+   - Balanced academic research telemetry, AI Drafter, Citation Finder, and Litigation Diary into an uncluttered, distraction-free visual layout.
+
+2. **Times New Roman Typography for BNS Acts & Statutory Provisions**:
+   - `src/routes/_authenticated/student.library.tsx`: Styled the Bare Act text viewer (`selectedSection.bare_act_text`), Continuous Bare Act Reader (`sec.snippet` and section headings), and section grid snippets in authentic legal **Times New Roman** (`font-['Times_New_Roman',_Times,_serif]`).
+   - `src/routes/_authenticated/student.converters.tsx`: Styled statutory provision titles and descriptions for BNS, BNSS, and BSA in **Times New Roman**.
+   - `src/routes/_authenticated/student.study.tsx`: Styled the Daily Legal Problem scenario and statutory ratio in **Times New Roman**.
+   - `src/routes/_authenticated/student.index.tsx`: Styled the dashboard BNS statutory quote in **Times New Roman**.
+
 ## [2026-11-15] - Live Dialogue Speech Bubbles in 16-Bit Court Arena & Integrated Advocate Podium
 
 ### Changes

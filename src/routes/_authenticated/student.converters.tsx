@@ -266,14 +266,20 @@ function StudentConvertersPage() {
                 {/* Right: New Enacted Law */}
                 <div className="flex-1 space-y-1 md:text-right">
                   <div className="flex items-center gap-2 md:justify-end">
-                    <span className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors">
+                    <span
+                      className="text-xs md:text-sm font-bold text-white group-hover:text-purple-300 transition-colors font-['Times_New_Roman',_Times,_serif]"
+                      style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                    >
                       Section {item.tgt_sec}
                     </span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
                       {item.tgt_act}
                     </span>
                   </div>
-                  <p className="text-xs font-semibold text-white truncate max-w-xs md:ml-auto">
+                  <p
+                    className="text-xs md:text-sm font-medium text-neutral-100 truncate max-w-xs md:ml-auto font-['Times_New_Roman',_Times,_serif]"
+                    style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                  >
                     {item.title}
                   </p>
                 </div>

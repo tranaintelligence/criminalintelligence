@@ -520,7 +520,10 @@ function StudentLibraryPage() {
                     </a>
                   )}
                 </div>
-                <div className="p-6 md:p-7 rounded-2xl bg-[#08070b] border border-amber-500/25 text-sm md:text-base font-mono text-neutral-200 leading-relaxed whitespace-pre-wrap select-text shadow-inner">
+                <div
+                  className="p-6 md:p-8 rounded-2xl bg-[#08070b] border border-amber-500/30 text-base md:text-lg text-amber-50 leading-relaxed whitespace-pre-wrap select-text shadow-inner tracking-normal font-['Times_New_Roman',_Times,_serif]"
+                  style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                >
                   {selectedSection.bare_act_text}
                 </div>
               </div>
@@ -870,7 +873,10 @@ function StudentLibraryPage() {
                       {sec.heading}
                     </h4>
 
-                    <p className="text-[11px] text-neutral-300 line-clamp-3 leading-relaxed font-mono">
+                    <p
+                      className="text-xs md:text-sm text-neutral-200 line-clamp-3 leading-relaxed font-['Times_New_Roman',_Times,_serif]"
+                      style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                    >
                       {sec.snippet}
                     </p>
                   </div>
@@ -907,7 +913,10 @@ function StudentLibraryPage() {
                       <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
                         Section {sec.section}
                       </span>
-                      <h4 className="text-sm font-bold text-white font-serif">
+                      <h4
+                        className="text-sm md:text-base font-bold text-white font-['Times_New_Roman',_Times,_serif]"
+                        style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                      >
                         {sec.heading}
                       </h4>
                     </div>
@@ -919,7 +928,10 @@ function StudentLibraryPage() {
                       <ChevronRight className="h-3 w-3" />
                     </button>
                   </div>
-                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 font-mono text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap select-text">
+                  <div
+                    className="p-5 rounded-xl bg-white/[0.02] border border-white/5 text-sm md:text-base text-neutral-100 leading-relaxed whitespace-pre-wrap select-text font-['Times_New_Roman',_Times,_serif]"
+                    style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                  >
                     {sec.snippet}
                   </div>
                 </div>
